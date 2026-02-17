@@ -1,0 +1,35 @@
+{
+  "name": "oneofakinde-os",
+  "private": true,
+  "version": "0.1.0",
+  "description": "oneofakinde OS Next.js scaffold aligned to 2026 architecture",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "generate:surface-map": "node scripts/generate-surface-map-json.mjs",
+    "lint:terminology": "node --import tsx scripts/lint-terminology.ts",
+    "prepare:architecture": "npm run generate:surface-map && npm run generate:policy-tests && npm run lint:terminology",
+    "test:proofs": "node --import tsx --test tests/proofs/*.test.ts",
+    "generate:policy-tests": "node --import tsx scripts/generate-route-policy-tests.ts"
+  },
+  "dependencies": {
+    "next": "15.5.12",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.1",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "eslint": "9.39.2",
+    "eslint-config-next": "15.5.12",
+    "typescript": "5.7.2",
+    "tsx": "4.20.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

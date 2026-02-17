@@ -1,0 +1,37 @@
+"use server";
+
+import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import type { AccountRole } from "@/lib/domain/contracts";
+import { normalizeReturnTo, SESSION_COOKIE } from "@/lib/session";
+import { cookies } from "next/headers";
+import type { Route } from "next";
+import { redirect } from "next/navigation";
+
+function normalizeRole(value: FormDataEntryValue | null): AccountRole {
+  return value === "creator" ? "creator" : "collector";
+}
+
+export async function signInAction(formData: FormData): Promise<void> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const role = normalizeRole(formData.get("role"));
+  const returnTo = String(formData.get("returnTo") ?? "");
+
+  if (!email || !email.includes("@")) {
+    redirect(`/auth/sign-in?error=invalid_email&returnTo=${encodeURIComponent(returnTo)}` as Route);
+  }
+
+  const session = await commerceGateway.createSession({ email, role });
+  const cookieStore = await cookies();
+
+  cookieStore.set({
+    name: SESSION_COOKIE,
+    value: session.sessionToken,
+    httpOnly: true,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 14
+  });
+
+  redirect(normalizeReturnTo(returnTo) as Route);
+}

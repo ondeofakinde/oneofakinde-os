@@ -1,0 +1,1318 @@
+{
+  "generated_at": "2026-02-17T18:42:20.519Z",
+  "source_path": "/Users/pantallero/Documents/projects/oneofakinde/vision/021626/2022/oneofakinde-os_2026-surface map_021626.txt",
+  "source_metadata": {
+    "format": "lintable_txt_v1",
+    "last_updated": "2026-02-16",
+    "notes": "this file is machine-lintable; no free-text notes. everything is structured."
+  },
+  "locked_glossary": {
+    "nouns": {
+      "drop": "sellable/collectible unit (formerly asset)",
+      "world": "public place/container that groups drops (formerly collection when meaning a place)",
+      "my_collection": "user’s acquired/owned drops (ownership inventory)",
+      "library": "saved/curation bucket (pinterest-style saves)",
+      "studio": "public-facing creator presence (creator identity surface)",
+      "workshop": "creator back-office (making suite; formerly studio when meaning the suite)",
+      "townhall": "community hub / social feed surface",
+      "watch": "video consumable mode",
+      "listen": "audio consumable mode",
+      "read": "text consumable mode",
+      "live": "happening now consumable mode",
+      "photos": "still-image consumable mode (canon; ui must say photos)"
+    },
+    "banned_ui_nouns": {
+      "asset": {
+        "replace_with": "drop"
+      },
+      "assets": {
+        "replace_with": "drops"
+      },
+      "collection_place": {
+        "term": "collection",
+        "meaning": "place",
+        "replace_with": "world"
+      },
+      "collections_place": {
+        "term": "collections",
+        "meaning": "places",
+        "replace_with": "worlds"
+      },
+      "gallery": {
+        "replace_with": "photos"
+      },
+      "profile": {
+        "replace_with": "studio"
+      },
+      "studio_making_suite": {
+        "term": "studio",
+        "meaning": "creator back-office",
+        "replace_with": "workshop"
+      }
+    },
+    "allowed_ui_phrases": [
+      "my collection",
+      "library",
+      "purchase"
+    ]
+  },
+  "linter_matching": {
+    "case_insensitive": true,
+    "whole_word": true,
+    "include_variants": [
+      {
+        "base": "asset",
+        "variants": [
+          "asset",
+          "assets",
+          "asset’s",
+          "assets’"
+        ]
+      },
+      {
+        "base": "collection",
+        "variants": [
+          "collection",
+          "collections"
+        ]
+      },
+      {
+        "base": "profile",
+        "variants": [
+          "profile",
+          "profiles"
+        ]
+      },
+      {
+        "base": "gallery",
+        "variants": [
+          "gallery",
+          "galleries"
+        ]
+      },
+      {
+        "base": "photo",
+        "variants": [
+          "photo",
+          "photos",
+          "photography"
+        ]
+      }
+    ],
+    "include_ui_phrases": [
+      "my assets",
+      "owned assets",
+      "your assets",
+      "my collections",
+      "owned collections",
+      "my profile",
+      "edit profile"
+    ]
+  },
+  "exceptions": {
+    "by_route": {
+      "/settings/billing": {
+        "allow_terms": [
+          "purchase",
+          "purchases",
+          "receipt",
+          "receipts",
+          "invoice",
+          "invoices",
+          "refund",
+          "refunds"
+        ]
+      },
+      "/legal/terms": {
+        "allow_terms": [
+          "purchase",
+          "purchases",
+          "refund",
+          "chargeback",
+          "billing"
+        ]
+      },
+      "/legal/privacy": {
+        "allow_terms": [
+          "purchase",
+          "billing"
+        ]
+      },
+      "/checkout/stripe/return": {
+        "allow_terms": [
+          "purchase",
+          "processing",
+          "receipt"
+        ]
+      },
+      "/checkout/stripe/cancel": {
+        "allow_terms": [
+          "purchase",
+          "canceled",
+          "receipt"
+        ]
+      }
+    },
+    "by_context": {
+      "upload_image": {
+        "allow_terms": [
+          "image",
+          "images",
+          "upload image",
+          "upload images"
+        ],
+        "forbid_as_consumable_noun": true
+      },
+      "billing_context": {
+        "allow_terms": [
+          "purchase",
+          "receipt",
+          "invoice",
+          "refund",
+          "chargeback"
+        ]
+      },
+      "technical_api_context": {
+        "allow_terms": [
+          "asset_id",
+          "collection_id"
+        ]
+      }
+    }
+  },
+  "surfaces": [
+    {
+      "route": "/",
+      "legacy_routes": [],
+      "surface_key": "home",
+      "ui_title": "oneofakinde",
+      "ui_nouns": [],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "cta",
+        "empty_state",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "schema_v1.public_pages",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_public_safe_render",
+        "p_no_leaks_ci"
+      ],
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "landing",
+            "homepage"
+          ],
+          "replace_with": "home"
+        }
+      ]
+    },
+    {
+      "route": "/explore",
+      "legacy_routes": [],
+      "surface_key": "explore",
+      "ui_title": "explore",
+      "ui_nouns": [
+        "drop",
+        "world",
+        "studio"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "openapi_v1.search",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": [
+        {
+          "kind": "require_terms",
+          "terms": [
+            "drops"
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/worlds",
+      "legacy_routes": [
+        "/collections"
+      ],
+      "surface_key": "world_index",
+      "ui_title": "worlds",
+      "ui_nouns": [
+        "world"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "empty_state",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.collections",
+        "openapi_v1.search",
+        "schema_v1.collections",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "collections",
+            "collection (place)"
+          ],
+          "replace_with": "worlds"
+        }
+      ]
+    },
+    {
+      "route": "/watch",
+      "legacy_routes": [],
+      "surface_key": "watch_hub",
+      "ui_title": "watch",
+      "ui_nouns": [
+        "watch",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "openapi_v1.search",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/listen",
+      "legacy_routes": [],
+      "surface_key": "listen_hub",
+      "ui_title": "listen",
+      "ui_nouns": [
+        "listen",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "openapi_v1.search",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/read",
+      "legacy_routes": [],
+      "surface_key": "read_hub",
+      "ui_title": "read",
+      "ui_nouns": [
+        "read",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "openapi_v1.search",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/live-now",
+      "legacy_routes": [],
+      "surface_key": "live_now_hub",
+      "ui_title": "live now",
+      "ui_nouns": [
+        "live",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "canon_feature_flags",
+        "openapi_v1.catalog",
+        "openapi_v1.search",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/auth/sign-in",
+      "legacy_routes": [],
+      "surface_key": "auth_sign_in",
+      "ui_title": "sign in",
+      "ui_nouns": [],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.auth",
+        "openapi_v1.session",
+        "schema_v1.accounts",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_auth_session_primary",
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/auth/sign-up",
+      "legacy_routes": [],
+      "surface_key": "auth_sign_up",
+      "ui_title": "sign up",
+      "ui_nouns": [],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.auth",
+        "openapi_v1.session",
+        "schema_v1.accounts",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_auth_session_primary",
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/logout",
+      "legacy_routes": [],
+      "surface_key": "logout",
+      "ui_title": "log out",
+      "ui_nouns": [],
+      "lint_targets": [
+        "cta"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.session",
+        "schema_v1.accounts"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/space-setup",
+      "legacy_routes": [
+        "/network-setup"
+      ],
+      "surface_key": "first_run_space_setup",
+      "ui_title": "space setup",
+      "ui_nouns": [],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.session",
+        "openapi_v1.settings",
+        "openapi_v1.collections",
+        "openapi_v1.notifications",
+        "schema_v1.spaces",
+        "schema_v1.collections"
+      ],
+      "proof_ids": [
+        "p_first_run_destination",
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/studios/:handle",
+      "legacy_routes": [
+        "/creators/:handle"
+      ],
+      "surface_key": "studio_public",
+      "ui_title": "studio",
+      "ui_nouns": [
+        "studio",
+        "drop",
+        "world"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.profile",
+        "openapi_v1.catalog",
+        "schema_v1.profiles",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "profile",
+            "creator profile"
+          ],
+          "replace_with": "studio"
+        }
+      ]
+    },
+    {
+      "route": "/worlds/:id",
+      "legacy_routes": [
+        "/collections/:id"
+      ],
+      "surface_key": "world_detail",
+      "ui_title": "world",
+      "ui_nouns": [
+        "world",
+        "drop",
+        "studio"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.collections",
+        "openapi_v1.catalog",
+        "openapi_v1.search",
+        "schema_v1.collections",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/worlds/:id/drops",
+      "legacy_routes": [
+        "/collections/:id/titles"
+      ],
+      "surface_key": "world_drops_table",
+      "ui_title": "drops in this world",
+      "ui_nouns": [
+        "world",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.collections",
+        "openapi_v1.catalog",
+        "openapi_v1.search",
+        "schema_v1.collections",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/drops/:id",
+      "legacy_routes": [
+        "/assets/:id"
+      ],
+      "surface_key": "drop_detail",
+      "ui_title": "drop",
+      "ui_nouns": [
+        "drop",
+        "world",
+        "studio"
+      ],
+      "lint_targets": [
+        "h1",
+        "nav",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.assets",
+        "openapi_v1.catalog",
+        "schema_v1.assets",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_preview_safe_only",
+        "p_no_leaks_ci"
+      ],
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "asset",
+            "assets",
+            "collectible asset",
+            "owned assets",
+            "my assets"
+          ],
+          "replace_with": "drop(s)"
+        }
+      ]
+    },
+    {
+      "route": "/drops/:id/details",
+      "legacy_routes": [
+        "/assets/:id/details"
+      ],
+      "surface_key": "drop_details",
+      "ui_title": "details",
+      "ui_nouns": [
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.assets",
+        "schema_v1.assets",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_preview_safe_only",
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/drops/:id/properties",
+      "legacy_routes": [
+        "/assets/:id/properties"
+      ],
+      "surface_key": "drop_properties",
+      "ui_title": "properties",
+      "ui_nouns": [
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.assets",
+        "schema_v1.assets",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_preview_safe_only",
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/drops/:id/offers",
+      "legacy_routes": [
+        "/assets/:id/offers"
+      ],
+      "surface_key": "drop_offers",
+      "ui_title": "offers",
+      "ui_nouns": [
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.offers",
+        "schema_v1.offers",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/drops/:id/activity",
+      "legacy_routes": [
+        "/assets/:id/activity"
+      ],
+      "surface_key": "drop_activity",
+      "ui_title": "activity",
+      "ui_nouns": [
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.activity",
+        "schema_v1.activity",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/drops/:id/preview",
+      "legacy_routes": [
+        "/assets/:id/preview"
+      ],
+      "surface_key": "drop_preview_generic",
+      "ui_title": "preview",
+      "ui_nouns": [
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.assets",
+        "schema_v1.assets",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_preview_safe_only",
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/drops/:id/preview/photos",
+      "legacy_routes": [
+        "/assets/:id/preview/gallery"
+      ],
+      "surface_key": "drop_preview_photos",
+      "ui_title": "photos preview",
+      "ui_nouns": [
+        "photos",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.assets",
+        "schema_v1.assets",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_preview_safe_only",
+        "p_no_leaks_ci"
+      ],
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "gallery",
+            "galleries"
+          ],
+          "replace_with": "photos"
+        }
+      ]
+    },
+    {
+      "route": "/drops/:id/watch",
+      "legacy_routes": [
+        "/assets/:id/watch"
+      ],
+      "surface_key": "drop_full_watch",
+      "ui_title": "watch",
+      "ui_nouns": [
+        "watch",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "canon_media_gate",
+        "openapi_v1.entitlements",
+        "openapi_v1.session",
+        "schema_v1.entitlements"
+      ],
+      "proof_ids": [
+        "p_media_gate_entitlement",
+        "p_refund_revokes_entitlement",
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/drops/:id/listen",
+      "legacy_routes": [
+        "/assets/:id/listen"
+      ],
+      "surface_key": "drop_full_listen",
+      "ui_title": "listen",
+      "ui_nouns": [
+        "listen",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "canon_media_gate",
+        "openapi_v1.entitlements",
+        "openapi_v1.session",
+        "schema_v1.entitlements"
+      ],
+      "proof_ids": [
+        "p_media_gate_entitlement",
+        "p_refund_revokes_entitlement",
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/drops/:id/read",
+      "legacy_routes": [
+        "/assets/:id/read"
+      ],
+      "surface_key": "drop_full_read",
+      "ui_title": "read",
+      "ui_nouns": [
+        "read",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "canon_media_gate",
+        "openapi_v1.entitlements",
+        "openapi_v1.session",
+        "schema_v1.entitlements"
+      ],
+      "proof_ids": [
+        "p_media_gate_entitlement",
+        "p_refund_revokes_entitlement",
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/drops/:id/photos",
+      "legacy_routes": [
+        "/assets/:id/view"
+      ],
+      "surface_key": "drop_full_photos",
+      "ui_title": "photos",
+      "ui_nouns": [
+        "photos",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "canon_media_gate",
+        "openapi_v1.entitlements",
+        "openapi_v1.session",
+        "schema_v1.entitlements"
+      ],
+      "proof_ids": [
+        "p_media_gate_entitlement",
+        "p_refund_revokes_entitlement",
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/pay/buy/:drop_id",
+      "legacy_routes": [
+        "/pay/buy/:asset_id"
+      ],
+      "surface_key": "pay_buy_drop",
+      "ui_title": "buy",
+      "ui_nouns": [
+        "drop"
+      ],
+      "lint_targets": [
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "canon_payments_stripe",
+        "openapi_v1.payments",
+        "openapi_v1.session",
+        "schema_v1.payments"
+      ],
+      "proof_ids": [
+        "p_stripe_checkout_redirect",
+        "p_session_required"
+      ],
+      "rules": [
+        {
+          "kind": "context_allow",
+          "context": "billing_context",
+          "terms": [
+            "purchase",
+            "receipt",
+            "refund"
+          ]
+        }
+      ]
+    },
+    {
+      "route": "/my-collection",
+      "legacy_routes": [
+        "/my-assets",
+        "/owned-assets",
+        "/owned"
+      ],
+      "surface_key": "my_collection_owned",
+      "ui_title": "my collection",
+      "ui_nouns": [
+        "my_collection",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.session",
+        "openapi_v1.library",
+        "schema_v1.library",
+        "canon_certificates"
+      ],
+      "proof_ids": [
+        "p_session_required",
+        "p_library_contains_certificate"
+      ],
+      "rules": [
+        {
+          "kind": "require_terms",
+          "terms": [
+            "my collection"
+          ]
+        },
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "library"
+          ],
+          "replace_with": "my collection"
+        }
+      ]
+    },
+    {
+      "route": "/library",
+      "legacy_routes": [
+        "/saved",
+        "/bookmarks"
+      ],
+      "surface_key": "library_saved",
+      "ui_title": "library",
+      "ui_nouns": [
+        "library",
+        "drop",
+        "world",
+        "studio"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.session",
+        "openapi_v1.library",
+        "schema_v1.library"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "my collection"
+          ],
+          "replace_with": "library"
+        }
+      ]
+    },
+    {
+      "route": "/certificates/:cert_id",
+      "legacy_routes": [],
+      "surface_key": "certificate_verify",
+      "ui_title": "certificate",
+      "ui_nouns": [
+        "certificate",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.certificates",
+        "schema_v1.certificates",
+        "canon_certificates",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_public_cert_verify",
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/workshop",
+      "legacy_routes": [
+        "/studio"
+      ],
+      "surface_key": "workshop_root",
+      "ui_title": "workshop",
+      "ui_nouns": [
+        "workshop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.session",
+        "schema_v1.accounts"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "studio"
+          ],
+          "replace_with": "workshop"
+        }
+      ]
+    }
+  ],
+  "enforcement_checklist": {
+    "designers": [
+      "ui_title must be used exactly as written for the surface key",
+      "ui_nouns must only contain locked glossary nouns",
+      "do not introduce synonyms (asset/collection/profile/gallery) in any lint target"
+    ],
+    "engineers": [
+      "scan lint_targets only (nav, h1, cta, empty_state, metadata_labels)",
+      "apply matching rules: case-insensitive + whole-word + variants + ui phrases",
+      "honor exceptions.by_route and exceptions.by_context",
+      "no free-text notes; add any new logic as structured rules"
+    ]
+  },
+  "legacy_redirects": {
+    "/collections": "/worlds",
+    "/network-setup": "/space-setup",
+    "/creators/:handle": "/studios/:handle",
+    "/collections/:id": "/worlds/:id",
+    "/collections/:id/titles": "/worlds/:id/drops",
+    "/assets/:id": "/drops/:id",
+    "/assets/:id/details": "/drops/:id/details",
+    "/assets/:id/properties": "/drops/:id/properties",
+    "/assets/:id/offers": "/drops/:id/offers",
+    "/assets/:id/activity": "/drops/:id/activity",
+    "/assets/:id/preview": "/drops/:id/preview",
+    "/assets/:id/preview/gallery": "/drops/:id/preview/photos",
+    "/assets/:id/watch": "/drops/:id/watch",
+    "/assets/:id/listen": "/drops/:id/listen",
+    "/assets/:id/read": "/drops/:id/read",
+    "/assets/:id/view": "/drops/:id/photos",
+    "/pay/buy/:asset_id": "/pay/buy/:drop_id",
+    "/my-assets": "/my-collection",
+    "/owned-assets": "/my-collection",
+    "/owned": "/my-collection",
+    "/saved": "/library",
+    "/bookmarks": "/library",
+    "/studio": "/workshop"
+  },
+  "session_required_route_patterns": [
+    "/logout",
+    "/space-setup",
+    "/drops/:id/watch",
+    "/drops/:id/listen",
+    "/drops/:id/read",
+    "/drops/:id/photos",
+    "/pay/buy/:drop_id",
+    "/my-collection",
+    "/library",
+    "/workshop"
+  ],
+  "public_safe_route_patterns": [
+    "/",
+    "/explore",
+    "/worlds",
+    "/watch",
+    "/listen",
+    "/read",
+    "/live-now",
+    "/auth/sign-in",
+    "/auth/sign-up",
+    "/studios/:handle",
+    "/worlds/:id",
+    "/worlds/:id/drops",
+    "/drops/:id",
+    "/drops/:id/details",
+    "/drops/:id/properties",
+    "/drops/:id/offers",
+    "/drops/:id/activity",
+    "/drops/:id/preview",
+    "/drops/:id/preview/photos",
+    "/certificates/:cert_id"
+  ],
+  "canon_dependencies": [
+    "canon_certificates",
+    "canon_feature_flags",
+    "canon_media_gate",
+    "canon_no_leaks_scan",
+    "canon_payments_stripe"
+  ],
+  "stats": {
+    "route_count": 30,
+    "public_safe_count": 20,
+    "session_required_count": 10,
+    "legacy_redirect_count": 23
+  }
+}
