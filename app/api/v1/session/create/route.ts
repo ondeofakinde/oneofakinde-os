@@ -1,4 +1,4 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { commerceBffService } from "@/lib/bff/service";
 import { badRequest, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
 import type { AccountRole } from "@/lib/domain/contracts";
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     return badRequest("role must be collector or creator");
   }
 
-  const session = await commerceGateway.createSession({
+  const session = await commerceBffService.createSession({
     email,
     role
   });

@@ -1,7 +1,7 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { commerceBffService } from "@/lib/bff/service";
 import { ok } from "@/lib/bff/http";
 
 export async function GET() {
-  const drops = await commerceGateway.listDrops();
+  const drops = await commerceBffService.listDrops();
   return ok({ drops });
 }

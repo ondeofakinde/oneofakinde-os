@@ -1,4 +1,4 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { commerceBffService } from "@/lib/bff/service";
 import { badRequest, getRequiredSearchParam, notFound, ok } from "@/lib/bff/http";
 
 export async function GET(request: Request) {
@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     return badRequest("account_id is required");
   }
 
-  const collection = await commerceGateway.getMyCollection(accountId);
+  const collection = await commerceBffService.getMyCollection(accountId);
   if (!collection) {
     return notFound("collection not found");
   }

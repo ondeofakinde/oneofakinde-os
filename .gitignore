@@ -14,3 +14,6 @@ coverage
 
 # TypeScript build info
 tsconfig.tsbuildinfo
+
+# local bff persistence
+.data/

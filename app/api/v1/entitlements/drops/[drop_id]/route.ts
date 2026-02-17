@@ -1,4 +1,4 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { commerceBffService } from "@/lib/bff/service";
 import {
   badRequest,
   getRequiredRouteParam,
@@ -22,6 +22,6 @@ export async function GET(request: Request, context: RouteContext<Params>) {
     return badRequest("account_id is required");
   }
 
-  const hasEntitlement = await commerceGateway.hasDropEntitlement(accountId, dropId);
+  const hasEntitlement = await commerceBffService.hasDropEntitlement(accountId, dropId);
   return ok({ hasEntitlement });
 }

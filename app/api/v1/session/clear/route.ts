@@ -1,4 +1,4 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { commerceBffService } from "@/lib/bff/service";
 import { badRequest, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
 
 type SessionClearBody = {
@@ -12,6 +12,6 @@ export async function POST(request: Request) {
     return badRequest("sessionToken is required");
   }
 
-  await commerceGateway.clearSession(sessionToken);
+  await commerceBffService.clearSession(sessionToken);
   return ok({ cleared: true });
 }

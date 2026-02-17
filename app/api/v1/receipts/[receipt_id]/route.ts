@@ -1,4 +1,4 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { commerceBffService } from "@/lib/bff/service";
 import {
   badRequest,
   getRequiredRouteParam,
@@ -23,7 +23,7 @@ export async function GET(request: Request, context: RouteContext<Params>) {
     return badRequest("account_id is required");
   }
 
-  const receipt = await commerceGateway.getReceipt(accountId, receiptId);
+  const receipt = await commerceBffService.getReceipt(accountId, receiptId);
   if (!receipt) {
     return notFound("receipt not found");
   }

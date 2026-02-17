@@ -1,4 +1,4 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { commerceBffService } from "@/lib/bff/service";
 import { badRequest, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
 
 type SessionTokenBody = {
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     return badRequest("sessionToken is required");
   }
 
-  const session = await commerceGateway.getSessionByToken(sessionToken);
+  const session = await commerceBffService.getSessionByToken(sessionToken);
   if (!session) {
     return ok({ session: null });
   }

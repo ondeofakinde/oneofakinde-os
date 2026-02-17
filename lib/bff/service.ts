@@ -1,0 +1,826 @@
+import type {
+  Certificate,
+  CheckoutPreview,
+  CreateSessionInput,
+  Drop,
+  LibraryDrop,
+  LibrarySnapshot,
+  MyCollectionSnapshot,
+  OwnedDrop,
+  PurchaseReceipt,
+  Session,
+  Studio,
+  World
+} from "@/lib/domain/contracts";
+import type { CommerceGateway } from "@/lib/domain/ports";
+import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
+import { createCheckoutSession, parseStripeWebhook } from "@/lib/bff/payments";
+import {
+  createAccountFromEmail,
+  getDropPriceTotalUsd,
+  normalizeEmail,
+  withDatabase,
+  type AccountRecord,
+  type BffDatabase,
+  type CertificateRecord,
+  type PaymentRecord
+} from "@/lib/bff/persistence";
+import { randomUUID } from "node:crypto";
+
+const PROCESSING_FEE_USD = 1.99;
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+
+function toSession(account: AccountRecord, sessionToken: string): Session {
+  return {
+    accountId: account.id,
+    email: account.email,
+    handle: account.handle,
+    displayName: account.displayName,
+    roles: account.roles,
+    sessionToken
+  };
+}
+
+function toPublicCertificate(record: CertificateRecord): Certificate {
+  return {
+    id: record.id,
+    dropId: record.dropId,
+    dropTitle: record.dropTitle,
+    ownerHandle: record.ownerHandle,
+    issuedAt: record.issuedAt,
+    receiptId: record.receiptId,
+    status: record.status
+  };
+}
+
+function getDropMap(db: BffDatabase): Map<string, Drop> {
+  return new Map(db.catalog.drops.map((drop) => [drop.id, drop]));
+}
+
+function getOwnedDrops(db: BffDatabase, accountId: string): OwnedDrop[] {
+  const dropsById = getDropMap(db);
+
+  return db.ownerships
+    .filter((entry) => entry.accountId === accountId)
+    .map((entry) => {
+      const drop = dropsById.get(entry.dropId);
+      if (!drop) {
+        return null;
+      }
+
+      return {
+        drop,
+        certificateId: entry.certificateId,
+        acquiredAt: entry.acquiredAt,
+        receiptId: entry.receiptId
+      } satisfies OwnedDrop;
+    })
+    .filter((entry): entry is OwnedDrop => entry !== null)
+    .sort((a, b) => Date.parse(b.acquiredAt) - Date.parse(a.acquiredAt));
+}
+
+function getSavedDrops(db: BffDatabase, accountId: string): LibraryDrop[] {
+  const dropsById = getDropMap(db);
+
+  return db.savedDrops
+    .filter((entry) => entry.accountId === accountId)
+    .map((entry) => {
+      const drop = dropsById.get(entry.dropId);
+      if (!drop) {
+        return null;
+      }
+
+      return {
+        drop,
+        savedAt: entry.savedAt
+      } satisfies LibraryDrop;
+    })
+    .filter((entry): entry is LibraryDrop => entry !== null)
+    .sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt));
+}
+
+function findAccountById(db: BffDatabase, accountId: string): AccountRecord | null {
+  return db.accounts.find((account) => account.id === accountId) ?? null;
+}
+
+function findDropById(db: BffDatabase, dropId: string): Drop | null {
+  return db.catalog.drops.find((drop) => drop.id === dropId) ?? null;
+}
+
+function findOwnershipByDrop(db: BffDatabase, accountId: string, dropId: string) {
+  return db.ownerships.find((entry) => entry.accountId === accountId && entry.dropId === dropId) ?? null;
+}
+
+function issueOwnershipAndReceipt(
+  db: BffDatabase,
+  account: AccountRecord,
+  drop: Drop,
+  options: {
+    amountUsd: number;
+    receiptId?: string;
+    purchasedAt?: string;
+  }
+): PurchaseReceipt {
+  const purchasedAt = options.purchasedAt ?? new Date().toISOString();
+  const receiptId = options.receiptId ?? `rcpt_${randomUUID()}`;
+
+  const receipt: PurchaseReceipt = {
+    id: receiptId,
+    accountId: account.id,
+    dropId: drop.id,
+    amountUsd: options.amountUsd,
+    status: "completed",
+    purchasedAt
+  };
+
+  const certificateId = `cert_${randomUUID()}`;
+  const certificate: CertificateRecord = {
+    id: certificateId,
+    dropId: drop.id,
+    dropTitle: drop.title,
+    ownerHandle: account.handle,
+    issuedAt: purchasedAt,
+    receiptId,
+    status: "verified",
+    ownerAccountId: account.id
+  };
+
+  db.receipts.unshift(receipt);
+  db.certificates.push(certificate);
+  db.ownerships.unshift({
+    accountId: account.id,
+    dropId: drop.id,
+    certificateId,
+    receiptId,
+    acquiredAt: purchasedAt
+  });
+
+  return receipt;
+}
+
+function markRefundByReceipt(db: BffDatabase, accountId: string, receiptId: string): boolean {
+  const receipt = db.receipts.find((entry) => entry.id === receiptId && entry.accountId === accountId);
+  if (!receipt || receipt.status !== "completed") {
+    return false;
+  }
+
+  receipt.status = "refunded";
+
+  const ownershipIndex = db.ownerships.findIndex(
+    (entry) => entry.accountId === accountId && entry.receiptId === receiptId
+  );
+  if (ownershipIndex >= 0) {
+    db.ownerships.splice(ownershipIndex, 1);
+  }
+
+  const certificate = db.certificates.find(
+    (entry) => entry.ownerAccountId === accountId && entry.receiptId === receiptId
+  );
+  if (certificate) {
+    certificate.status = "revoked";
+  }
+
+  return true;
+}
+
+function findPaymentForWebhook(
+  db: BffDatabase,
+  input: {
+    paymentId?: string;
+    checkoutSessionId?: string;
+    providerPaymentIntentId?: string;
+  }
+): PaymentRecord | null {
+  if (input.paymentId) {
+    const byPaymentId = db.payments.find((payment) => payment.id === input.paymentId);
+    if (byPaymentId) return byPaymentId;
+  }
+
+  if (input.checkoutSessionId) {
+    const bySession = db.payments.find((payment) => payment.checkoutSessionId === input.checkoutSessionId);
+    if (bySession) return bySession;
+  }
+
+  if (input.providerPaymentIntentId) {
+    const byIntent = db.payments.find(
+      (payment) => payment.providerPaymentIntentId === input.providerPaymentIntentId
+    );
+    if (byIntent) return byIntent;
+  }
+
+  return null;
+}
+
+const gatewayMethods: CommerceGateway = {
+  async listDrops(): Promise<Drop[]> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: [...db.catalog.drops].sort((a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate))
+    }));
+  },
+
+  async listWorlds(): Promise<World[]> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: [...db.catalog.worlds]
+    }));
+  },
+
+  async getWorldById(worldId: string): Promise<World | null> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.catalog.worlds.find((world) => world.id === worldId) ?? null
+    }));
+  },
+
+  async listDropsByWorldId(worldId: string): Promise<Drop[]> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.catalog.drops
+        .filter((drop) => drop.worldId === worldId)
+        .sort((a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate))
+    }));
+  },
+
+  async getStudioByHandle(handle: string): Promise<Studio | null> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.catalog.studios.find((studio) => studio.handle === handle) ?? null
+    }));
+  },
+
+  async listDropsByStudioHandle(handle: string): Promise<Drop[]> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.catalog.drops
+        .filter((drop) => drop.studioHandle === handle)
+        .sort((a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate))
+    }));
+  },
+
+  async getDropById(dropId: string): Promise<Drop | null> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: findDropById(db, dropId)
+    }));
+  },
+
+  async getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const existing = findOwnershipByDrop(db, account.id, drop.id);
+      const subtotalUsd = existing ? 0 : drop.priceUsd;
+      const processingUsd = existing ? 0 : PROCESSING_FEE_USD;
+
+      return {
+        persist: false,
+        result: {
+          drop,
+          subtotalUsd,
+          processingUsd,
+          totalUsd: Number((subtotalUsd + processingUsd).toFixed(2)),
+          currency: "USD"
+        }
+      };
+    });
+  },
+
+  async purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const existing = findOwnershipByDrop(db, account.id, drop.id);
+      if (existing) {
+        return {
+          persist: false,
+          result: {
+            id: existing.receiptId,
+            accountId: account.id,
+            dropId: drop.id,
+            amountUsd: 0,
+            status: "already_owned",
+            purchasedAt: existing.acquiredAt
+          }
+        };
+      }
+
+      const amountUsd = getDropPriceTotalUsd(drop);
+      const receipt = issueOwnershipAndReceipt(db, account, drop, {
+        amountUsd
+      });
+
+      db.payments.unshift({
+        id: `pay_${randomUUID()}`,
+        provider: "manual",
+        status: "succeeded",
+        accountId: account.id,
+        dropId: drop.id,
+        amountUsd,
+        currency: "USD",
+        receiptId: receipt.id,
+        createdAt: receipt.purchasedAt,
+        updatedAt: receipt.purchasedAt
+      });
+
+      return {
+        persist: true,
+        result: receipt
+      };
+    });
+  },
+
+  async getMyCollection(accountId: string): Promise<MyCollectionSnapshot | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const totalSpentUsd = db.receipts
+        .filter((receipt) => receipt.accountId === accountId && receipt.status === "completed")
+        .reduce((sum, receipt) => sum + receipt.amountUsd, 0);
+
+      return {
+        persist: false,
+        result: {
+          account: {
+            accountId: account.id,
+            handle: account.handle,
+            displayName: account.displayName
+          },
+          ownedDrops: getOwnedDrops(db, account.id),
+          totalSpentUsd: Number(totalSpentUsd.toFixed(2))
+        }
+      };
+    });
+  },
+
+  async getLibrary(accountId: string): Promise<LibrarySnapshot | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: {
+          account: {
+            accountId: account.id,
+            handle: account.handle,
+            displayName: account.displayName
+          },
+          savedDrops: getSavedDrops(db, account.id)
+        }
+      };
+    });
+  },
+
+  async getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: db.receipts.find((receipt) => receipt.accountId === accountId && receipt.id === receiptId) ?? null
+    }));
+  },
+
+  async hasDropEntitlement(accountId: string, dropId: string): Promise<boolean> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: Boolean(findOwnershipByDrop(db, accountId, dropId))
+    }));
+  },
+
+  async getCertificateById(certificateId: string): Promise<Certificate | null> {
+    return withDatabase(async (db) => {
+      const certificate = db.certificates.find((entry) => entry.id === certificateId);
+      return {
+        persist: false,
+        result: certificate ? toPublicCertificate(certificate) : null
+      };
+    });
+  },
+
+  async getCertificateByReceipt(accountId: string, receiptId: string): Promise<Certificate | null> {
+    return withDatabase(async (db) => {
+      const certificate = db.certificates.find(
+        (entry) => entry.ownerAccountId === accountId && entry.receiptId === receiptId
+      );
+
+      return {
+        persist: false,
+        result: certificate ? toPublicCertificate(certificate) : null
+      };
+    });
+  },
+
+  async getSessionByToken(sessionToken: string): Promise<Session | null> {
+    return withDatabase(async (db) => {
+      const now = Date.now();
+      const index = db.sessions.findIndex((session) => session.token === sessionToken);
+      if (index < 0) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const session = db.sessions[index];
+      if (Date.parse(session.expiresAt) <= now) {
+        db.sessions.splice(index, 1);
+        return {
+          persist: true,
+          result: null
+        };
+      }
+
+      const account = findAccountById(db, session.accountId);
+      if (!account) {
+        db.sessions.splice(index, 1);
+        return {
+          persist: true,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: toSession(account, session.token)
+      };
+    });
+  },
+
+  async createSession(input: CreateSessionInput): Promise<Session> {
+    return withDatabase(async (db) => {
+      const email = normalizeEmail(input.email);
+      let account =
+        db.accounts.find(
+          (entry) => entry.email === email && entry.roles.length === 1 && entry.roles[0] === input.role
+        ) ?? null;
+
+      if (!account) {
+        account = createAccountFromEmail(email, input.role);
+        db.accounts.push(account);
+      }
+
+      const createdAt = new Date().toISOString();
+      const sessionToken = `sess_${randomUUID()}`;
+      db.sessions.push({
+        token: sessionToken,
+        accountId: account.id,
+        createdAt,
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString()
+      });
+
+      return {
+        persist: true,
+        result: toSession(account, sessionToken)
+      };
+    });
+  },
+
+  async clearSession(sessionToken: string): Promise<void> {
+    await withDatabase(async (db) => {
+      const originalLength = db.sessions.length;
+      db.sessions = db.sessions.filter((entry) => entry.token !== sessionToken);
+      return {
+        persist: db.sessions.length !== originalLength,
+        result: undefined
+      };
+    });
+  }
+};
+
+async function createCheckoutSessionForPayment(
+  input: CreateCheckoutSessionInput
+): Promise<CheckoutSessionResult | null> {
+  return withDatabase<CheckoutSessionResult | null>(async (db) => {
+    const account = findAccountById(db, input.accountId);
+    const drop = findDropById(db, input.dropId);
+    if (!account || !drop) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+
+    const existing = findOwnershipByDrop(db, account.id, drop.id);
+    if (existing) {
+      return {
+        persist: false,
+        result: {
+          status: "already_owned",
+          receiptId: existing.receiptId
+        }
+      };
+    }
+
+    const amountUsd = getDropPriceTotalUsd(drop);
+    const paymentId = `pay_${randomUUID()}`;
+    const createdAt = new Date().toISOString();
+    const successUrl = input.successUrl ?? "http://127.0.0.1:3000/my-collection?payment=success";
+    const cancelUrl = input.cancelUrl ?? `http://127.0.0.1:3000/pay/buy/${encodeURIComponent(drop.id)}?payment=cancel`;
+    const checkout = await createCheckoutSession({
+      paymentId,
+      accountId: account.id,
+      drop,
+      amountUsd,
+      successUrl,
+      cancelUrl
+    });
+
+    db.payments.unshift({
+      id: paymentId,
+      provider: checkout.provider,
+      status: "pending",
+      accountId: account.id,
+      dropId: drop.id,
+      amountUsd,
+      currency: "USD",
+      checkoutSessionId: checkout.sessionId,
+      checkoutUrl: checkout.url,
+      createdAt,
+      updatedAt: createdAt
+    });
+
+    return {
+      persist: true,
+      result: {
+        status: "pending",
+        paymentId,
+        provider: checkout.provider,
+        checkoutSessionId: checkout.sessionId,
+        checkoutUrl: checkout.url,
+        drop,
+        amountUsd,
+        currency: "USD"
+      }
+    };
+  });
+}
+
+async function completePaymentByLookup(input: {
+  paymentId?: string;
+  checkoutSessionId?: string;
+  providerPaymentIntentId?: string;
+}): Promise<StripeWebhookApplyResult> {
+  return withDatabase<StripeWebhookApplyResult>(async (db) => {
+    const payment = findPaymentForWebhook(db, input);
+    if (!payment) {
+      return {
+        persist: false,
+        result: {
+          received: true,
+          effect: "payment_not_found"
+        }
+      };
+    }
+
+    payment.updatedAt = new Date().toISOString();
+    if (input.providerPaymentIntentId) {
+      payment.providerPaymentIntentId = input.providerPaymentIntentId;
+    }
+    if (payment.status === "succeeded") {
+      return {
+        persist: true,
+        result: {
+          received: true,
+          effect: "payment_completed",
+          paymentId: payment.id
+        }
+      };
+    }
+
+    const account = findAccountById(db, payment.accountId);
+    const drop = findDropById(db, payment.dropId);
+    if (!account || !drop) {
+      payment.status = "failed";
+      return {
+        persist: true,
+        result: {
+          received: true,
+          effect: "payment_failed",
+          paymentId: payment.id
+        }
+      };
+    }
+
+    const existing = findOwnershipByDrop(db, payment.accountId, payment.dropId);
+    if (existing) {
+      payment.status = "succeeded";
+      payment.receiptId = existing.receiptId;
+      return {
+        persist: true,
+        result: {
+          received: true,
+          effect: "payment_completed",
+          paymentId: payment.id
+        }
+      };
+    }
+
+    const receipt = issueOwnershipAndReceipt(db, account, drop, {
+      amountUsd: payment.amountUsd
+    });
+    payment.status = "succeeded";
+    payment.receiptId = receipt.id;
+
+    return {
+      persist: true,
+      result: {
+        received: true,
+        effect: "payment_completed",
+        paymentId: payment.id
+      }
+    };
+  });
+}
+
+async function failPaymentByLookup(input: {
+  paymentId?: string;
+  checkoutSessionId?: string;
+}): Promise<StripeWebhookApplyResult> {
+  return withDatabase<StripeWebhookApplyResult>(async (db) => {
+    const payment = findPaymentForWebhook(db, input);
+    if (!payment) {
+      return {
+        persist: false,
+        result: {
+          received: true,
+          effect: "payment_not_found"
+        }
+      };
+    }
+
+    payment.status = "failed";
+    payment.updatedAt = new Date().toISOString();
+    return {
+      persist: true,
+      result: {
+        received: true,
+        effect: "payment_failed",
+        paymentId: payment.id
+      }
+    };
+  });
+}
+
+async function refundPaymentByLookup(input: {
+  paymentId?: string;
+  checkoutSessionId?: string;
+  providerPaymentIntentId?: string;
+}): Promise<StripeWebhookApplyResult> {
+  return withDatabase<StripeWebhookApplyResult>(async (db) => {
+    const payment = findPaymentForWebhook(db, input);
+    if (!payment) {
+      return {
+        persist: false,
+        result: {
+          received: true,
+          effect: "payment_not_found"
+        }
+      };
+    }
+
+    payment.status = "refunded";
+    payment.updatedAt = new Date().toISOString();
+
+    if (payment.receiptId) {
+      markRefundByReceipt(db, payment.accountId, payment.receiptId);
+    }
+
+    return {
+      persist: true,
+      result: {
+        received: true,
+        effect: "payment_refunded",
+        paymentId: payment.id
+      }
+    };
+  });
+}
+
+export const commerceBffService = {
+  ...gatewayMethods,
+
+  createCheckoutSession: createCheckoutSessionForPayment,
+
+  async completePendingPayment(paymentId: string): Promise<PurchaseReceipt | null> {
+    return withDatabase(async (db) => {
+      const payment = db.payments.find((entry) => entry.id === paymentId);
+      if (!payment) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (payment.status === "succeeded" && payment.receiptId) {
+        const receipt = db.receipts.find((entry) => entry.id === payment.receiptId) ?? null;
+        return {
+          persist: false,
+          result: receipt
+        };
+      }
+
+      if (payment.status !== "pending") {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const account = findAccountById(db, payment.accountId);
+      const drop = findDropById(db, payment.dropId);
+      if (!account || !drop) {
+        payment.status = "failed";
+        payment.updatedAt = new Date().toISOString();
+        return {
+          persist: true,
+          result: null
+        };
+      }
+
+      const existing = findOwnershipByDrop(db, payment.accountId, payment.dropId);
+      if (existing) {
+        payment.status = "succeeded";
+        payment.receiptId = existing.receiptId;
+        payment.updatedAt = new Date().toISOString();
+        const receipt = db.receipts.find((entry) => entry.id === existing.receiptId) ?? null;
+        return {
+          persist: true,
+          result: receipt
+        };
+      }
+
+      const receipt = issueOwnershipAndReceipt(db, account, drop, {
+        amountUsd: payment.amountUsd
+      });
+      payment.status = "succeeded";
+      payment.receiptId = receipt.id;
+      payment.updatedAt = new Date().toISOString();
+
+      return {
+        persist: true,
+        result: receipt
+      };
+    });
+  },
+
+  async applyStripeWebhook(request: Request): Promise<StripeWebhookApplyResult> {
+    const parsed = await parseStripeWebhook(request);
+    if (parsed === "invalid_signature") {
+      return {
+        received: false,
+        effect: "invalid_signature"
+      };
+    }
+    if (!parsed) {
+      return {
+        received: true,
+        effect: "ignored"
+      };
+    }
+
+    if (parsed.kind === "checkout.completed") {
+      return completePaymentByLookup({
+        paymentId: parsed.paymentId,
+        checkoutSessionId: parsed.checkoutSessionId,
+        providerPaymentIntentId: parsed.providerPaymentIntentId
+      });
+    }
+
+    if (parsed.kind === "checkout.failed") {
+      return failPaymentByLookup({
+        paymentId: parsed.paymentId,
+        checkoutSessionId: parsed.checkoutSessionId
+      });
+    }
+
+    return refundPaymentByLookup({
+      paymentId: parsed.paymentId,
+      checkoutSessionId: parsed.checkoutSessionId,
+      providerPaymentIntentId: parsed.providerPaymentIntentId
+    });
+  }
+};

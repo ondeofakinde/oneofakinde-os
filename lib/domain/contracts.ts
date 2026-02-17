@@ -44,7 +44,7 @@ export type CheckoutPreview = {
   currency: "USD";
 };
 
-export type PurchaseStatus = "completed" | "already_owned";
+export type PurchaseStatus = "completed" | "already_owned" | "refunded";
 
 export type PurchaseReceipt = {
   id: string;

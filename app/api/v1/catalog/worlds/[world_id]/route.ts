@@ -1,4 +1,4 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { commerceBffService } from "@/lib/bff/service";
 import { badRequest, getRequiredRouteParam, notFound, ok, type RouteContext } from "@/lib/bff/http";
 
 type Params = {
@@ -11,7 +11,7 @@ export async function GET(_request: Request, context: RouteContext<Params>) {
     return badRequest("world_id is required");
   }
 
-  const world = await commerceGateway.getWorldById(worldId);
+  const world = await commerceBffService.getWorldById(worldId);
   if (!world) {
     return notFound("world not found");
   }

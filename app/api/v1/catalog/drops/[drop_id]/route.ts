@@ -1,4 +1,4 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { commerceBffService } from "@/lib/bff/service";
 import { badRequest, getRequiredRouteParam, notFound, ok, type RouteContext } from "@/lib/bff/http";
 
 type Params = {
@@ -11,7 +11,7 @@ export async function GET(_request: Request, context: RouteContext<Params>) {
     return badRequest("drop_id is required");
   }
 
-  const drop = await commerceGateway.getDropById(dropId);
+  const drop = await commerceBffService.getDropById(dropId);
   if (!drop) {
     return notFound("drop not found");
   }
