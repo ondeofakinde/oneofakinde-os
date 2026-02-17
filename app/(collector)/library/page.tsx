@@ -1,11 +1,11 @@
 import { LibraryScreen } from "@/features/library/library-screen";
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
 
 export default async function LibraryPage() {
   const session = await requireSession("/library");
-  const library = await commerceGateway.getLibrary(session.accountId);
+  const library = await gateway.getLibrary(session.accountId);
 
   if (!library) {
     notFound();

@@ -1,6 +1,6 @@
 "use server";
 
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { gateway } from "@/lib/gateway";
 import { SESSION_COOKIE } from "@/lib/session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -10,7 +10,7 @@ export async function logoutAction(): Promise<void> {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (token) {
-    await commerceGateway.clearSession(token);
+    await gateway.clearSession(token);
   }
 
   cookieStore.delete(SESSION_COOKIE);

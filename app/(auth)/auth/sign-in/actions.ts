@@ -1,6 +1,6 @@
 "use server";
 
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { gateway } from "@/lib/gateway";
 import type { AccountRole } from "@/lib/domain/contracts";
 import { normalizeReturnTo, SESSION_COOKIE } from "@/lib/session";
 import { cookies } from "next/headers";
@@ -20,7 +20,7 @@ export async function signInAction(formData: FormData): Promise<void> {
     redirect(`/auth/sign-in?error=invalid_email&returnTo=${encodeURIComponent(returnTo)}` as Route);
   }
 
-  const session = await commerceGateway.createSession({ email, role });
+  const session = await gateway.createSession({ email, role });
   const cookieStore = await cookies();
 
   cookieStore.set({

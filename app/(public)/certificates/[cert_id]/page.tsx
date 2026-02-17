@@ -1,5 +1,5 @@
 import { AppShell } from "@/features/shell/app-shell";
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { gateway } from "@/lib/gateway";
 import { routes } from "@/lib/routes";
 import { getOptionalSession } from "@/lib/server/session";
 import Link from "next/link";
@@ -14,14 +14,14 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
 
   const [session, certificate] = await Promise.all([
     getOptionalSession(),
-    commerceGateway.getCertificateById(certificateId)
+    gateway.getCertificateById(certificateId)
   ]);
 
   if (!certificate) {
     notFound();
   }
 
-  const drop = await commerceGateway.getDropById(certificate.dropId);
+  const drop = await gateway.getDropById(certificate.dropId);
   if (!drop) {
     notFound();
   }

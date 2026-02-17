@@ -1,4 +1,4 @@
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { gateway } from "@/lib/gateway";
 import type { Session } from "@/lib/domain/contracts";
 import { SESSION_COOKIE, normalizeReturnTo } from "@/lib/session";
 import { cookies } from "next/headers";
@@ -12,7 +12,7 @@ export async function getOptionalSession(): Promise<Session | null> {
     return null;
   }
 
-  return commerceGateway.getSessionByToken(token);
+  return gateway.getSessionByToken(token);
 }
 
 export async function requireSession(returnTo: string): Promise<Session> {

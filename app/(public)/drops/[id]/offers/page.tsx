@@ -1,5 +1,5 @@
 import { DropSurfaceScreen } from "@/features/drops/drop-surfaces-screen";
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
 
@@ -11,7 +11,7 @@ export default async function DropOffersPage({ params }: DropOffersPageProps) {
   const { id } = await params;
 
   const [drop, session] = await Promise.all([
-    commerceGateway.getDropById(id),
+    gateway.getDropById(id),
     getOptionalSession()
   ]);
 

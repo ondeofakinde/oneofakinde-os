@@ -1,5 +1,5 @@
 import { SliceFrame } from "@/components/slice-frame";
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
 import { purchaseDropAction } from "./actions";
@@ -18,7 +18,7 @@ function formatUsd(amount: number): string {
 export default async function BuyDropPage({ params }: BuyDropPageProps) {
   const { drop_id: dropId } = await params;
   const session = await requireSession(`/pay/buy/${dropId}`);
-  const checkout = await commerceGateway.getCheckoutPreview(session.accountId, dropId);
+  const checkout = await gateway.getCheckoutPreview(session.accountId, dropId);
 
   if (!checkout) {
     notFound();

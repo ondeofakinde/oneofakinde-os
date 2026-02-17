@@ -1,0 +1,249 @@
+import type {
+  Certificate,
+  CheckoutPreview,
+  CreateSessionInput,
+  Drop,
+  LibrarySnapshot,
+  MyCollectionSnapshot,
+  PurchaseReceipt,
+  Session,
+  Studio,
+  World
+} from "@/lib/domain/contracts";
+import type { CommerceGateway } from "@/lib/domain/ports";
+
+type Nullable<T> = T | null;
+
+type BffClientOptions = {
+  baseUrl: string;
+};
+
+function normalizeBaseUrl(input: string): string {
+  return input.endsWith("/") ? input.slice(0, -1) : input;
+}
+
+function withQuery(pathname: string, params: Record<string, string | undefined>): string {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      searchParams.set(key, value);
+    }
+  }
+
+  const query = searchParams.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
+function resolveBaseUrl(): string {
+  return normalizeBaseUrl(process.env.OOK_BFF_BASE_URL ?? "http://127.0.0.1:3000");
+}
+
+async function requestJson<T>(
+  options: BffClientOptions,
+  pathname: string,
+  init?: RequestInit
+): Promise<{ ok: boolean; status: number; payload: Nullable<T> }> {
+  const response = await fetch(`${options.baseUrl}${pathname}`, {
+    ...init,
+    cache: "no-store",
+    headers: {
+      "content-type": "application/json",
+      ...(init?.headers ?? {})
+    }
+  });
+
+  if (response.status === 204) {
+    return {
+      ok: response.ok,
+      status: response.status,
+      payload: null
+    };
+  }
+
+  const text = await response.text();
+  const payload = text ? (JSON.parse(text) as T) : null;
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    payload
+  };
+}
+
+export function createBffGateway(baseUrl = resolveBaseUrl()): CommerceGateway {
+  const options: BffClientOptions = {
+    baseUrl
+  };
+
+  return {
+    async listDrops(): Promise<Drop[]> {
+      const response = await requestJson<{ drops: Drop[] }>(options, "/api/v1/catalog/drops");
+      if (!response.ok || !response.payload) return [];
+      return response.payload.drops;
+    },
+
+    async listWorlds(): Promise<World[]> {
+      const response = await requestJson<{ worlds: World[] }>(options, "/api/v1/catalog/worlds");
+      if (!response.ok || !response.payload) return [];
+      return response.payload.worlds;
+    },
+
+    async getWorldById(worldId: string): Promise<World | null> {
+      const response = await requestJson<{ world: World }>(
+        options,
+        `/api/v1/catalog/worlds/${encodeURIComponent(worldId)}`
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.world;
+    },
+
+    async listDropsByWorldId(worldId: string): Promise<Drop[]> {
+      const response = await requestJson<{ drops: Drop[] }>(
+        options,
+        `/api/v1/catalog/worlds/${encodeURIComponent(worldId)}/drops`
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.drops;
+    },
+
+    async getStudioByHandle(handle: string): Promise<Studio | null> {
+      const response = await requestJson<{ studio: Studio }>(
+        options,
+        `/api/v1/catalog/studios/${encodeURIComponent(handle)}`
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.studio;
+    },
+
+    async listDropsByStudioHandle(handle: string): Promise<Drop[]> {
+      const response = await requestJson<{ drops: Drop[] }>(
+        options,
+        `/api/v1/catalog/studios/${encodeURIComponent(handle)}/drops`
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.drops;
+    },
+
+    async getDropById(dropId: string): Promise<Drop | null> {
+      const response = await requestJson<{ drop: Drop }>(
+        options,
+        `/api/v1/catalog/drops/${encodeURIComponent(dropId)}`
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.drop;
+    },
+
+    async getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null> {
+      const response = await requestJson<{ checkout: CheckoutPreview }>(
+        options,
+        withQuery(`/api/v1/payments/checkout/${encodeURIComponent(dropId)}`, {
+          account_id: accountId
+        })
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.checkout;
+    },
+
+    async purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
+      const response = await requestJson<{ receipt: PurchaseReceipt }>(options, "/api/v1/payments/purchase", {
+        method: "POST",
+        body: JSON.stringify({ accountId, dropId })
+      });
+      if (!response.ok || !response.payload) return null;
+      return response.payload.receipt;
+    },
+
+    async getMyCollection(accountId: string): Promise<MyCollectionSnapshot | null> {
+      const response = await requestJson<{ collection: MyCollectionSnapshot }>(
+        options,
+        withQuery("/api/v1/collection", {
+          account_id: accountId
+        })
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.collection;
+    },
+
+    async getLibrary(accountId: string): Promise<LibrarySnapshot | null> {
+      const response = await requestJson<{ library: LibrarySnapshot }>(
+        options,
+        withQuery("/api/v1/library", {
+          account_id: accountId
+        })
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.library;
+    },
+
+    async getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {
+      const response = await requestJson<{ receipt: PurchaseReceipt }>(
+        options,
+        withQuery(`/api/v1/receipts/${encodeURIComponent(receiptId)}`, {
+          account_id: accountId
+        })
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.receipt;
+    },
+
+    async hasDropEntitlement(accountId: string, dropId: string): Promise<boolean> {
+      const response = await requestJson<{ hasEntitlement: boolean }>(
+        options,
+        withQuery(`/api/v1/entitlements/drops/${encodeURIComponent(dropId)}`, {
+          account_id: accountId
+        })
+      );
+      if (!response.ok || !response.payload) return false;
+      return response.payload.hasEntitlement;
+    },
+
+    async getCertificateById(certificateId: string): Promise<Certificate | null> {
+      const response = await requestJson<{ certificate: Certificate }>(
+        options,
+        `/api/v1/certificates/${encodeURIComponent(certificateId)}`
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.certificate;
+    },
+
+    async getCertificateByReceipt(accountId: string, receiptId: string): Promise<Certificate | null> {
+      const response = await requestJson<{ certificate: Certificate }>(
+        options,
+        withQuery(`/api/v1/certificates/by-receipt/${encodeURIComponent(receiptId)}`, {
+          account_id: accountId
+        })
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.certificate;
+    },
+
+    async getSessionByToken(sessionToken: string): Promise<Session | null> {
+      const response = await requestJson<{ session: Session }>(options, "/api/v1/session/by-token", {
+        method: "POST",
+        body: JSON.stringify({ sessionToken })
+      });
+      if (!response.ok || !response.payload) return null;
+      return response.payload.session;
+    },
+
+    async createSession(input: CreateSessionInput): Promise<Session> {
+      const response = await requestJson<{ session: Session }>(options, "/api/v1/session/create", {
+        method: "POST",
+        body: JSON.stringify(input)
+      });
+
+      if (!response.ok || !response.payload) {
+        throw new Error("failed to create session via bff gateway");
+      }
+
+      return response.payload.session;
+    },
+
+    async clearSession(sessionToken: string): Promise<void> {
+      await requestJson(options, "/api/v1/session/clear", {
+        method: "POST",
+        body: JSON.stringify({ sessionToken })
+      });
+    }
+  };
+}

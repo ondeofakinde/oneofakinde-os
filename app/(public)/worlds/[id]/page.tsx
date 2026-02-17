@@ -1,5 +1,5 @@
 import { WorldDetailScreen } from "@/features/world/world-detail-screen";
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
 
@@ -12,8 +12,8 @@ export default async function WorldPage({ params }: WorldPageProps) {
 
   const [session, world, drops] = await Promise.all([
     getOptionalSession(),
-    commerceGateway.getWorldById(id),
-    commerceGateway.listDropsByWorldId(id)
+    gateway.getWorldById(id),
+    gateway.listDropsByWorldId(id)
   ]);
 
   if (!world) {

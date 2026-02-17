@@ -1,5 +1,5 @@
 import { WorldDropsScreen } from "@/features/world/world-drops-screen";
-import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
 
@@ -13,8 +13,8 @@ export default async function WorldDropsPage({ params }: WorldDropsPageProps) {
 
   const [session, world, drops] = await Promise.all([
     getOptionalSession(),
-    commerceGateway.getWorldById(id),
-    commerceGateway.listDropsByWorldId(id)
+    gateway.getWorldById(id),
+    gateway.listDropsByWorldId(id)
   ]);
 
   if (!world) {
