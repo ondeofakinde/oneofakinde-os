@@ -1,13 +1,23 @@
-import { RouteStub } from "@/components/route-stub";
+import { DropSurfaceScreen } from "@/features/drops/drop-surfaces-screen";
+import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { getOptionalSession } from "@/lib/server/session";
+import { notFound } from "next/navigation";
 
-export default function Page() {
-  return (
-    <RouteStub
-      title="preview"
-      route="/drops/:id/preview"
-      roles={["public","collector","creator"]}
-      publicSafe={true}
-      summary="safe preview surface"
-    />
-  );
+type DropPreviewPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function DropPreviewPage({ params }: DropPreviewPageProps) {
+  const { id } = await params;
+
+  const [drop, session] = await Promise.all([
+    commerceGateway.getDropById(id),
+    getOptionalSession()
+  ]);
+
+  if (!drop) {
+    notFound();
+  }
+
+  return <DropSurfaceScreen drop={drop} session={session} surface="preview" />;
 }

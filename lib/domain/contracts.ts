@@ -78,6 +78,16 @@ export type MyCollectionSnapshot = {
   totalSpentUsd: number;
 };
 
+export type LibraryDrop = {
+  drop: Drop;
+  savedAt: string;
+};
+
+export type LibrarySnapshot = {
+  account: Pick<Session, "accountId" | "handle" | "displayName">;
+  savedDrops: LibraryDrop[];
+};
+
 export type CreateSessionInput = {
   email: string;
   role: AccountRole;

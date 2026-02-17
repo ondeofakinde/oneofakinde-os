@@ -3,6 +3,7 @@ import type {
   CheckoutPreview,
   CreateSessionInput,
   Drop,
+  LibrarySnapshot,
   MyCollectionSnapshot,
   PurchaseReceipt,
   Session,
@@ -22,6 +23,7 @@ export interface CommerceGateway {
   getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null>;
   purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null>;
   getMyCollection(accountId: string): Promise<MyCollectionSnapshot | null>;
+  getLibrary(accountId: string): Promise<LibrarySnapshot | null>;
   getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null>;
   hasDropEntitlement(accountId: string, dropId: string): Promise<boolean>;
 

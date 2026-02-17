@@ -1,13 +1,45 @@
-import { RouteStub } from "@/components/route-stub";
+import { DropConsumeScreen } from "@/features/drops/drop-consume-screen";
+import { commerceGateway } from "@/lib/adapters/mock-commerce";
+import { requireSession } from "@/lib/server/session";
+import { notFound } from "next/navigation";
 
-export default function Page() {
+type DropReadPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function DropReadPage({ params }: DropReadPageProps) {
+  const { id } = await params;
+  const session = await requireSession(`/drops/${id}/read`);
+
+  const drop = await commerceGateway.getDropById(id);
+  if (!drop) {
+    notFound();
+  }
+
+  const hasEntitlement = await commerceGateway.hasDropEntitlement(session.accountId, id);
+  const collection = hasEntitlement
+    ? await commerceGateway.getMyCollection(session.accountId)
+    : null;
+
+  const ownedDrop = collection?.ownedDrops.find((entry) => entry.drop.id === id) ?? null;
+
+  const [receipt, certificate] = await Promise.all([
+    ownedDrop
+      ? commerceGateway.getReceipt(session.accountId, ownedDrop.receiptId)
+      : Promise.resolve(null),
+    ownedDrop
+      ? commerceGateway.getCertificateById(ownedDrop.certificateId)
+      : Promise.resolve(null)
+  ]);
+
   return (
-    <RouteStub
-      title="read"
-      route="/drops/:id/read"
-      roles={["collector","creator"]}
-      publicSafe={false}
-      summary="full read consume surface"
+    <DropConsumeScreen
+      mode="read"
+      session={session}
+      drop={drop}
+      hasEntitlement={hasEntitlement}
+      receipt={receipt}
+      certificate={certificate}
     />
   );
 }

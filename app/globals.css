@@ -285,6 +285,13 @@ a {
   gap: 12px;
 }
 
+.slice-nav-grid {
+  margin: 16px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .slice-world-grid {
   list-style: none;
   margin: 14px 0 0;

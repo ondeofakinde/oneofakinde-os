@@ -4,6 +4,8 @@ import type {
   CheckoutPreview,
   CreateSessionInput,
   Drop,
+  LibraryDrop,
+  LibrarySnapshot,
   MyCollectionSnapshot,
   OwnedDrop,
   PurchaseReceipt,
@@ -34,6 +36,7 @@ type MockStore = {
   accountsByEmailRole: Map<string, string>;
   sessionToAccount: Map<string, string>;
   ownershipByAccount: Map<string, OwnedDrop[]>;
+  savedDropIdsByAccount: Map<string, string[]>;
   receiptsByAccount: Map<string, PurchaseReceipt[]>;
   certificatesById: Map<string, CertificateRecord>;
 };
@@ -166,6 +169,7 @@ function createInitialStore(): MockStore {
   const accountsByEmailRole = new Map<string, string>();
   const sessionToAccount = new Map<string, string>();
   const ownershipByAccount = new Map<string, OwnedDrop[]>();
+  const savedDropIdsByAccount = new Map<string, string[]>();
   const receiptsByAccount = new Map<string, PurchaseReceipt[]>();
   const certificatesById = new Map<string, CertificateRecord>();
 
@@ -180,6 +184,7 @@ function createInitialStore(): MockStore {
 
   accounts.set(accountId, account);
   accountsByEmailRole.set("collector@oneofakinde.com:collector", accountId);
+  savedDropIdsByAccount.set(accountId, ["twilight-whispers", "through-the-lens", "voidrunner"]);
 
   const seededDrop = drops.get("stardust");
   if (seededDrop) {
@@ -223,6 +228,7 @@ function createInitialStore(): MockStore {
     accountsByEmailRole,
     sessionToAccount,
     ownershipByAccount,
+    savedDropIdsByAccount,
     receiptsByAccount,
     certificatesById
   };
@@ -287,6 +293,22 @@ function getOwnedDrops(accountId: string): OwnedDrop[] {
   return [...(store.ownershipByAccount.get(accountId) ?? [])].sort(
     (a, b) => Date.parse(b.acquiredAt) - Date.parse(a.acquiredAt)
   );
+}
+
+function getSavedDrops(accountId: string): LibraryDrop[] {
+  const savedIds = store.savedDropIdsByAccount.get(accountId) ?? [];
+
+  return savedIds
+    .map((dropId, index) => {
+      const drop = store.drops.get(dropId);
+      if (!drop) return null;
+
+      return {
+        drop,
+        savedAt: new Date(Date.now() - index * 86_400_000).toISOString()
+      } satisfies LibraryDrop;
+    })
+    .filter((entry): entry is LibraryDrop => entry !== null);
 }
 
 function grantOwnership({
@@ -420,6 +442,20 @@ export const commerceGateway: CommerceGateway = {
       },
       ownedDrops: getOwnedDrops(accountId),
       totalSpentUsd: Number(totalSpentUsd.toFixed(2))
+    };
+  },
+
+  async getLibrary(accountId: string): Promise<LibrarySnapshot | null> {
+    const account = store.accounts.get(accountId);
+    if (!account) return null;
+
+    return {
+      account: {
+        accountId: account.id,
+        handle: account.handle,
+        displayName: account.displayName
+      },
+      savedDrops: getSavedDrops(accountId)
     };
   },
 
