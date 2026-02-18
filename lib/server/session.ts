@@ -1,5 +1,5 @@
 import { gateway } from "@/lib/gateway";
-import type { Session } from "@/lib/domain/contracts";
+import type { AccountRole, Session } from "@/lib/domain/contracts";
 import { SESSION_COOKIE, normalizeReturnTo } from "@/lib/session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -23,4 +23,21 @@ export async function requireSession(returnTo: string): Promise<Session> {
   }
 
   redirect(`/auth/sign-in?returnTo=${encodeURIComponent(normalizeReturnTo(returnTo))}`);
+}
+
+export async function requireSessionRoles(
+  returnTo: string,
+  allowedRoles: AccountRole[]
+): Promise<Session> {
+  const session = await requireSession(returnTo);
+  const roleSet = new Set(session.roles);
+  const hasAllowedRole = allowedRoles.some((role) => roleSet.has(role));
+
+  if (hasAllowedRole) {
+    return session;
+  }
+
+  redirect(
+    `/auth/sign-in?error=role_required&returnTo=${encodeURIComponent(normalizeReturnTo(returnTo))}`
+  );
 }

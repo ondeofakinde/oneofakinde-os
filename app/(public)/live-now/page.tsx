@@ -1,13 +1,12 @@
-import { RouteStub } from "@/components/route-stub";
+import { LiveNowScreen } from "@/features/hubs/live-now-screen";
+import { gateway } from "@/lib/gateway";
+import { getOptionalSession } from "@/lib/server/session";
 
-export default function Page() {
-  return (
-    <RouteStub
-      title="live now"
-      route="/live-now"
-      roles={["public","collector","creator"]}
-      publicSafe={true}
-      summary="live now hub"
-    />
-  );
+export default async function LiveNowPage() {
+  const [session, drops] = await Promise.all([
+    getOptionalSession(),
+    gateway.listDrops()
+  ]);
+
+  return <LiveNowScreen session={session} drops={drops} />;
 }

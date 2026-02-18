@@ -7,6 +7,10 @@ function asRoute(path: string): Route {
 export const routes = {
   home: (): Route => asRoute("/"),
   explore: (): Route => asRoute("/explore"),
+  watchHub: (): Route => asRoute("/watch"),
+  listenHub: (): Route => asRoute("/listen"),
+  readHub: (): Route => asRoute("/read"),
+  liveNow: (): Route => asRoute("/live-now"),
   worlds: (): Route => asRoute("/worlds"),
   world: (worldId: string): Route => asRoute(`/worlds/${worldId}`),
   worldDrops: (worldId: string): Route => asRoute(`/worlds/${worldId}/drops`),
@@ -25,6 +29,7 @@ export const routes = {
   buyDrop: (dropId: string): Route => asRoute(`/pay/buy/${dropId}`),
   myCollection: (): Route => asRoute("/my-collection"),
   library: (): Route => asRoute("/library"),
+  spaceSetup: (): Route => asRoute("/space-setup"),
   signIn: (returnTo?: string): Route =>
     returnTo
       ? asRoute(`/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`)

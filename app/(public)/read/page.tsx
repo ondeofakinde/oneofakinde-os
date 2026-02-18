@@ -1,13 +1,12 @@
-import { RouteStub } from "@/components/route-stub";
+import { MediaHubScreen } from "@/features/hubs/media-hub-screen";
+import { gateway } from "@/lib/gateway";
+import { getOptionalSession } from "@/lib/server/session";
 
-export default function Page() {
-  return (
-    <RouteStub
-      title="read"
-      route="/read"
-      roles={["public","collector","creator"]}
-      publicSafe={true}
-      summary="read hub"
-    />
-  );
+export default async function ReadHubPage() {
+  const [session, drops] = await Promise.all([
+    getOptionalSession(),
+    gateway.listDrops()
+  ]);
+
+  return <MediaHubScreen mode="read" session={session} drops={drops} />;
 }
