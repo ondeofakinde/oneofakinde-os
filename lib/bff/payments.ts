@@ -35,6 +35,13 @@ type StripeWebhookEvent =
       checkoutSessionId?: string;
     };
 
+export type ParsedStripeWebhookEvent = {
+  eventId: string | null;
+  event: StripeWebhookEvent;
+};
+
+const DEFAULT_STRIPE_SIGNATURE_TOLERANCE_SECONDS = 300;
+
 function withFallbackUrl(url: string, fallbackPath: string): string {
   const normalized = url.trim();
   return normalized || fallbackPath;
@@ -63,9 +70,29 @@ function parseStripeSignatureHeader(header: string): { timestamp: string; signat
   return { timestamp, signatures };
 }
 
+function resolveStripeSignatureToleranceSeconds(): number {
+  const configured = Number(process.env.STRIPE_WEBHOOK_TOLERANCE_SECONDS ?? "");
+  if (Number.isFinite(configured) && configured > 0) {
+    return Math.floor(configured);
+  }
+
+  return DEFAULT_STRIPE_SIGNATURE_TOLERANCE_SECONDS;
+}
+
 function verifyStripeSignature(payload: string, signatureHeader: string, secret: string): boolean {
   const parsed = parseStripeSignatureHeader(signatureHeader);
   if (!parsed) {
+    return false;
+  }
+
+  const timestampSeconds = Number(parsed.timestamp);
+  if (!Number.isFinite(timestampSeconds)) {
+    return false;
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const toleranceSeconds = resolveStripeSignatureToleranceSeconds();
+  if (Math.abs(nowSeconds - timestampSeconds) > toleranceSeconds) {
     return false;
   }
 
@@ -148,7 +175,19 @@ export async function createCheckoutSession(input: CreateCheckoutInput): Promise
   };
 }
 
-export async function parseStripeWebhook(request: Request): Promise<StripeWebhookEvent | null | "invalid_signature"> {
+function getStripeObjectMetadataValue(object: Record<string, unknown>, key: string): string | undefined {
+  const metadata = object.metadata;
+  if (!metadata || typeof metadata !== "object") {
+    return undefined;
+  }
+
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+export async function parseStripeWebhook(
+  request: Request
+): Promise<ParsedStripeWebhookEvent | null | "invalid_signature"> {
   const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   if (!secret) {
     return null;
@@ -164,43 +203,62 @@ export async function parseStripeWebhook(request: Request): Promise<StripeWebhoo
     return "invalid_signature";
   }
 
-  const event = JSON.parse(payloadText) as {
+  let event: {
+    id?: string;
     type?: string;
     data?: {
       object?: Record<string, unknown>;
     };
   };
+  try {
+    event = JSON.parse(payloadText) as {
+      id?: string;
+      type?: string;
+      data?: {
+        object?: Record<string, unknown>;
+      };
+    };
+  } catch {
+    return null;
+  }
 
   const object = event.data?.object ?? {};
+  const eventId = typeof event.id === "string" && event.id.length > 0 ? event.id : null;
 
   if (event.type === "checkout.session.completed") {
     return {
-      kind: "checkout.completed",
-      paymentId: typeof object.metadata === "object" ? (object.metadata as Record<string, unknown>).payment_id as string | undefined : undefined,
-      checkoutSessionId: typeof object.id === "string" ? object.id : undefined,
-      providerPaymentIntentId:
-        typeof object.payment_intent === "string" ? object.payment_intent : undefined
+      eventId,
+      event: {
+        kind: "checkout.completed",
+        paymentId: getStripeObjectMetadataValue(object, "payment_id"),
+        checkoutSessionId: typeof object.id === "string" ? object.id : undefined,
+        providerPaymentIntentId:
+          typeof object.payment_intent === "string" ? object.payment_intent : undefined
+      }
     };
   }
 
   if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
     return {
-      kind: "checkout.failed",
-      paymentId: typeof object.metadata === "object" ? (object.metadata as Record<string, unknown>).payment_id as string | undefined : undefined,
-      checkoutSessionId: typeof object.id === "string" ? object.id : undefined
+      eventId,
+      event: {
+        kind: "checkout.failed",
+        paymentId: getStripeObjectMetadataValue(object, "payment_id"),
+        checkoutSessionId: typeof object.id === "string" ? object.id : undefined
+      }
     };
   }
 
   if (event.type === "charge.refunded") {
     return {
-      kind: "payment.refunded",
-      paymentId: typeof object.metadata === "object" ? (object.metadata as Record<string, unknown>).payment_id as string | undefined : undefined,
-      providerPaymentIntentId:
-        typeof object.payment_intent === "string" ? object.payment_intent : undefined,
-      checkoutSessionId:
-        typeof object.metadata === "object"
-          ? ((object.metadata as Record<string, unknown>).checkout_session_id as string | undefined)
-          : undefined
+      eventId,
+      event: {
+        kind: "payment.refunded",
+        paymentId: getStripeObjectMetadataValue(object, "payment_id"),
+        providerPaymentIntentId:
+          typeof object.payment_intent === "string" ? object.payment_intent : undefined,
+        checkoutSessionId: getStripeObjectMetadataValue(object, "checkout_session_id")
+      }
     };
   }
 

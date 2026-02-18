@@ -1,6 +1,4 @@
-import type { Drop } from "@/lib/domain/contracts";
-
-export type PaymentsProviderName = "manual" | "stripe";
+import type { CheckoutSession } from "@/lib/domain/contracts";
 
 export type CreateCheckoutSessionInput = {
   accountId: string;
@@ -9,21 +7,7 @@ export type CreateCheckoutSessionInput = {
   cancelUrl?: string;
 };
 
-export type CheckoutSessionResult =
-  | {
-      status: "already_owned";
-      receiptId: string;
-    }
-  | {
-      status: "pending";
-      paymentId: string;
-      provider: PaymentsProviderName;
-      checkoutSessionId: string;
-      checkoutUrl: string | null;
-      drop: Drop;
-      amountUsd: number;
-      currency: "USD";
-    };
+export type CheckoutSessionResult = CheckoutSession;
 
 export type StripeWebhookApplyResult = {
   received: boolean;

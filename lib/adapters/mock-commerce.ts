@@ -1,6 +1,7 @@
 import type {
   AccountRole,
   Certificate,
+  CheckoutSession,
   CheckoutPreview,
   CreateSessionInput,
   Drop,
@@ -39,6 +40,7 @@ type MockStore = {
   savedDropIdsByAccount: Map<string, string[]>;
   receiptsByAccount: Map<string, PurchaseReceipt[]>;
   certificatesById: Map<string, CertificateRecord>;
+  pendingPayments: Map<string, { accountId: string; dropId: string }>;
 };
 
 const PROCESSING_FEE_USD = 1.99;
@@ -172,6 +174,7 @@ function createInitialStore(): MockStore {
   const savedDropIdsByAccount = new Map<string, string[]>();
   const receiptsByAccount = new Map<string, PurchaseReceipt[]>();
   const certificatesById = new Map<string, CertificateRecord>();
+  const pendingPayments = new Map<string, { accountId: string; dropId: string }>();
 
   const accountId = "acct_collector_demo";
   const account: AccountRecord = {
@@ -230,7 +233,8 @@ function createInitialStore(): MockStore {
     ownershipByAccount,
     savedDropIdsByAccount,
     receiptsByAccount,
-    certificatesById
+    certificatesById,
+    pendingPayments
   };
 }
 
@@ -389,6 +393,63 @@ export const commerceGateway: CommerceGateway = {
       totalUsd: Number((subtotalUsd + processingUsd).toFixed(2)),
       currency: "USD"
     };
+  },
+
+  async createCheckoutSession(
+    accountId: string,
+    dropId: string,
+    options?: {
+      successUrl?: string;
+      cancelUrl?: string;
+    }
+  ): Promise<CheckoutSession | null> {
+    const account = store.accounts.get(accountId);
+    const drop = store.drops.get(dropId);
+    if (!account || !drop) return null;
+
+    const ownedDrop = getOwnedDrops(accountId).find((entry) => entry.drop.id === dropId);
+    if (ownedDrop) {
+      return {
+        status: "already_owned",
+        receiptId: ownedDrop.receiptId
+      };
+    }
+
+    const paymentId = `pay_${randomUUID()}`;
+    const checkoutSessionId = `mock_session_${randomUUID()}`;
+    store.pendingPayments.set(paymentId, {
+      accountId,
+      dropId
+    });
+
+    return {
+      status: "pending",
+      paymentId,
+      provider: "manual",
+      checkoutSessionId,
+      checkoutUrl:
+        options?.successUrl ??
+        `/pay/buy/${encodeURIComponent(dropId)}?payment=success&payment_id=${encodeURIComponent(paymentId)}`,
+      drop,
+      amountUsd: Number((drop.priceUsd + PROCESSING_FEE_USD).toFixed(2)),
+      currency: "USD"
+    };
+  },
+
+  async completePendingPayment(paymentId: string): Promise<PurchaseReceipt | null> {
+    const pending = store.pendingPayments.get(paymentId);
+    if (!pending) {
+      return null;
+    }
+
+    const receipt = await this.purchaseDrop(pending.accountId, pending.dropId);
+    if (!receipt || receipt.status === "already_owned") {
+      store.pendingPayments.delete(paymentId);
+      return receipt;
+    }
+
+    store.pendingPayments.delete(paymentId);
+    return receipt;
   },
 
   async purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {

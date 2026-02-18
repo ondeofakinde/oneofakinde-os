@@ -14,7 +14,7 @@ import type {
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
 import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
-import { createCheckoutSession, parseStripeWebhook } from "@/lib/bff/payments";
+import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import {
   createAccountFromEmail,
   getDropPriceTotalUsd,
@@ -29,6 +29,17 @@ import { randomUUID } from "node:crypto";
 
 const PROCESSING_FEE_USD = 1.99;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const STRIPE_WEBHOOK_EVENT_LOG_LIMIT = 1000;
+
+type CompletePendingPaymentOptions = {
+  expectedAccountId?: string;
+  allowedProviders?: PaymentRecord["provider"][];
+};
+
+type StripeWebhookMutationResult = {
+  persist: boolean;
+  result: StripeWebhookApplyResult;
+};
 
 function toSession(account: AccountRecord, sessionToken: string): Session {
   return {
@@ -211,6 +222,21 @@ function findPaymentForWebhook(
   return null;
 }
 
+function hasProcessedStripeWebhookEvent(db: BffDatabase, eventId: string): boolean {
+  return db.stripeWebhookEvents.some((entry) => entry.eventId === eventId);
+}
+
+function rememberProcessedStripeWebhookEvent(db: BffDatabase, eventId: string): void {
+  db.stripeWebhookEvents.unshift({
+    eventId,
+    processedAt: new Date().toISOString()
+  });
+
+  if (db.stripeWebhookEvents.length > STRIPE_WEBHOOK_EVENT_LOG_LIMIT) {
+    db.stripeWebhookEvents.length = STRIPE_WEBHOOK_EVENT_LOG_LIMIT;
+  }
+}
+
 const gatewayMethods: CommerceGateway = {
   async listDrops(): Promise<Drop[]> {
     return withDatabase(async (db) => ({
@@ -290,6 +316,28 @@ const gatewayMethods: CommerceGateway = {
           currency: "USD"
         }
       };
+    });
+  },
+
+  async createCheckoutSession(
+    accountId: string,
+    dropId: string,
+    options?: {
+      successUrl?: string;
+      cancelUrl?: string;
+    }
+  ): Promise<CheckoutSessionResult | null> {
+    return createCheckoutSessionForPayment({
+      accountId,
+      dropId,
+      successUrl: options?.successUrl,
+      cancelUrl: options?.cancelUrl
+    });
+  },
+
+  async completePendingPayment(paymentId: string): Promise<PurchaseReceipt | null> {
+    return completePendingPaymentById(paymentId, {
+      allowedProviders: ["manual"]
     });
   },
 
@@ -579,35 +627,45 @@ async function createCheckoutSessionForPayment(
   });
 }
 
-async function completePaymentByLookup(input: {
-  paymentId?: string;
-  checkoutSessionId?: string;
-  providerPaymentIntentId?: string;
-}): Promise<StripeWebhookApplyResult> {
-  return withDatabase<StripeWebhookApplyResult>(async (db) => {
-    const payment = findPaymentForWebhook(db, input);
+async function completePendingPaymentById(
+  paymentId: string,
+  options?: CompletePendingPaymentOptions
+): Promise<PurchaseReceipt | null> {
+  return withDatabase(async (db) => {
+    const payment = db.payments.find((entry) => entry.id === paymentId);
     if (!payment) {
       return {
         persist: false,
-        result: {
-          received: true,
-          effect: "payment_not_found"
-        }
+        result: null
       };
     }
 
-    payment.updatedAt = new Date().toISOString();
-    if (input.providerPaymentIntentId) {
-      payment.providerPaymentIntentId = input.providerPaymentIntentId;
-    }
-    if (payment.status === "succeeded") {
+    if (options?.expectedAccountId && payment.accountId !== options.expectedAccountId) {
       return {
-        persist: true,
-        result: {
-          received: true,
-          effect: "payment_completed",
-          paymentId: payment.id
-        }
+        persist: false,
+        result: null
+      };
+    }
+
+    if (options?.allowedProviders && !options.allowedProviders.includes(payment.provider)) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+
+    if (payment.status === "succeeded" && payment.receiptId) {
+      const receipt = db.receipts.find((entry) => entry.id === payment.receiptId) ?? null;
+      return {
+        persist: false,
+        result: receipt
+      };
+    }
+
+    if (payment.status !== "pending") {
+      return {
+        persist: false,
+        result: null
       };
     }
 
@@ -615,13 +673,10 @@ async function completePaymentByLookup(input: {
     const drop = findDropById(db, payment.dropId);
     if (!account || !drop) {
       payment.status = "failed";
+      payment.updatedAt = new Date().toISOString();
       return {
         persist: true,
-        result: {
-          received: true,
-          effect: "payment_failed",
-          paymentId: payment.id
-        }
+        result: null
       };
     }
 
@@ -629,13 +684,11 @@ async function completePaymentByLookup(input: {
     if (existing) {
       payment.status = "succeeded";
       payment.receiptId = existing.receiptId;
+      payment.updatedAt = new Date().toISOString();
+      const receipt = db.receipts.find((entry) => entry.id === existing.receiptId) ?? null;
       return {
         persist: true,
-        result: {
-          received: true,
-          effect: "payment_completed",
-          paymentId: payment.id
-        }
+        result: receipt
       };
     }
 
@@ -644,7 +697,41 @@ async function completePaymentByLookup(input: {
     });
     payment.status = "succeeded";
     payment.receiptId = receipt.id;
+    payment.updatedAt = new Date().toISOString();
 
+    return {
+      persist: true,
+      result: receipt
+    };
+  });
+}
+
+type StripePaymentLookupInput = {
+  paymentId?: string;
+  checkoutSessionId?: string;
+  providerPaymentIntentId?: string;
+};
+
+function completePaymentByLookupInDatabase(
+  db: BffDatabase,
+  input: StripePaymentLookupInput
+): StripeWebhookMutationResult {
+  const payment = findPaymentForWebhook(db, input);
+  if (!payment) {
+    return {
+      persist: false,
+      result: {
+        received: true,
+        effect: "payment_not_found"
+      }
+    };
+  }
+
+  payment.updatedAt = new Date().toISOString();
+  if (input.providerPaymentIntentId) {
+    payment.providerPaymentIntentId = input.providerPaymentIntentId;
+  }
+  if (payment.status === "succeeded") {
     return {
       persist: true,
       result: {
@@ -653,27 +740,12 @@ async function completePaymentByLookup(input: {
         paymentId: payment.id
       }
     };
-  });
-}
+  }
 
-async function failPaymentByLookup(input: {
-  paymentId?: string;
-  checkoutSessionId?: string;
-}): Promise<StripeWebhookApplyResult> {
-  return withDatabase<StripeWebhookApplyResult>(async (db) => {
-    const payment = findPaymentForWebhook(db, input);
-    if (!payment) {
-      return {
-        persist: false,
-        result: {
-          received: true,
-          effect: "payment_not_found"
-        }
-      };
-    }
-
+  const account = findAccountById(db, payment.accountId);
+  const drop = findDropById(db, payment.dropId);
+  if (!account || !drop) {
     payment.status = "failed";
-    payment.updatedAt = new Date().toISOString();
     return {
       persist: true,
       result: {
@@ -682,40 +754,134 @@ async function failPaymentByLookup(input: {
         paymentId: payment.id
       }
     };
-  });
-}
+  }
 
-async function refundPaymentByLookup(input: {
-  paymentId?: string;
-  checkoutSessionId?: string;
-  providerPaymentIntentId?: string;
-}): Promise<StripeWebhookApplyResult> {
-  return withDatabase<StripeWebhookApplyResult>(async (db) => {
-    const payment = findPaymentForWebhook(db, input);
-    if (!payment) {
-      return {
-        persist: false,
-        result: {
-          received: true,
-          effect: "payment_not_found"
-        }
-      };
-    }
-
-    payment.status = "refunded";
-    payment.updatedAt = new Date().toISOString();
-
-    if (payment.receiptId) {
-      markRefundByReceipt(db, payment.accountId, payment.receiptId);
-    }
-
+  const existing = findOwnershipByDrop(db, payment.accountId, payment.dropId);
+  if (existing) {
+    payment.status = "succeeded";
+    payment.receiptId = existing.receiptId;
     return {
       persist: true,
       result: {
         received: true,
-        effect: "payment_refunded",
+        effect: "payment_completed",
         paymentId: payment.id
       }
+    };
+  }
+
+  const receipt = issueOwnershipAndReceipt(db, account, drop, {
+    amountUsd: payment.amountUsd
+  });
+  payment.status = "succeeded";
+  payment.receiptId = receipt.id;
+
+  return {
+    persist: true,
+    result: {
+      received: true,
+      effect: "payment_completed",
+      paymentId: payment.id
+    }
+  };
+}
+
+function failPaymentByLookupInDatabase(
+  db: BffDatabase,
+  input: Pick<StripePaymentLookupInput, "paymentId" | "checkoutSessionId">
+): StripeWebhookMutationResult {
+  const payment = findPaymentForWebhook(db, input);
+  if (!payment) {
+    return {
+      persist: false,
+      result: {
+        received: true,
+        effect: "payment_not_found"
+      }
+    };
+  }
+
+  payment.status = "failed";
+  payment.updatedAt = new Date().toISOString();
+  return {
+    persist: true,
+    result: {
+      received: true,
+      effect: "payment_failed",
+      paymentId: payment.id
+    }
+  };
+}
+
+function refundPaymentByLookupInDatabase(
+  db: BffDatabase,
+  input: StripePaymentLookupInput
+): StripeWebhookMutationResult {
+  const payment = findPaymentForWebhook(db, input);
+  if (!payment) {
+    return {
+      persist: false,
+      result: {
+        received: true,
+        effect: "payment_not_found"
+      }
+    };
+  }
+
+  payment.status = "refunded";
+  payment.updatedAt = new Date().toISOString();
+  if (input.providerPaymentIntentId) {
+    payment.providerPaymentIntentId = input.providerPaymentIntentId;
+  }
+
+  if (payment.receiptId) {
+    markRefundByReceipt(db, payment.accountId, payment.receiptId);
+  }
+
+  return {
+    persist: true,
+    result: {
+      received: true,
+      effect: "payment_refunded",
+      paymentId: payment.id
+    }
+  };
+}
+
+function applyParsedStripeWebhookInDatabase(
+  db: BffDatabase,
+  parsed: ParsedStripeWebhookEvent["event"]
+): StripeWebhookMutationResult {
+  if (parsed.kind === "checkout.completed") {
+    return completePaymentByLookupInDatabase(db, {
+      paymentId: parsed.paymentId,
+      checkoutSessionId: parsed.checkoutSessionId,
+      providerPaymentIntentId: parsed.providerPaymentIntentId
+    });
+  }
+
+  if (parsed.kind === "checkout.failed") {
+    return failPaymentByLookupInDatabase(db, {
+      paymentId: parsed.paymentId,
+      checkoutSessionId: parsed.checkoutSessionId
+    });
+  }
+
+  return refundPaymentByLookupInDatabase(db, {
+    paymentId: parsed.paymentId,
+    checkoutSessionId: parsed.checkoutSessionId,
+    providerPaymentIntentId: parsed.providerPaymentIntentId
+  });
+}
+
+async function applyParsedStripeWebhook(
+  parsed: ParsedStripeWebhookEvent["event"]
+): Promise<StripeWebhookApplyResult> {
+  return withDatabase<StripeWebhookApplyResult>(async (db) => {
+    const applied = applyParsedStripeWebhookInDatabase(db, parsed);
+    return {
+      persist: applied.persist,
+      result: applied.result
     };
   });
 }
@@ -726,64 +892,18 @@ export const commerceBffService = {
   createCheckoutSession: createCheckoutSessionForPayment,
 
   async completePendingPayment(paymentId: string): Promise<PurchaseReceipt | null> {
-    return withDatabase(async (db) => {
-      const payment = db.payments.find((entry) => entry.id === paymentId);
-      if (!payment) {
-        return {
-          persist: false,
-          result: null
-        };
-      }
+    return completePendingPaymentById(paymentId, {
+      allowedProviders: ["manual"]
+    });
+  },
 
-      if (payment.status === "succeeded" && payment.receiptId) {
-        const receipt = db.receipts.find((entry) => entry.id === payment.receiptId) ?? null;
-        return {
-          persist: false,
-          result: receipt
-        };
-      }
-
-      if (payment.status !== "pending") {
-        return {
-          persist: false,
-          result: null
-        };
-      }
-
-      const account = findAccountById(db, payment.accountId);
-      const drop = findDropById(db, payment.dropId);
-      if (!account || !drop) {
-        payment.status = "failed";
-        payment.updatedAt = new Date().toISOString();
-        return {
-          persist: true,
-          result: null
-        };
-      }
-
-      const existing = findOwnershipByDrop(db, payment.accountId, payment.dropId);
-      if (existing) {
-        payment.status = "succeeded";
-        payment.receiptId = existing.receiptId;
-        payment.updatedAt = new Date().toISOString();
-        const receipt = db.receipts.find((entry) => entry.id === existing.receiptId) ?? null;
-        return {
-          persist: true,
-          result: receipt
-        };
-      }
-
-      const receipt = issueOwnershipAndReceipt(db, account, drop, {
-        amountUsd: payment.amountUsd
-      });
-      payment.status = "succeeded";
-      payment.receiptId = receipt.id;
-      payment.updatedAt = new Date().toISOString();
-
-      return {
-        persist: true,
-        result: receipt
-      };
+  async completePendingPaymentForAccount(
+    accountId: string,
+    paymentId: string
+  ): Promise<PurchaseReceipt | null> {
+    return completePendingPaymentById(paymentId, {
+      expectedAccountId: accountId,
+      allowedProviders: ["manual"]
     });
   },
 
@@ -802,25 +922,29 @@ export const commerceBffService = {
       };
     }
 
-    if (parsed.kind === "checkout.completed") {
-      return completePaymentByLookup({
-        paymentId: parsed.paymentId,
-        checkoutSessionId: parsed.checkoutSessionId,
-        providerPaymentIntentId: parsed.providerPaymentIntentId
+    const eventId = parsed.eventId;
+    if (eventId) {
+      return withDatabase<StripeWebhookApplyResult>(async (db) => {
+        if (hasProcessedStripeWebhookEvent(db, eventId)) {
+          return {
+            persist: false,
+            result: {
+              received: true,
+              effect: "ignored"
+            }
+          };
+        }
+
+        const applied = applyParsedStripeWebhookInDatabase(db, parsed.event);
+        rememberProcessedStripeWebhookEvent(db, eventId);
+
+        return {
+          persist: true,
+          result: applied.result
+        };
       });
     }
 
-    if (parsed.kind === "checkout.failed") {
-      return failPaymentByLookup({
-        paymentId: parsed.paymentId,
-        checkoutSessionId: parsed.checkoutSessionId
-      });
-    }
-
-    return refundPaymentByLookup({
-      paymentId: parsed.paymentId,
-      checkoutSessionId: parsed.checkoutSessionId,
-      providerPaymentIntentId: parsed.providerPaymentIntentId
-    });
+    return applyParsedStripeWebhook(parsed.event);
   }
 };

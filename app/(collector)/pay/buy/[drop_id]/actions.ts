@@ -20,13 +20,35 @@ export async function purchaseDropAction(formData: FormData): Promise<void> {
     redirect(`/auth/sign-in?returnTo=${encodeURIComponent(`/pay/buy/${dropId}`)}`);
   }
 
-  const receipt = await gateway.purchaseDrop(session.accountId, dropId);
+  const baseUrl = process.env.OOK_APP_BASE_URL?.trim() || "http://127.0.0.1:3000";
+  const checkoutSession = await gateway.createCheckoutSession(session.accountId, dropId, {
+    successUrl: `${baseUrl}/my-collection?status=checkout_success`,
+    cancelUrl: `${baseUrl}/pay/buy/${encodeURIComponent(dropId)}?status=checkout_cancelled`
+  });
 
-  if (!receipt) {
-    redirect("/my-collection?status=missing_drop");
+  if (!checkoutSession) {
+    redirect("/my-collection?status=checkout_unavailable");
   }
 
-  redirect(
-    `/my-collection?receipt=${encodeURIComponent(receipt.id)}&status=${encodeURIComponent(receipt.status)}`
-  );
+  if (checkoutSession.status === "already_owned") {
+    redirect(
+      `/my-collection?receipt=${encodeURIComponent(checkoutSession.receiptId)}&status=${encodeURIComponent("already_owned")}`
+    );
+  }
+
+  if (checkoutSession.provider === "manual") {
+    const receipt = await gateway.completePendingPayment(checkoutSession.paymentId);
+    if (!receipt) {
+      redirect("/my-collection?status=payment_pending");
+    }
+    redirect(
+      `/my-collection?receipt=${encodeURIComponent(receipt.id)}&status=${encodeURIComponent(receipt.status)}`
+    );
+  }
+
+  if (!checkoutSession.checkoutUrl) {
+    redirect("/my-collection?status=checkout_missing_url");
+  }
+
+  redirect(checkoutSession.checkoutUrl as never);
 }

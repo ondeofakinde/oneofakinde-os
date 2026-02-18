@@ -1,5 +1,6 @@
 import type {
   Certificate,
+  CheckoutSession,
   CheckoutPreview,
   CreateSessionInput,
   Drop,
@@ -21,6 +22,15 @@ export interface CommerceGateway {
 
   getDropById(dropId: string): Promise<Drop | null>;
   getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null>;
+  createCheckoutSession(
+    accountId: string,
+    dropId: string,
+    options?: {
+      successUrl?: string;
+      cancelUrl?: string;
+    }
+  ): Promise<CheckoutSession | null>;
+  completePendingPayment(paymentId: string): Promise<PurchaseReceipt | null>;
   purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null>;
   getMyCollection(accountId: string): Promise<MyCollectionSnapshot | null>;
   getLibrary(accountId: string): Promise<LibrarySnapshot | null>;

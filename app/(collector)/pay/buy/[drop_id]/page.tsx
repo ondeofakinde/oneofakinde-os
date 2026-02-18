@@ -53,13 +53,13 @@ export default async function BuyDropPage({ params }: BuyDropPageProps) {
         <p className="slice-copy">
           {isAlreadyOwned
             ? "this drop is already in your my collection. continue to view receipt history."
-            : "confirm purchase to create a receipt. refund policy and follow-up support are listed after checkout."}
+            : "continue to hosted checkout. entitlement is granted only after verified payment webhook processing."}
         </p>
 
         <form action={purchaseDropAction} className="slice-form">
           <input type="hidden" name="drop_id" value={checkout.drop.id} />
           <button type="submit" className="slice-button">
-            {isAlreadyOwned ? "open my collection" : "confirm purchase"}
+            {isAlreadyOwned ? "open my collection" : "continue checkout"}
           </button>
         </form>
       </article>

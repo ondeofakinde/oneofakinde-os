@@ -44,6 +44,24 @@ export type CheckoutPreview = {
   currency: "USD";
 };
 
+export type PaymentProvider = "manual" | "stripe";
+
+export type CheckoutSession =
+  | {
+      status: "already_owned";
+      receiptId: string;
+    }
+  | {
+      status: "pending";
+      paymentId: string;
+      provider: PaymentProvider;
+      checkoutSessionId: string;
+      checkoutUrl: string | null;
+      drop: Drop;
+      amountUsd: number;
+      currency: "USD";
+    };
+
 export type PurchaseStatus = "completed" | "already_owned" | "refunded";
 
 export type PurchaseReceipt = {

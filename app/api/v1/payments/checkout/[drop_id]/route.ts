@@ -1,21 +1,20 @@
+import { requireRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
 import {
   badRequest,
-  getRequiredBodyString,
   getRequiredRouteParam,
-  getRequiredSearchParam,
   notFound,
   ok,
   safeJson,
   type RouteContext
 } from "@/lib/bff/http";
+import { emitOperationalEvent } from "@/lib/ops/observability";
 
 type Params = {
   drop_id: string;
 };
 
 type CheckoutSessionBody = {
-  accountId?: string;
   successUrl?: string;
   cancelUrl?: string;
 };
@@ -26,15 +25,21 @@ export async function GET(request: Request, context: RouteContext<Params>) {
     return badRequest("drop_id is required");
   }
 
-  const accountId = getRequiredSearchParam(new URL(request.url), "account_id");
-  if (!accountId) {
-    return badRequest("account_id is required");
+  const guard = await requireRequestSession(request);
+  if (!guard.ok) {
+    return guard.response;
   }
 
-  const checkout = await commerceBffService.getCheckoutPreview(accountId, dropId);
+  const checkout = await commerceBffService.getCheckoutPreview(guard.session.accountId, dropId);
   if (!checkout) {
+    emitOperationalEvent("checkout_preview_missing", { dropId });
     return notFound("checkout not found");
   }
+
+  emitOperationalEvent("checkout_preview_loaded", {
+    dropId,
+    accountId: guard.session.accountId
+  });
 
   return ok({ checkout });
 }
@@ -45,15 +50,15 @@ export async function POST(request: Request, context: RouteContext<Params>) {
     return badRequest("drop_id is required");
   }
 
-  const payload = await safeJson<CheckoutSessionBody>(request);
-  const accountId = getRequiredBodyString(payload as Record<string, unknown> | null, "accountId");
-
-  if (!accountId) {
-    return badRequest("accountId is required");
+  const guard = await requireRequestSession(request);
+  if (!guard.ok) {
+    return guard.response;
   }
 
+  const payload = await safeJson<CheckoutSessionBody>(request);
+
   const checkoutSession = await commerceBffService.createCheckoutSession({
-    accountId,
+    accountId: guard.session.accountId,
     dropId,
     successUrl:
       typeof payload?.successUrl === "string" ? payload.successUrl : undefined,
@@ -62,8 +67,16 @@ export async function POST(request: Request, context: RouteContext<Params>) {
   });
 
   if (!checkoutSession) {
+    emitOperationalEvent("checkout_session_unavailable", { dropId });
     return notFound("checkout session not available");
   }
+
+  emitOperationalEvent("checkout_session_created", {
+    dropId,
+    accountId: guard.session.accountId,
+    status: checkoutSession.status,
+    provider: checkoutSession.status === "pending" ? checkoutSession.provider : "existing"
+  });
 
   return ok({ checkoutSession }, 201);
 }

@@ -1,5 +1,6 @@
 import type {
   Certificate,
+  CheckoutSession,
   CheckoutPreview,
   CreateSessionInput,
   Drop,
@@ -11,6 +12,7 @@ import type {
   World
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
+import { SESSION_COOKIE } from "@/lib/session";
 
 type Nullable<T> = T | null;
 
@@ -22,20 +24,18 @@ function normalizeBaseUrl(input: string): string {
   return input.endsWith("/") ? input.slice(0, -1) : input;
 }
 
-function withQuery(pathname: string, params: Record<string, string | undefined>): string {
-  const searchParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value) {
-      searchParams.set(key, value);
-    }
-  }
-
-  const query = searchParams.toString();
-  return query ? `${pathname}?${query}` : pathname;
-}
-
 function resolveBaseUrl(): string {
   return normalizeBaseUrl(process.env.OOK_BFF_BASE_URL ?? "http://127.0.0.1:3000");
+}
+
+async function resolveSessionTokenFromRequestContext(): Promise<string | null> {
+  try {
+    const nextHeaders = await import("next/headers");
+    const cookieStore = await nextHeaders.cookies();
+    return cookieStore.get(SESSION_COOKIE)?.value ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function requestJson<T>(
@@ -43,13 +43,17 @@ async function requestJson<T>(
   pathname: string,
   init?: RequestInit
 ): Promise<{ ok: boolean; status: number; payload: Nullable<T> }> {
+  const sessionToken = await resolveSessionTokenFromRequestContext();
+  const headers = new Headers(init?.headers ?? {});
+  headers.set("content-type", "application/json");
+  if (sessionToken && !headers.has("x-ook-session-token")) {
+    headers.set("x-ook-session-token", sessionToken);
+  }
+
   const response = await fetch(`${options.baseUrl}${pathname}`, {
     ...init,
     cache: "no-store",
-    headers: {
-      "content-type": "application/json",
-      ...(init?.headers ?? {})
-    }
+    headers
   });
 
   if (response.status === 204) {
@@ -133,65 +137,102 @@ export function createBffGateway(baseUrl = resolveBaseUrl()): CommerceGateway {
       return response.payload.drop;
     },
 
-    async getCheckoutPreview(accountId: string, dropId: string): Promise<CheckoutPreview | null> {
+    async getCheckoutPreview(_accountId: string, dropId: string): Promise<CheckoutPreview | null> {
       const response = await requestJson<{ checkout: CheckoutPreview }>(
         options,
-        withQuery(`/api/v1/payments/checkout/${encodeURIComponent(dropId)}`, {
-          account_id: accountId
-        })
+        `/api/v1/payments/checkout/${encodeURIComponent(dropId)}`
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.checkout;
     },
 
-    async purchaseDrop(accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
+    async createCheckoutSession(
+      _accountId: string,
+      dropId: string,
+      checkoutOptions?: {
+        successUrl?: string;
+        cancelUrl?: string;
+      }
+    ): Promise<CheckoutSession | null> {
+      const response = await requestJson<{ checkoutSession: CheckoutSession }>(
+        options,
+        `/api/v1/payments/checkout/${encodeURIComponent(dropId)}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            successUrl: checkoutOptions?.successUrl,
+            cancelUrl: checkoutOptions?.cancelUrl
+          })
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.checkoutSession;
+    },
+
+    async completePendingPayment(paymentId: string): Promise<PurchaseReceipt | null> {
       const response = await requestJson<{ receipt: PurchaseReceipt }>(options, "/api/v1/payments/purchase", {
         method: "POST",
-        body: JSON.stringify({ accountId, dropId })
+        body: JSON.stringify({ paymentId })
       });
       if (!response.ok || !response.payload) return null;
       return response.payload.receipt;
     },
 
-    async getMyCollection(accountId: string): Promise<MyCollectionSnapshot | null> {
-      const response = await requestJson<{ collection: MyCollectionSnapshot }>(
+    async purchaseDrop(_accountId: string, dropId: string): Promise<PurchaseReceipt | null> {
+      const checkout = await requestJson<{ checkoutSession: CheckoutSession }>(
         options,
-        withQuery("/api/v1/collection", {
-          account_id: accountId
-        })
+        `/api/v1/payments/checkout/${encodeURIComponent(dropId)}`,
+        {
+          method: "POST",
+          body: JSON.stringify({})
+        }
       );
+
+      if (!checkout.ok || !checkout.payload) return null;
+
+      if (checkout.payload.checkoutSession.status === "already_owned") {
+        const existing = await requestJson<{ receipt: PurchaseReceipt }>(
+          options,
+          `/api/v1/receipts/${encodeURIComponent(checkout.payload.checkoutSession.receiptId)}`
+        );
+        return existing.ok && existing.payload ? existing.payload.receipt : null;
+      }
+
+      const response = await requestJson<{ receipt: PurchaseReceipt }>(options, "/api/v1/payments/purchase", {
+        method: "POST",
+        body: JSON.stringify({ paymentId: checkout.payload.checkoutSession.paymentId })
+      });
+      if (!response.ok || !response.payload) return null;
+      return response.payload.receipt;
+    },
+
+    async getMyCollection(_accountId: string): Promise<MyCollectionSnapshot | null> {
+      void _accountId;
+      const response = await requestJson<{ collection: MyCollectionSnapshot }>(options, "/api/v1/collection");
       if (!response.ok || !response.payload) return null;
       return response.payload.collection;
     },
 
-    async getLibrary(accountId: string): Promise<LibrarySnapshot | null> {
-      const response = await requestJson<{ library: LibrarySnapshot }>(
-        options,
-        withQuery("/api/v1/library", {
-          account_id: accountId
-        })
-      );
+    async getLibrary(_accountId: string): Promise<LibrarySnapshot | null> {
+      void _accountId;
+      const response = await requestJson<{ library: LibrarySnapshot }>(options, "/api/v1/library");
       if (!response.ok || !response.payload) return null;
       return response.payload.library;
     },
 
-    async getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {
+    async getReceipt(_accountId: string, receiptId: string): Promise<PurchaseReceipt | null> {
       const response = await requestJson<{ receipt: PurchaseReceipt }>(
         options,
-        withQuery(`/api/v1/receipts/${encodeURIComponent(receiptId)}`, {
-          account_id: accountId
-        })
+        `/api/v1/receipts/${encodeURIComponent(receiptId)}`
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.receipt;
     },
 
-    async hasDropEntitlement(accountId: string, dropId: string): Promise<boolean> {
+    async hasDropEntitlement(_accountId: string, dropId: string): Promise<boolean> {
       const response = await requestJson<{ hasEntitlement: boolean }>(
         options,
-        withQuery(`/api/v1/entitlements/drops/${encodeURIComponent(dropId)}`, {
-          account_id: accountId
-        })
+        `/api/v1/entitlements/drops/${encodeURIComponent(dropId)}`
       );
       if (!response.ok || !response.payload) return false;
       return response.payload.hasEntitlement;
@@ -206,12 +247,10 @@ export function createBffGateway(baseUrl = resolveBaseUrl()): CommerceGateway {
       return response.payload.certificate;
     },
 
-    async getCertificateByReceipt(accountId: string, receiptId: string): Promise<Certificate | null> {
+    async getCertificateByReceipt(_accountId: string, receiptId: string): Promise<Certificate | null> {
       const response = await requestJson<{ certificate: Certificate }>(
         options,
-        withQuery(`/api/v1/certificates/by-receipt/${encodeURIComponent(receiptId)}`, {
-          account_id: accountId
-        })
+        `/api/v1/certificates/by-receipt/${encodeURIComponent(receiptId)}`
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.certificate;
@@ -239,10 +278,10 @@ export function createBffGateway(baseUrl = resolveBaseUrl()): CommerceGateway {
       return response.payload.session;
     },
 
-    async clearSession(sessionToken: string): Promise<void> {
+    async clearSession(_sessionToken: string): Promise<void> {
+      void _sessionToken;
       await requestJson(options, "/api/v1/session/clear", {
-        method: "POST",
-        body: JSON.stringify({ sessionToken })
+        method: "POST"
       });
     }
   };
