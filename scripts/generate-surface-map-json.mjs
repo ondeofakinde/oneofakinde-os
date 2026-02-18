@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const DEFAULT_SOURCE =
-  "/Users/pantallero/Documents/projects/oneofakinde/vision/021626/2022/oneofakinde-os_2026-surface map_021626.txt";
+const DEFAULT_SOURCE = "config/surface-map.source.txt";
 const DEFAULT_OUTPUT = "config/surface-map.generated.json";
 
 const sourcePath = process.argv[2] || process.env.SURFACE_MAP_SOURCE || DEFAULT_SOURCE;
