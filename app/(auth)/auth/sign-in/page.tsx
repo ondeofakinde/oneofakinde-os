@@ -1,4 +1,6 @@
 import { normalizeReturnTo } from "@/lib/session";
+import { routes } from "@/lib/routes";
+import Link from "next/link";
 import { signInAction } from "./actions";
 
 type SignInPageProps = {
@@ -21,19 +23,21 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const hasRoleError = errorCode === "role_required";
 
   return (
-    <main className="slice-shell">
-      <section className="slice-panel auth-panel">
-        <p className="slice-kicker">oneofakinde</p>
-        <h1 className="slice-h1">sign in</h1>
-        <p className="slice-copy">start a session to continue to my collection and buy surfaces.</p>
+    <main className="identity-page">
+      <section className="identity-frame" aria-label="sign in">
+        <header className="identity-head">
+          <p className="identity-brand">oneofakinde</p>
+          <h1 className="identity-title">sign in</h1>
+          <p className="identity-copy">enter your email and continue your drop flow.</p>
+        </header>
 
-        <form action={signInAction} className="slice-form">
+        <form action={signInAction} className="identity-form">
           <input type="hidden" name="returnTo" value={returnTo} />
 
-          <label className="slice-field">
-            email
+          <label className="identity-field">
+            <span className="identity-label">what&apos;s your email?</span>
             <input
-              className="slice-input"
+              className="identity-input"
               type="email"
               name="email"
               placeholder="collector@oneofakinde.com"
@@ -42,23 +46,64 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             />
           </label>
 
-          <label className="slice-field">
-            role
-            <select className="slice-select" name="role" defaultValue="collector">
-              <option value="collector">collector</option>
-              <option value="creator">creator</option>
-            </select>
+          <label className="identity-field">
+            <span className="identity-label">enter your password</span>
+            <input
+              className="identity-input"
+              type="password"
+              name="password"
+              placeholder="••••••••"
+              minLength={8}
+              required
+            />
           </label>
 
-          {hasInvalidEmail ? <p className="slice-error">enter a valid email to continue.</p> : null}
+          <fieldset className="identity-segment" aria-label="account role">
+            <legend>choose mode</legend>
+            <label>
+              <input type="radio" name="role" value="collector" defaultChecked />
+              collector
+            </label>
+            <label>
+              <input type="radio" name="role" value="creator" />
+              creator
+            </label>
+          </fieldset>
+
+          <section className="identity-social" aria-label="social sign in options">
+            <p>or continue with</p>
+            <div>
+              <button type="button" className="identity-chip" disabled>
+                google
+              </button>
+              <button type="button" className="identity-chip" disabled>
+                apple
+              </button>
+              <button type="button" className="identity-chip" disabled>
+                x
+              </button>
+            </div>
+          </section>
+
+          {hasInvalidEmail ? <p className="identity-error">enter a valid email to continue.</p> : null}
           {hasRoleError ? (
-            <p className="slice-error">this surface requires a different role. choose creator to continue.</p>
+            <p className="identity-error">this route requires creator access. switch mode and continue.</p>
           ) : null}
 
-          <button type="submit" className="slice-button">
-            continue
+          <button type="submit" className="identity-cta">
+            let&apos;s go
           </button>
         </form>
+
+        <footer className="identity-foot">
+          <Link href={routes.walletConnect()} className="identity-link">
+            connect wallet
+          </Link>
+          <span>·</span>
+          <Link href={routes.signUp()} className="identity-link">
+            create account
+          </Link>
+        </footer>
       </section>
     </main>
   );

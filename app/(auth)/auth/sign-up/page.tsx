@@ -22,19 +22,21 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
   const hasInvalidEmail = errorCode === "invalid_email";
 
   return (
-    <main className="slice-shell">
-      <section className="slice-panel auth-panel">
-        <p className="slice-kicker">oneofakinde</p>
-        <h1 className="slice-h1">sign up</h1>
-        <p className="slice-copy">create your account and continue into profile setup.</p>
+    <main className="identity-page">
+      <section className="identity-frame" aria-label="create account">
+        <header className="identity-head">
+          <p className="identity-brand">oneofakinde</p>
+          <h1 className="identity-title">create account</h1>
+          <p className="identity-copy">start with email, then continue into profile setup.</p>
+        </header>
 
-        <form action={signUpAction} className="slice-form">
+        <form action={signUpAction} className="identity-form">
           <input type="hidden" name="returnTo" value={returnTo} />
 
-          <label className="slice-field">
-            email
+          <label className="identity-field">
+            <span className="identity-label">what&apos;s your email?</span>
             <input
-              className="slice-input"
+              className="identity-input"
               type="email"
               name="email"
               placeholder="new-account@oneofakinde.com"
@@ -42,27 +44,61 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
             />
           </label>
 
-          <label className="slice-field">
-            role
-            <select className="slice-select" name="role" defaultValue="collector">
-              <option value="collector">collector</option>
-              <option value="creator">creator</option>
-            </select>
+          <label className="identity-field">
+            <span className="identity-label">choose a password</span>
+            <input
+              className="identity-input"
+              type="password"
+              name="password"
+              placeholder="at least 8 characters"
+              minLength={8}
+              required
+            />
           </label>
 
-          {hasInvalidEmail ? <p className="slice-error">enter a valid email to continue.</p> : null}
+          <fieldset className="identity-segment" aria-label="account role">
+            <legend>choose mode</legend>
+            <label>
+              <input type="radio" name="role" value="collector" defaultChecked />
+              collector
+            </label>
+            <label>
+              <input type="radio" name="role" value="creator" />
+              creator
+            </label>
+          </fieldset>
 
-          <button type="submit" className="slice-button">
-            create account
+          <section className="identity-social" aria-label="social sign up options">
+            <p>social options</p>
+            <div>
+              <button type="button" className="identity-chip" disabled>
+                google
+              </button>
+              <button type="button" className="identity-chip" disabled>
+                apple
+              </button>
+              <button type="button" className="identity-chip" disabled>
+                discord
+              </button>
+            </div>
+          </section>
+
+          {hasInvalidEmail ? <p className="identity-error">enter a valid email to continue.</p> : null}
+
+          <button type="submit" className="identity-cta">
+            let&apos;s go
           </button>
         </form>
 
-        <p className="slice-meta">
-          already have an account?{" "}
-          <Link href={routes.signIn(returnTo)} className="slice-link">
+        <footer className="identity-foot">
+          <Link href={routes.walletConnect()} className="identity-link">
+            connect wallet
+          </Link>
+          <span>·</span>
+          <Link href={routes.signIn(returnTo)} className="identity-link">
             sign in
           </Link>
-        </p>
+        </footer>
       </section>
     </main>
   );
