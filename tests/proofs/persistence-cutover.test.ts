@@ -16,10 +16,11 @@ async function withEnv(
   overrides: Partial<Record<(typeof ENV_KEYS)[number], string | null>>,
   run: () => void | Promise<void>
 ): Promise<void> {
+  const runtimeEnv = process.env as Record<string, string | undefined>;
   const previous = new Map<string, string | undefined>();
 
   for (const key of ENV_KEYS) {
-    previous.set(key, process.env[key]);
+    previous.set(key, runtimeEnv[key]);
 
     if (!(key in overrides)) {
       continue;
@@ -27,9 +28,9 @@ async function withEnv(
 
     const value = overrides[key];
     if (value === null || value === undefined) {
-      delete process.env[key];
+      delete runtimeEnv[key];
     } else {
-      process.env[key] = value;
+      runtimeEnv[key] = value;
     }
   }
 
@@ -39,9 +40,9 @@ async function withEnv(
     for (const key of ENV_KEYS) {
       const value = previous.get(key);
       if (value === undefined) {
-        delete process.env[key];
+        delete runtimeEnv[key];
       } else {
-        process.env[key] = value;
+        runtimeEnv[key] = value;
       }
     }
   }
@@ -57,10 +58,7 @@ test("persistence cutover: production requires postgres connection", async () =>
       DATABASE_URL: null
     },
     () => {
-      assert.throws(
-        () => getPersistenceBackend(),
-        /requires DATABASE_URL/i
-      );
+      assert.throws(() => getPersistenceBackend(), /requires DATABASE_URL/i);
     }
   );
 });
@@ -74,10 +72,7 @@ test("persistence cutover: production rejects file backend", async () => {
       OOK_BFF_DATABASE_URL: "postgres://example.com/ook"
     },
     () => {
-      assert.throws(
-        () => getPersistenceBackend(),
-        /forbids file backend/i
-      );
+      assert.throws(() => getPersistenceBackend(), /forbids file backend/i);
     }
   );
 });
