@@ -26,12 +26,7 @@ export function LiveNowScreen({ session, drops }: LiveNowScreenProps) {
   const feed = drops.slice(0, 8);
 
   return (
-    <AppShell
-      title="live now"
-      subtitle="live hub for current drop programming"
-      session={session}
-      activeNav="explore"
-    >
+    <AppShell title="live" subtitle="live hub for current drop programming" session={session} activeNav="explore">
       <section className="slice-panel">
         <div className="slice-row">
           <p className="slice-label">{feed.length} live entries</p>
@@ -41,10 +36,10 @@ export function LiveNowScreen({ session, drops }: LiveNowScreenProps) {
         </div>
 
         <p className="slice-copy">
-          track what is airing across worlds now, then continue into watch, listen, or read.
+          track what is airing across worlds now, then continue into watch, listen, read, or gallery.
         </p>
 
-        <div className="slice-nav-grid" aria-label="live now navigation">
+        <div className="slice-nav-grid" aria-label="live navigation">
           <Link href={routes.watchHub()} className="slice-link">
             watch
           </Link>
@@ -54,15 +49,18 @@ export function LiveNowScreen({ session, drops }: LiveNowScreenProps) {
           <Link href={routes.readHub()} className="slice-link">
             read
           </Link>
-          <Link href={routes.liveNow()} className="slice-link active">
-            live now
+          <Link href={routes.galleryHub()} className="slice-link">
+            gallery
+          </Link>
+          <Link href={routes.liveHub()} className="slice-link active">
+            live
           </Link>
         </div>
 
         {feed.length === 0 ? (
           <p className="slice-copy">no live entries are currently available.</p>
         ) : (
-          <ul className="slice-grid" aria-label="live now feed">
+          <ul className="slice-grid" aria-label="live feed">
             {feed.map((drop) => (
               <li key={drop.id} className="slice-drop-card">
                 <p className="slice-label">

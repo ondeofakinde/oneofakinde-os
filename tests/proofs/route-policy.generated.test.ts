@@ -4,16 +4,28 @@ import { evaluateRoutePolicy } from "../../lib/route-policy";
 
 const redirectCases = [
   {
-    "sourcePathname": "/collections",
-    "targetPathname": "/worlds"
+    "sourcePathname": "/photos",
+    "targetPathname": "/gallery"
   },
   {
-    "sourcePathname": "/network-setup",
-    "targetPathname": "/space-setup"
+    "sourcePathname": "/live-now",
+    "targetPathname": "/live"
+  },
+  {
+    "sourcePathname": "/space-setup",
+    "targetPathname": "/onboarding/profile-setup"
+  },
+  {
+    "sourcePathname": "/studios/handle-sample",
+    "targetPathname": "/studio/handle-sample"
   },
   {
     "sourcePathname": "/creators/handle-sample",
-    "targetPathname": "/studios/handle-sample"
+    "targetPathname": "/studio/handle-sample"
+  },
+  {
+    "sourcePathname": "/collections",
+    "targetPathname": "/worlds"
   },
   {
     "sourcePathname": "/collections/id-sample",
@@ -48,8 +60,12 @@ const redirectCases = [
     "targetPathname": "/drops/id-sample/preview"
   },
   {
-    "sourcePathname": "/assets/id-sample/preview/gallery",
-    "targetPathname": "/drops/id-sample/preview/photos"
+    "sourcePathname": "/drops/id-sample/preview/photos",
+    "targetPathname": "/drops/id-sample/preview/gallery"
+  },
+  {
+    "sourcePathname": "/assets/id-sample/preview/photos",
+    "targetPathname": "/drops/id-sample/preview/gallery"
   },
   {
     "sourcePathname": "/assets/id-sample/watch",
@@ -64,8 +80,16 @@ const redirectCases = [
     "targetPathname": "/drops/id-sample/read"
   },
   {
+    "sourcePathname": "/drops/id-sample/photos",
+    "targetPathname": "/drops/id-sample/gallery"
+  },
+  {
+    "sourcePathname": "/assets/id-sample/photos",
+    "targetPathname": "/drops/id-sample/gallery"
+  },
+  {
     "sourcePathname": "/assets/id-sample/view",
-    "targetPathname": "/drops/id-sample/photos"
+    "targetPathname": "/drops/id-sample/gallery"
   },
   {
     "sourcePathname": "/my-assets",
@@ -80,16 +104,32 @@ const redirectCases = [
     "targetPathname": "/my-collection"
   },
   {
+    "sourcePathname": "/library",
+    "targetPathname": "/favorites"
+  },
+  {
     "sourcePathname": "/saved",
-    "targetPathname": "/library"
+    "targetPathname": "/favorites"
   },
   {
     "sourcePathname": "/bookmarks",
-    "targetPathname": "/library"
+    "targetPathname": "/favorites"
   },
   {
     "sourcePathname": "/studio",
     "targetPathname": "/workshop"
+  },
+  {
+    "sourcePathname": "/workshop/analytics",
+    "targetPathname": "/dashboard"
+  },
+  {
+    "sourcePathname": "/workshop/campaigns",
+    "targetPathname": "/my-campaigns"
+  },
+  {
+    "sourcePathname": "/workshop/payouts",
+    "targetPathname": "/payouts"
   }
 ] as const;
 const metadataCases = [
@@ -108,8 +148,43 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/worlds",
-    "surfaceKey": "world_index",
+    "pathname": "/townhall",
+    "surfaceKey": "townhall",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/watch",
+    "surfaceKey": "townhall_watch",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/listen",
+    "surfaceKey": "townhall_listen",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/read",
+    "surfaceKey": "townhall_read",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/gallery",
+    "surfaceKey": "townhall_gallery",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/live",
+    "surfaceKey": "townhall_live",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -136,8 +211,31 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/live-now",
-    "surfaceKey": "live_now_hub",
+    "pathname": "/gallery",
+    "surfaceKey": "gallery_hub",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/live",
+    "surfaceKey": "live_hub",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/collect",
+    "surfaceKey": "collect_entry",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/auctions",
+    "surfaceKey": "auctions",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -157,6 +255,31 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
+    "pathname": "/auth/wallet-connect",
+    "surfaceKey": "wallet_connect",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/auth/wallet-link",
+    "surfaceKey": "wallet_link",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/onboarding/profile-setup",
+    "surfaceKey": "profile_setup",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
     "pathname": "/logout",
     "surfaceKey": "logout",
     "publicSafe": "false",
@@ -166,17 +289,15 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/space-setup",
-    "surfaceKey": "first_run_space_setup",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "collector"
-    ]
+    "pathname": "/studio/handle-sample",
+    "surfaceKey": "studio_public",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
   },
   {
-    "pathname": "/studios/handle-sample",
-    "surfaceKey": "studio_public",
+    "pathname": "/worlds",
+    "surfaceKey": "world_index",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -238,8 +359,8 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/drops/id-sample/preview/photos",
-    "surfaceKey": "drop_preview_photos",
+    "pathname": "/drops/id-sample/preview/gallery",
+    "surfaceKey": "drop_preview_gallery",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -272,8 +393,8 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/drops/id-sample/photos",
-    "surfaceKey": "drop_full_photos",
+    "pathname": "/drops/id-sample/gallery",
+    "surfaceKey": "drop_full_gallery",
     "publicSafe": "false",
     "hasSession": true,
     "sessionRoles": [
@@ -299,8 +420,8 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/library",
-    "surfaceKey": "library_saved",
+    "pathname": "/favorites",
+    "surfaceKey": "favorites_saved",
     "publicSafe": "false",
     "hasSession": true,
     "sessionRoles": [
@@ -315,6 +436,24 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
+    "pathname": "/invest",
+    "surfaceKey": "invest",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/create",
+    "surfaceKey": "create",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
     "pathname": "/workshop",
     "surfaceKey": "workshop_root",
     "publicSafe": "false",
@@ -322,14 +461,92 @@ const metadataCases = [
     "sessionRoles": [
       "creator"
     ]
+  },
+  {
+    "pathname": "/dashboard",
+    "surfaceKey": "dashboard_analytics",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/my-campaigns",
+    "surfaceKey": "my_campaigns",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/payouts",
+    "surfaceKey": "payouts",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/settings/account",
+    "surfaceKey": "settings_account",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/settings/security",
+    "surfaceKey": "settings_security",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/settings/apps",
+    "surfaceKey": "settings_apps",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/settings/notifications",
+    "surfaceKey": "settings_notifications",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/following",
+    "surfaceKey": "following",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
   }
 ] as const;
 const sessionCases = [
   {
-    "pathname": "/logout"
+    "pathname": "/collect"
   },
   {
-    "pathname": "/space-setup"
+    "pathname": "/auth/wallet-link"
+  },
+  {
+    "pathname": "/onboarding/profile-setup"
+  },
+  {
+    "pathname": "/logout"
   },
   {
     "pathname": "/drops/id-sample/watch"
@@ -341,7 +558,7 @@ const sessionCases = [
     "pathname": "/drops/id-sample/read"
   },
   {
-    "pathname": "/drops/id-sample/photos"
+    "pathname": "/drops/id-sample/gallery"
   },
   {
     "pathname": "/pay/buy/drop_id-sample"
@@ -350,15 +567,45 @@ const sessionCases = [
     "pathname": "/my-collection"
   },
   {
-    "pathname": "/library"
+    "pathname": "/favorites"
+  },
+  {
+    "pathname": "/invest"
+  },
+  {
+    "pathname": "/create"
   },
   {
     "pathname": "/workshop"
+  },
+  {
+    "pathname": "/dashboard"
+  },
+  {
+    "pathname": "/my-campaigns"
+  },
+  {
+    "pathname": "/payouts"
+  },
+  {
+    "pathname": "/settings/account"
+  },
+  {
+    "pathname": "/settings/security"
+  },
+  {
+    "pathname": "/settings/apps"
+  },
+  {
+    "pathname": "/settings/notifications"
+  },
+  {
+    "pathname": "/following"
   }
 ] as const;
 const roleRequiredCases = [
   {
-    "pathname": "/logout",
+    "pathname": "/collect",
     "allowedRoles": [
       "collector",
       "creator"
@@ -366,7 +613,23 @@ const roleRequiredCases = [
     "disallowedRole": null
   },
   {
-    "pathname": "/space-setup",
+    "pathname": "/auth/wallet-link",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/onboarding/profile-setup",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/logout",
     "allowedRoles": [
       "collector",
       "creator"
@@ -398,7 +661,7 @@ const roleRequiredCases = [
     "disallowedRole": null
   },
   {
-    "pathname": "/drops/id-sample/photos",
+    "pathname": "/drops/id-sample/gallery",
     "allowedRoles": [
       "collector",
       "creator"
@@ -422,7 +685,7 @@ const roleRequiredCases = [
     "disallowedRole": null
   },
   {
-    "pathname": "/library",
+    "pathname": "/favorites",
     "allowedRoles": [
       "collector",
       "creator"
@@ -430,19 +693,101 @@ const roleRequiredCases = [
     "disallowedRole": null
   },
   {
+    "pathname": "/invest",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/create",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
     "pathname": "/workshop",
     "allowedRoles": [
       "creator"
     ],
     "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/dashboard",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/my-campaigns",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/payouts",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/settings/account",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/settings/security",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/settings/apps",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/settings/notifications",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/following",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
   }
 ] as const;
 const proofSessionCases = [
   {
-    "pathname": "/logout"
+    "pathname": "/collect"
   },
   {
-    "pathname": "/space-setup"
+    "pathname": "/auth/wallet-link"
+  },
+  {
+    "pathname": "/onboarding/profile-setup"
+  },
+  {
+    "pathname": "/logout"
   },
   {
     "pathname": "/drops/id-sample/watch"
@@ -454,7 +799,7 @@ const proofSessionCases = [
     "pathname": "/drops/id-sample/read"
   },
   {
-    "pathname": "/drops/id-sample/photos"
+    "pathname": "/drops/id-sample/gallery"
   },
   {
     "pathname": "/pay/buy/drop_id-sample"
@@ -463,10 +808,40 @@ const proofSessionCases = [
     "pathname": "/my-collection"
   },
   {
-    "pathname": "/library"
+    "pathname": "/favorites"
+  },
+  {
+    "pathname": "/invest"
+  },
+  {
+    "pathname": "/create"
   },
   {
     "pathname": "/workshop"
+  },
+  {
+    "pathname": "/dashboard"
+  },
+  {
+    "pathname": "/my-campaigns"
+  },
+  {
+    "pathname": "/payouts"
+  },
+  {
+    "pathname": "/settings/account"
+  },
+  {
+    "pathname": "/settings/security"
+  },
+  {
+    "pathname": "/settings/apps"
+  },
+  {
+    "pathname": "/settings/notifications"
+  },
+  {
+    "pathname": "/following"
   }
 ] as const;
 const proofPublicSafeCases = [
@@ -486,7 +861,7 @@ const proofPublicSafeCases = [
     "pathname": "/drops/id-sample/preview"
   },
   {
-    "pathname": "/drops/id-sample/preview/photos"
+    "pathname": "/drops/id-sample/preview/gallery"
   },
   {
     "pathname": "/certificates/cert_id-sample"

@@ -42,5 +42,5 @@ export async function signUpAction(formData: FormData): Promise<void> {
     maxAge: 60 * 60 * 24 * 14
   });
 
-  redirect(normalizeReturnTo(returnTo, "/space-setup") as Route);
+  redirect(normalizeReturnTo(returnTo, "/onboarding/profile-setup") as Route);
 }

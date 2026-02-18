@@ -4,7 +4,7 @@ import type { Drop, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
-type MediaHubMode = "watch" | "listen" | "read";
+type MediaHubMode = "watch" | "listen" | "read" | "gallery";
 
 type MediaHubScreenProps = {
   mode: MediaHubMode;
@@ -33,13 +33,19 @@ const MODE_COPY: Record<MediaHubMode, ModeCopy> = {
     subtitle: "read hub for text-first discovery",
     intro: "browse recent drops and jump directly into the read surface.",
     primaryActionLabel: "read"
+  },
+  gallery: {
+    subtitle: "gallery hub for still-image discovery",
+    intro: "browse recent drops and jump directly into the gallery surface.",
+    primaryActionLabel: "gallery"
   }
 };
 
 function getMediaRoute(mode: MediaHubMode, dropId: string): ReturnType<typeof routes.dropWatch> {
   if (mode === "watch") return routes.dropWatch(dropId);
   if (mode === "listen") return routes.dropListen(dropId);
-  return routes.dropRead(dropId);
+  if (mode === "read") return routes.dropRead(dropId);
+  return routes.dropPhotos(dropId);
 }
 
 function getPrimaryHref(mode: MediaHubMode, dropId: string, session: Session | null) {
@@ -76,8 +82,11 @@ export function MediaHubScreen({ mode, session, drops }: MediaHubScreenProps) {
           <Link href={routes.readHub()} className={navClass(mode === "read")}>
             read
           </Link>
-          <Link href={routes.liveNow()} className={navClass(false)}>
-            live now
+          <Link href={routes.galleryHub()} className={navClass(mode === "gallery")}>
+            gallery
+          </Link>
+          <Link href={routes.liveHub()} className={navClass(false)}>
+            live
           </Link>
         </div>
 
