@@ -2,8 +2,31 @@
 
 import { gateway } from "@/lib/gateway";
 import { SESSION_COOKIE } from "@/lib/session";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+
+function trimTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+async function resolveAppBaseUrl(): Promise<string> {
+  const configured = process.env.OOK_APP_BASE_URL?.trim();
+  if (configured) {
+    return trimTrailingSlashes(configured);
+  }
+
+  const headerStore = await headers();
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+  if (!host) {
+    return "http://127.0.0.1:3000";
+  }
+
+  const protocol =
+    headerStore.get("x-forwarded-proto") ??
+    (process.env.NODE_ENV === "production" ? "https" : "http");
+
+  return `${protocol}://${host}`;
+}
 
 export async function purchaseDropAction(formData: FormData): Promise<void> {
   const dropId = String(formData.get("drop_id") ?? "").trim();
@@ -20,7 +43,7 @@ export async function purchaseDropAction(formData: FormData): Promise<void> {
     redirect(`/auth/sign-in?returnTo=${encodeURIComponent(`/pay/buy/${dropId}`)}`);
   }
 
-  const baseUrl = process.env.OOK_APP_BASE_URL?.trim() || "http://127.0.0.1:3000";
+  const baseUrl = await resolveAppBaseUrl();
   const checkoutSession = await gateway.createCheckoutSession(session.accountId, dropId, {
     successUrl: `${baseUrl}/my-collection?status=checkout_success`,
     cancelUrl: `${baseUrl}/pay/buy/${encodeURIComponent(dropId)}?status=checkout_cancelled`
