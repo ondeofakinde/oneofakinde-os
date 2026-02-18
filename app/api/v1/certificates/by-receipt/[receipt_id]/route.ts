@@ -1,8 +1,8 @@
+import { requireRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
 import {
   badRequest,
   getRequiredRouteParam,
-  getRequiredSearchParam,
   notFound,
   ok,
   type RouteContext
@@ -18,12 +18,12 @@ export async function GET(request: Request, context: RouteContext<Params>) {
     return badRequest("receipt_id is required");
   }
 
-  const accountId = getRequiredSearchParam(new URL(request.url), "account_id");
-  if (!accountId) {
-    return badRequest("account_id is required");
+  const guard = await requireRequestSession(request);
+  if (!guard.ok) {
+    return guard.response;
   }
 
-  const certificate = await commerceBffService.getCertificateByReceipt(accountId, receiptId);
+  const certificate = await commerceBffService.getCertificateByReceipt(guard.session.accountId, receiptId);
   if (!certificate) {
     return notFound("certificate not found");
   }

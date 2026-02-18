@@ -1,17 +1,13 @@
+import { requireRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
-import { badRequest, getRequiredBodyString, ok, safeJson } from "@/lib/bff/http";
-
-type SessionClearBody = {
-  sessionToken?: string;
-};
+import { ok } from "@/lib/bff/http";
 
 export async function POST(request: Request) {
-  const payload = await safeJson<SessionClearBody>(request);
-  const sessionToken = getRequiredBodyString(payload as Record<string, unknown> | null, "sessionToken");
-  if (!sessionToken) {
-    return badRequest("sessionToken is required");
+  const guard = await requireRequestSession(request);
+  if (!guard.ok) {
+    return guard.response;
   }
 
-  await commerceBffService.clearSession(sessionToken);
+  await commerceBffService.clearSession(guard.session.sessionToken);
   return ok({ cleared: true });
 }

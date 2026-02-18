@@ -1,8 +1,8 @@
+import { requireRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
 import {
   badRequest,
   getRequiredRouteParam,
-  getRequiredSearchParam,
   ok,
   type RouteContext
 } from "@/lib/bff/http";
@@ -17,11 +17,11 @@ export async function GET(request: Request, context: RouteContext<Params>) {
     return badRequest("drop_id is required");
   }
 
-  const accountId = getRequiredSearchParam(new URL(request.url), "account_id");
-  if (!accountId) {
-    return badRequest("account_id is required");
+  const guard = await requireRequestSession(request);
+  if (!guard.ok) {
+    return guard.response;
   }
 
-  const hasEntitlement = await commerceBffService.hasDropEntitlement(accountId, dropId);
+  const hasEntitlement = await commerceBffService.hasDropEntitlement(guard.session.accountId, dropId);
   return ok({ hasEntitlement });
 }

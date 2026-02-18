@@ -1,13 +1,14 @@
+import { requireRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
-import { badRequest, getRequiredSearchParam, notFound, ok } from "@/lib/bff/http";
+import { notFound, ok } from "@/lib/bff/http";
 
 export async function GET(request: Request) {
-  const accountId = getRequiredSearchParam(new URL(request.url), "account_id");
-  if (!accountId) {
-    return badRequest("account_id is required");
+  const guard = await requireRequestSession(request);
+  if (!guard.ok) {
+    return guard.response;
   }
 
-  const collection = await commerceBffService.getMyCollection(accountId);
+  const collection = await commerceBffService.getMyCollection(guard.session.accountId);
   if (!collection) {
     return notFound("collection not found");
   }
