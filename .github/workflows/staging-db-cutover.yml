@@ -1,0 +1,45 @@
+name: staging-db-cutover
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate-and-dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    env:
+      OOK_BFF_PERSISTENCE_BACKEND: postgres
+      OOK_BFF_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      OOK_BFF_DATABASE_SSL: require
+      OOK_APP_ENV: staging
+      OOK_BFF_POSTGRES_SEED_STRATEGY: catalog
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: verify staging secret
+        run: |
+          if [ -z "${OOK_BFF_DATABASE_URL}" ]; then
+            echo "missing required secret: STAGING_DATABASE_URL"
+            exit 1
+          fi
+
+      - name: migrate bff postgres schema
+        run: npm run db:migrate:bff
+
+      - name: run staging postgres dry run
+        run: npm run db:dry-run:staging
