@@ -160,6 +160,11 @@ function resolveRuntimeEnvironment(): string {
     return vercel;
   }
 
+  const nodeEnv = process.env.NODE_ENV?.trim().toLowerCase();
+  if (nodeEnv) {
+    return nodeEnv;
+  }
+
   return "";
 }
 

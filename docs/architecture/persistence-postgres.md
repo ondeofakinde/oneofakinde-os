@@ -19,7 +19,8 @@ The backend is selected in this order:
 Production cutover is enabled when either:
 
 - `OOK_APP_ENV=production`, or
-- `VERCEL_ENV=production`
+- `VERCEL_ENV=production`, or
+- `NODE_ENV=production`
 
 When enabled:
 

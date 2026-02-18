@@ -5,6 +5,7 @@ import { getPersistenceBackend } from "../../lib/bff/persistence";
 const ENV_KEYS = [
   "OOK_APP_ENV",
   "VERCEL_ENV",
+  "NODE_ENV",
   "OOK_BFF_PERSISTENCE_BACKEND",
   "OOK_BFF_DB_PATH",
   "OOK_BFF_DATABASE_URL",
@@ -106,6 +107,22 @@ test("persistence cutover: non-production can use file backend", async () => {
     },
     () => {
       assert.equal(getPersistenceBackend(), "file");
+    }
+  );
+});
+
+test("persistence cutover: NODE_ENV production enforces postgres", async () => {
+  await withEnv(
+    {
+      OOK_APP_ENV: null,
+      VERCEL_ENV: null,
+      NODE_ENV: "production",
+      OOK_BFF_PERSISTENCE_BACKEND: null,
+      OOK_BFF_DB_PATH: null,
+      OOK_BFF_DATABASE_URL: "postgres://example.com/ook"
+    },
+    () => {
+      assert.equal(getPersistenceBackend(), "postgres");
     }
   );
 });
