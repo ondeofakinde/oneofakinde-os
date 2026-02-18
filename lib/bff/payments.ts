@@ -47,6 +47,18 @@ function withFallbackUrl(url: string, fallbackPath: string): string {
   return normalized || fallbackPath;
 }
 
+function resolveAbsoluteAppUrl(input: string | null | undefined, fallbackPath: string): string {
+  const candidate = withFallbackUrl(input ?? "", fallbackPath);
+  if (/^https?:\/\//i.test(candidate)) {
+    return candidate;
+  }
+
+  const configuredBase = process.env.OOK_APP_BASE_URL?.trim() || "http://127.0.0.1:3000";
+  const normalizedBase = configuredBase.replace(/\/+$/, "");
+  const normalizedPath = candidate.startsWith("/") ? candidate : "/" + candidate;
+  return normalizedBase + normalizedPath;
+}
+
 function amountToStripeCents(amountUsd: number): string {
   return String(Math.round(amountUsd * 100));
 }
@@ -117,8 +129,8 @@ async function createStripeCheckoutSession(input: CreateCheckoutInput): Promise<
 
   const body = new URLSearchParams();
   body.set("mode", "payment");
-  body.set("success_url", withFallbackUrl(input.successUrl, "http://127.0.0.1:3000/my-collection?payment=success"));
-  body.set("cancel_url", withFallbackUrl(input.cancelUrl, "http://127.0.0.1:3000/pay/buy/" + input.drop.id + "?payment=cancel"));
+  body.set("success_url", resolveAbsoluteAppUrl(input.successUrl, "/my-collection?payment=success"));
+  body.set("cancel_url", resolveAbsoluteAppUrl(input.cancelUrl, "/pay/buy/" + input.drop.id + "?payment=cancel"));
   body.set("line_items[0][quantity]", "1");
   body.set("line_items[0][price_data][currency]", "usd");
   body.set("line_items[0][price_data][unit_amount]", amountToStripeCents(input.amountUsd));
