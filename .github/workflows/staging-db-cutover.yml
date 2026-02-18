@@ -17,6 +17,7 @@ jobs:
       OOK_BFF_DATABASE_SSL: require
       OOK_APP_ENV: staging
       OOK_BFF_POSTGRES_SEED_STRATEGY: catalog
+      NODE_OPTIONS: --dns-result-order=ipv4first
 
     steps:
       - name: checkout
