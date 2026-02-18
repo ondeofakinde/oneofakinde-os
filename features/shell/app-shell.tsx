@@ -2,7 +2,7 @@ import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
-type AppShellNavKey = "explore" | "my_collection" | "worlds";
+type AppShellNavKey = "explore" | "townhall" | "my_collection" | "favorites" | "worlds";
 
 type AppShellProps = {
   title: string;
@@ -23,10 +23,10 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
         </div>
 
         <nav className="slice-nav" aria-label="primary">
-          <Link
-            href={routes.explore()}
-            className={`slice-link ${activeNav === "explore" ? "active" : ""}`}
-          >
+          <Link href={routes.townhall()} className={`slice-link ${activeNav === "townhall" ? "active" : ""}`}>
+            townhall
+          </Link>
+          <Link href={routes.explore()} className={`slice-link ${activeNav === "explore" ? "active" : ""}`}>
             explore
           </Link>
           <Link
@@ -35,10 +35,10 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
           >
             my collection
           </Link>
-          <Link
-            href={routes.worlds()}
-            className={`slice-link ${activeNav === "worlds" ? "active" : ""}`}
-          >
+          <Link href={routes.favorites()} className={`slice-link ${activeNav === "favorites" ? "active" : ""}`}>
+            favorites
+          </Link>
+          <Link href={routes.worlds()} className={`slice-link ${activeNav === "worlds" ? "active" : ""}`}>
             worlds
           </Link>
           {session ? (
@@ -53,11 +53,7 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
         </nav>
       </header>
 
-      {session ? (
-        <p className="slice-session">signed in as @{session.handle}</p>
-      ) : (
-        <p className="slice-session">public preview mode</p>
-      )}
+      {session ? <p className="slice-session">signed in as @{session.handle}</p> : <p className="slice-session">public preview mode</p>}
 
       <section className="slice-content">{children}</section>
     </main>

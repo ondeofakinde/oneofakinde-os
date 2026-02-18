@@ -17,7 +17,7 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function SignUpPage({ searchParams }: SignUpPageProps) {
   const resolvedParams = await searchParams;
-  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/space-setup");
+  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/onboarding/profile-setup");
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
 
@@ -26,7 +26,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
       <section className="slice-panel auth-panel">
         <p className="slice-kicker">oneofakinde</p>
         <h1 className="slice-h1">sign up</h1>
-        <p className="slice-copy">create your account and continue into space setup.</p>
+        <p className="slice-copy">create your account and continue into profile setup.</p>
 
         <form action={signUpAction} className="slice-form">
           <input type="hidden" name="returnTo" value={returnTo} />
