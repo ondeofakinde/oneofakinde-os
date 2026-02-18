@@ -1,12 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 
+type SurfaceRole = "public" | "collector" | "creator";
+
 type SurfaceMap = {
   surfaces: Array<{
     route: string;
     surface_key: string;
     public_safe: boolean;
     proof_ids: string[];
+    roles: SurfaceRole[];
   }>;
   legacy_redirects: Record<string, string>;
 };
@@ -26,6 +29,21 @@ const surfaceMap = JSON.parse(fs.readFileSync(sourcePath, "utf8")) as SurfaceMap
 
 function routeParamNames(routePattern: string): string[] {
   return [...routePattern.matchAll(/:([a-zA-Z0-9_]+)/g)].map((match) => match[1]);
+}
+
+function dedupeByPathname<T extends { pathname: string }>(entries: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+
+  for (const entry of entries) {
+    if (seen.has(entry.pathname)) {
+      continue;
+    }
+    seen.add(entry.pathname);
+    result.push(entry);
+  }
+
+  return result;
 }
 
 function instantiateRoute(routePattern: string): string {
@@ -65,10 +83,40 @@ function mapLegacyToCanonicalPath(legacyPattern: string, canonicalPattern: strin
   return { sourcePathname, targetPathname };
 }
 
+function getRoleRequirements(surface: SurfaceMap["surfaces"][number]): Array<"collector" | "creator"> {
+  if (!Array.isArray(surface.roles) || surface.roles.includes("public")) {
+    return [];
+  }
+
+  return surface.roles.filter((role): role is "collector" | "creator" => role === "collector" || role === "creator");
+}
+
+function pickDisallowedRole(
+  allowedRoles: Array<"collector" | "creator">
+): "collector" | "creator" | null {
+  const roleCandidates: Array<"collector" | "creator"> = ["collector", "creator"];
+  return roleCandidates.find((role) => !allowedRoles.includes(role)) ?? null;
+}
+
+const proofIdsExpectSessionGate = new Set([
+  "p_session_required",
+  "p_media_gate_entitlement",
+  "p_stripe_checkout_redirect",
+  "p_first_run_destination"
+]);
+
+const proofIdsExpectPublicSafe = new Set([
+  "p_public_safe_render",
+  "p_preview_safe_only",
+  "p_public_cert_verify"
+]);
+
 const metadataCases = surfaceMap.surfaces.map((surface) => ({
   pathname: instantiateRoute(surface.route),
   surfaceKey: surface.surface_key,
-  publicSafe: String(surface.public_safe)
+  publicSafe: String(surface.public_safe),
+  hasSession: getRoleRequirements(surface).length > 0,
+  sessionRoles: getRoleRequirements(surface).slice(0, 1)
 }));
 
 const sessionCases = surfaceMap.surfaces
@@ -76,6 +124,45 @@ const sessionCases = surfaceMap.surfaces
   .map((surface) => ({
     pathname: instantiateRoute(surface.route)
   }));
+
+const roleRequiredCases = surfaceMap.surfaces
+  .map((surface) => {
+    const roleRequirements = getRoleRequirements(surface);
+    if (roleRequirements.length === 0) {
+      return null;
+    }
+
+    return {
+      pathname: instantiateRoute(surface.route),
+      allowedRoles: roleRequirements,
+      disallowedRole: pickDisallowedRole(roleRequirements)
+    };
+  })
+  .filter(
+    (
+      entry
+    ): entry is {
+      pathname: string;
+      allowedRoles: Array<"collector" | "creator">;
+      disallowedRole: "collector" | "creator" | null;
+    } => entry !== null
+  );
+
+const proofSessionCases = dedupeByPathname(
+  surfaceMap.surfaces
+    .filter((surface) => surface.proof_ids.some((proofId) => proofIdsExpectSessionGate.has(proofId)))
+    .map((surface) => ({
+      pathname: instantiateRoute(surface.route)
+    }))
+);
+
+const proofPublicSafeCases = dedupeByPathname(
+  surfaceMap.surfaces
+    .filter((surface) => surface.proof_ids.some((proofId) => proofIdsExpectPublicSafe.has(proofId)))
+    .map((surface) => ({
+      pathname: instantiateRoute(surface.route)
+    }))
+);
 
 const allLegacyCases = Object.entries(surfaceMap.legacy_redirects).map(
   ([legacyPattern, canonicalPattern]) => {
@@ -98,6 +185,9 @@ import { evaluateRoutePolicy } from "../../lib/route-policy";
 const redirectCases = ${JSON.stringify(redirectCases, null, 2)} as const;
 const metadataCases = ${JSON.stringify(metadataCases, null, 2)} as const;
 const sessionCases = ${JSON.stringify(sessionCases, null, 2)} as const;
+const roleRequiredCases = ${JSON.stringify(roleRequiredCases, null, 2)} as const;
+const proofSessionCases = ${JSON.stringify(proofSessionCases, null, 2)} as const;
+const proofPublicSafeCases = ${JSON.stringify(proofPublicSafeCases, null, 2)} as const;
 
 test("generated legacy redirects map to canonical pathnames", () => {
   for (const testCase of redirectCases) {
@@ -120,13 +210,50 @@ test("generated route metadata headers match surface definitions", () => {
     const decision = evaluateRoutePolicy({
       pathname: testCase.pathname,
       search: "",
-      hasSession: true
+      hasSession: testCase.hasSession,
+      sessionRoles: testCase.sessionRoles
     });
 
     assert.equal(decision.kind, "next");
     if (decision.kind === "next") {
       assert.equal(decision.headers["x-ook-surface-key"], testCase.surfaceKey);
       assert.equal(decision.headers["x-ook-public-safe"], testCase.publicSafe);
+    }
+  }
+});
+
+test("generated role-gated surfaces allow configured roles", () => {
+  for (const testCase of roleRequiredCases) {
+    const decision = evaluateRoutePolicy({
+      pathname: testCase.pathname,
+      search: "",
+      hasSession: true,
+      sessionRoles: testCase.allowedRoles
+    });
+
+    assert.equal(decision.kind, "next");
+  }
+});
+
+test("generated role-gated surfaces redirect disallowed roles", () => {
+  for (const testCase of roleRequiredCases) {
+    if (!testCase.disallowedRole) {
+      continue;
+    }
+
+    const decision = evaluateRoutePolicy({
+      pathname: testCase.pathname,
+      search: "",
+      hasSession: true,
+      sessionRoles: [testCase.disallowedRole]
+    });
+
+    assert.equal(decision.kind, "redirect");
+    if (decision.kind === "redirect") {
+      assert.equal(decision.status, 307);
+      assert.equal(decision.pathname, "/auth/sign-in");
+      assert.equal(decision.searchParams.returnTo, testCase.pathname);
+      assert.equal(decision.searchParams.error, "role_required");
     }
   }
 });
@@ -147,6 +274,38 @@ test("generated session-required surfaces redirect when session is missing", () 
     }
   }
 });
+
+test("generated proof-id session-gated surfaces redirect when session is missing", () => {
+  for (const testCase of proofSessionCases) {
+    const decision = evaluateRoutePolicy({
+      pathname: testCase.pathname,
+      search: "",
+      hasSession: false
+    });
+
+    assert.equal(decision.kind, "redirect");
+    if (decision.kind === "redirect") {
+      assert.equal(decision.status, 307);
+      assert.equal(decision.pathname, "/auth/sign-in");
+      assert.equal(decision.searchParams.returnTo, testCase.pathname);
+    }
+  }
+});
+
+test("generated proof-id public-safe surfaces stay public", () => {
+  for (const testCase of proofPublicSafeCases) {
+    const decision = evaluateRoutePolicy({
+      pathname: testCase.pathname,
+      search: "",
+      hasSession: false
+    });
+
+    assert.equal(decision.kind, "next");
+    if (decision.kind === "next") {
+      assert.equal(decision.headers["x-ook-public-safe"], "true");
+    }
+  }
+});
 `;
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -156,3 +315,6 @@ console.log(`generated ${outputPath}`);
 console.log(`legacy redirect cases: ${redirectCases.length}`);
 console.log(`metadata cases: ${metadataCases.length}`);
 console.log(`session cases: ${sessionCases.length}`);
+console.log(`role cases: ${roleRequiredCases.length}`);
+console.log(`proof session cases: ${proofSessionCases.length}`);
+console.log(`proof public-safe cases: ${proofPublicSafeCases.length}`);

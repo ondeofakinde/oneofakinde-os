@@ -1,4 +1,4 @@
-name: quality-gates
+name: quality-security-release-gates
 
 on:
   pull_request:
@@ -7,6 +7,9 @@ on:
       - main
       - master
       - "codex/**"
+
+permissions:
+  contents: read
 
 jobs:
   quality-gates:
@@ -40,3 +43,58 @@ jobs:
 
       - name: build
         run: npm run build
+
+  security-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: dependency security audit
+        run: npm run security:audit
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: enforce release governance
+        run: npm run release:governance

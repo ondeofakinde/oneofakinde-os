@@ -16,6 +16,8 @@ This package defines the target software architecture for oneofakinde OS using t
   - Drift-proof controls, CI/CD quality gates, and operational checks.
 - `05-roadmap-and-workplan.md`
   - Phased rollout plan with risk controls.
+- `06-ops-security-release-gates.md`
+  - Security scanning, observability hooks, and release governance controls.
 
 ## Source Basis
 

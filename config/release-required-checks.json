@@ -1,0 +1,8 @@
+{
+  "required_checks": [
+    "quality-gates",
+    "security-audit",
+    "secret-scan",
+    "release-governance"
+  ]
+}

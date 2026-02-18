@@ -1,12 +1,16 @@
 import { evaluateRoutePolicy } from "@/lib/route-policy";
-import { SESSION_COOKIE } from "@/lib/session";
+import { parseSessionRoles, SESSION_COOKIE, SESSION_ROLES_COOKIE } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
+  const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+  const sessionRoles = parseSessionRoles(request.cookies.get(SESSION_ROLES_COOKIE)?.value);
+
   const decision = evaluateRoutePolicy({
     pathname: request.nextUrl.pathname,
     search: request.nextUrl.search,
-    hasSession: Boolean(request.cookies.get(SESSION_COOKIE)?.value)
+    hasSession,
+    sessionRoles
   });
 
   if (decision.kind === "redirect") {

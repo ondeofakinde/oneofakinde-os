@@ -1,0 +1,6 @@
+* @pantallero
+
+/.github/workflows/* @pantallero
+/config/surface-map.generated.json @pantallero
+/config/release-required-checks.json @pantallero
+/docs/architecture/* @pantallero

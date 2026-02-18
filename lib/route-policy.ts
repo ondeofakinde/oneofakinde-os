@@ -1,9 +1,11 @@
 import { getLegacyRedirect, getRouteMeta, isSessionRequiredRoute } from "./surface-map";
+import type { AccountRole } from "./domain/contracts";
 
 export type RoutePolicyInput = {
   pathname: string;
   search: string;
   hasSession: boolean;
+  sessionRoles?: readonly AccountRole[];
 };
 
 export type RoutePolicyDecision =
@@ -18,7 +20,36 @@ export type RoutePolicyDecision =
       headers: Record<string, string>;
     };
 
-export function evaluateRoutePolicy({ pathname, search, hasSession }: RoutePolicyInput): RoutePolicyDecision {
+function toSignInRedirect(pathname: string, search: string): RoutePolicyDecision {
+  return {
+    kind: "redirect",
+    status: 307,
+    pathname: "/auth/sign-in",
+    searchParams: {
+      returnTo: `${pathname}${search}`
+    }
+  };
+}
+
+function getNonPublicRoles(pathname: string): AccountRole[] {
+  const meta = getRouteMeta(pathname);
+  if (!meta || !Array.isArray(meta.roles)) {
+    return [];
+  }
+
+  if (meta.roles.includes("public")) {
+    return [];
+  }
+
+  return meta.roles.filter((role): role is AccountRole => role === "collector" || role === "creator");
+}
+
+export function evaluateRoutePolicy({
+  pathname,
+  search,
+  hasSession,
+  sessionRoles = []
+}: RoutePolicyInput): RoutePolicyDecision {
   const legacyRedirect = getLegacyRedirect(pathname);
 
   if (legacyRedirect) {
@@ -30,15 +61,26 @@ export function evaluateRoutePolicy({ pathname, search, hasSession }: RoutePolic
     };
   }
 
-  if (isSessionRequiredRoute(pathname) && !hasSession) {
-    return {
-      kind: "redirect",
-      status: 307,
-      pathname: "/auth/sign-in",
-      searchParams: {
-        returnTo: `${pathname}${search}`
-      }
-    };
+  const roleRequirements = getNonPublicRoles(pathname);
+  const sessionRoleSet = new Set(sessionRoles.filter((role) => role === "collector" || role === "creator"));
+
+  if ((isSessionRequiredRoute(pathname) || roleRequirements.length > 0) && !hasSession) {
+    return toSignInRedirect(pathname, search);
+  }
+
+  if (roleRequirements.length > 0) {
+    const allowed = roleRequirements.some((requiredRole) => sessionRoleSet.has(requiredRole));
+    if (!allowed) {
+      return {
+        kind: "redirect",
+        status: 307,
+        pathname: "/auth/sign-in",
+        searchParams: {
+          returnTo: `${pathname}${search}`,
+          error: "role_required"
+        }
+      };
+    }
   }
 
   const meta = getRouteMeta(pathname);

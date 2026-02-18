@@ -21,7 +21,8 @@ test("legacy redirect supports renamed params", () => {
   const decision = evaluateRoutePolicy({
     pathname: "/pay/buy/voidrunner",
     search: "",
-    hasSession: true
+    hasSession: true,
+    sessionRoles: ["collector"]
   });
 
   assert.equal(decision.kind, "next");
@@ -51,7 +52,8 @@ test("route metadata headers are attached on next decision", () => {
   const decision = evaluateRoutePolicy({
     pathname: "/my-collection",
     search: "",
-    hasSession: true
+    hasSession: true,
+    sessionRoles: ["collector"]
   });
 
   assert.equal(decision.kind, "next");
@@ -59,4 +61,23 @@ test("route metadata headers are attached on next decision", () => {
     assert.equal(decision.headers["x-ook-surface-key"], "my_collection_owned");
     assert.equal(decision.headers["x-ook-public-safe"], "false");
   }
+});
+
+test("creator-only route redirects collectors to role-required sign in", () => {
+  const decision = evaluateRoutePolicy({
+    pathname: "/workshop",
+    search: "",
+    hasSession: true,
+    sessionRoles: ["collector"]
+  });
+
+  assert.deepEqual(decision, {
+    kind: "redirect",
+    status: 307,
+    pathname: "/auth/sign-in",
+    searchParams: {
+      returnTo: "/workshop",
+      error: "role_required"
+    }
+  });
 });

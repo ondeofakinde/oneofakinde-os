@@ -2,7 +2,7 @@
 
 import { gateway } from "@/lib/gateway";
 import type { AccountRole } from "@/lib/domain/contracts";
-import { normalizeReturnTo, SESSION_COOKIE } from "@/lib/session";
+import { normalizeReturnTo, serializeSessionRoles, SESSION_COOKIE, SESSION_ROLES_COOKIE } from "@/lib/session";
 import { cookies } from "next/headers";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
@@ -26,6 +26,15 @@ export async function signInAction(formData: FormData): Promise<void> {
   cookieStore.set({
     name: SESSION_COOKIE,
     value: session.sessionToken,
+    httpOnly: true,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 14
+  });
+  cookieStore.set({
+    name: SESSION_ROLES_COOKIE,
+    value: serializeSessionRoles(session.roles),
     httpOnly: true,
     path: "/",
     sameSite: "lax",

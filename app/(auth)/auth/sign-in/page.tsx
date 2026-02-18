@@ -16,7 +16,9 @@ function firstParam(value: string | string[] | undefined): string | null {
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const resolvedParams = await searchParams;
   const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo));
-  const hasError = firstParam(resolvedParams.error) === "invalid_email";
+  const errorCode = firstParam(resolvedParams.error);
+  const hasInvalidEmail = errorCode === "invalid_email";
+  const hasRoleError = errorCode === "role_required";
 
   return (
     <main className="slice-shell">
@@ -48,7 +50,10 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             </select>
           </label>
 
-          {hasError ? <p className="slice-error">enter a valid email to continue.</p> : null}
+          {hasInvalidEmail ? <p className="slice-error">enter a valid email to continue.</p> : null}
+          {hasRoleError ? (
+            <p className="slice-error">this surface requires a different role. choose creator to continue.</p>
+          ) : null}
 
           <button type="submit" className="slice-button">
             continue
