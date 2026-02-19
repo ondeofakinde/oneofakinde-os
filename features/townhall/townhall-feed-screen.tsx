@@ -247,6 +247,10 @@ export function TownhallFeedScreen({
 
     const observer = new IntersectionObserver(
       (entries) => {
+        if (isImmersive) {
+          return;
+        }
+
         let bestIndex = activeIndex;
         let bestRatio = 0;
 
@@ -277,10 +281,9 @@ export function TownhallFeedScreen({
     }
 
     return () => observer.disconnect();
-  }, [activeIndex, drops.length]);
+  }, [activeIndex, drops.length, isImmersive]);
 
   useEffect(() => {
-    setIsImmersive(false);
     setShowControls(false);
     setOpenPanel(null);
     setPanelDropId(null);
