@@ -1,7 +1,7 @@
 "use client";
 
 import { formatUsd } from "@/features/shared/format";
-import type { Drop, Session } from "@/lib/domain/contracts";
+import type { Drop } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -25,7 +25,10 @@ type TownhallMode = "watch" | "listen" | "read" | "gallery" | "live";
 
 type TownhallFeedScreenProps = {
   mode: TownhallMode;
-  session: Session | null;
+  viewer: {
+    accountId: string;
+    handle: string;
+  } | null;
   drops: Drop[];
   ownedDropIds?: string[];
   isTownhallHome?: boolean;
@@ -176,7 +179,7 @@ function toggleId(ids: string[], id: string): string[] {
 
 export function TownhallFeedScreen({
   mode,
-  session,
+  viewer,
   drops,
   ownedDropIds = [],
   isTownhallHome = false
@@ -355,7 +358,7 @@ export function TownhallFeedScreen({
 
     setCommentsByDrop((current) => {
       const previous = current[dropId] ?? [];
-      const author = session?.handle ?? "guest";
+      const author = viewer?.handle ?? "guest";
       const nextComment: TownhallComment = {
         id: `${dropId}-${Date.now()}`,
         author,
@@ -390,7 +393,7 @@ export function TownhallFeedScreen({
           </Link>
           <p className="townhall-brand">oneofakinde</p>
           <Link
-            href={session ? routes.create() : routes.signIn(routes.create())}
+            href={viewer ? routes.create() : routes.signIn(routes.create())}
             className="townhall-icon-link"
             aria-label="create drop"
             data-no-immersive-toggle="true"
@@ -430,8 +433,8 @@ export function TownhallFeedScreen({
             const dropHeading = drop.seasonLabel.trim();
             const dropSubtitle = drop.episodeLabel.trim();
             const mediaTarget = modeHref(mode, drop.id);
-            const mediaHref = session ? mediaTarget : routes.signIn(mediaTarget);
-            const paywallHref = session ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
+            const mediaHref = viewer ? mediaTarget : routes.signIn(mediaTarget);
+            const paywallHref = viewer ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
             const shareUrl = activeShareUrl(drop.id);
             const shareText = `${drop.title} on oneofakinde ${shareUrl}`;
 
