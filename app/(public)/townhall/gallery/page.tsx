@@ -1,8 +1,7 @@
 import { TownhallFeedScreen } from "@/features/townhall/townhall-feed-screen";
-import { gateway } from "@/lib/gateway";
-import { getOptionalSession } from "@/lib/server/session";
+import { loadTownhallFeedContext } from "../load-feed-context";
 
 export default async function TownhallGalleryPage() {
-  const [session, drops] = await Promise.all([getOptionalSession(), gateway.listDrops()]);
-  return <TownhallFeedScreen mode="gallery" session={session} drops={drops} />;
+  const { viewer, drops, ownedDropIds } = await loadTownhallFeedContext();
+  return <TownhallFeedScreen mode="gallery" viewer={viewer} drops={drops} ownedDropIds={ownedDropIds} />;
 }

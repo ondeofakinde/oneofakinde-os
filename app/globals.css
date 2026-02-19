@@ -939,38 +939,91 @@ a {
   padding: 12px;
   box-shadow: 0 28px 58px rgba(0, 0, 0, 0.45);
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .townhall-header {
   display: grid;
-  grid-template-columns: 34px 1fr minmax(160px, 220px);
+  grid-template-columns: 36px 1fr auto;
   align-items: center;
   gap: 8px;
+}
+
+.townhall-header-search {
+  grid-template-columns: 34px auto minmax(0, 1fr);
+}
+
+.townhall-header-feed {
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  grid-template-areas:
+    "avatar brand create"
+    "search search search";
+}
+
+.townhall-header-feed .townhall-avatar-link {
+  grid-area: avatar;
+}
+
+.townhall-header-feed .townhall-brand {
+  grid-area: brand;
+}
+
+.townhall-header-feed .townhall-icon-link {
+  grid-area: create;
+}
+
+.townhall-header-feed .townhall-search-form {
+  grid-area: search;
+}
+
+.townhall-avatar-link {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(214, 227, 236, 0.2);
+  color: #f1f7fb;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.townhall-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .townhall-icon-link {
   width: 34px;
   height: 34px;
   border-radius: 999px;
-  border: 1px solid #33424e;
-  color: #d7e2eb;
+  border: 0;
+  color: #f0f7fc;
   display: grid;
   place-items: center;
-  background: rgba(10, 15, 20, 0.8);
-  font-size: 1rem;
+  background: transparent;
+  font-size: 1.15rem;
+}
+
+.townhall-ui-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .townhall-brand {
   margin: 0;
   text-align: center;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
+  font-weight: 600;
   letter-spacing: 0.08em;
-  color: #d8e0e6;
+  color: #f4f8fb;
 }
 
 .townhall-search-form {
   width: 100%;
+  position: relative;
 }
 
 .townhall-search-input {
@@ -981,7 +1034,18 @@ a {
   background: rgba(10, 15, 20, 0.8);
   color: #dbe7f0;
   font-size: 0.72rem;
-  padding: 0 12px;
+  padding: 0 12px 0 34px;
+}
+
+.townhall-search-inline-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  transform: translateY(-50%);
+  color: #95a8b6;
+  pointer-events: none;
 }
 
 .townhall-search-input::placeholder {
@@ -995,10 +1059,19 @@ a {
 
 .townhall-stage {
   position: relative;
-  min-height: 560px;
+  height: 100%;
+  min-height: 100%;
   border-radius: 26px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.townhall-preview-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .townhall-backdrop {
@@ -1014,17 +1087,18 @@ a {
 .townhall-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 28%, rgba(0, 0, 0, 0.88) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22) 24%, rgba(0, 0, 0, 0.78) 100%);
 }
 
 .townhall-content {
   position: absolute;
   left: 14px;
-  right: 62px;
-  bottom: 16px;
+  right: 80px;
+  bottom: 18px;
   z-index: 1;
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  transition: opacity 180ms ease;
 }
 
 .townhall-kicker {
@@ -1051,14 +1125,19 @@ a {
 .townhall-subtitle {
   margin: 0;
   color: #d9e2e9;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.88rem;
+}
+
+.townhall-subtitle.secondary {
+  color: #bfcdd7;
+  font-weight: 500;
 }
 
 .townhall-synopsis {
   margin: 0;
   color: #aebfcb;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   line-height: 1.35;
   max-width: 32ch;
 }
@@ -1113,72 +1192,135 @@ a {
 .townhall-social-rail {
   position: absolute;
   right: 10px;
-  bottom: 78px;
+  bottom: 84px;
   z-index: 2;
   display: grid;
-  gap: 8px;
+  gap: 12px;
+  transition: opacity 180ms ease;
 }
 
 .townhall-social-action {
-  width: 44px;
-  border: 1px solid #334552;
+  width: 48px;
+  border: 0;
   border-radius: 999px;
-  background: rgba(7, 11, 14, 0.84);
+  background: transparent;
   color: #d5e2eb;
-  padding: 6px 0;
+  padding: 0;
   display: grid;
   place-items: center;
-  gap: 1px;
+  gap: 2px;
+  cursor: pointer;
 }
 
 .townhall-social-action small {
-  font-size: 0.61rem;
+  font-size: 0.58rem;
   color: #9eb0bd;
 }
 
-.townhall-queue {
-  border: 1px solid #273541;
-  border-radius: 14px;
-  background: rgba(8, 12, 16, 0.64);
-  padding: 9px;
+.townhall-social-icon {
+  width: 22px;
+  height: 22px;
+  color: #d5e2eb;
+  transition: color 120ms ease;
 }
 
-.townhall-queue-label {
-  margin: 0 0 7px;
-  font-size: 0.73rem;
-  color: #91a6b7;
+.townhall-social-action.active .townhall-social-icon {
+  color: #ffffff;
 }
 
-.townhall-queue-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+.townhall-social-action.active small {
+  color: #d3e8f4;
 }
 
-.townhall-queue-card {
-  border: 1px solid #2f404d;
-  border-radius: 10px;
-  background: rgba(7, 10, 14, 0.7);
-  padding: 8px;
-  display: grid;
-  gap: 3px;
+.townhall-open-drop-link {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 3;
+  border: 1px solid #4f6472;
+  border-radius: 999px;
+  min-width: 90px;
+  min-height: 34px;
+  text-align: center;
+  padding: 8px 12px;
+  color: #ebf5fd;
+  background: rgba(14, 23, 30, 0.75);
+  font-size: 1rem;
+  line-height: 1;
+  transition: opacity 180ms ease;
 }
 
-.townhall-queue-card p {
-  margin: 0;
-  color: #e6edf2;
-  font-size: 0.75rem;
-  font-weight: 600;
+.townhall-open-drop-glyph {
+  width: 18px;
+  height: 18px;
+  display: block;
+  margin: 0 auto;
 }
 
-.townhall-queue-card span {
-  color: #95a7b4;
-  font-size: 0.68rem;
+.townhall-feed-viewport {
+  border-radius: 26px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+  min-height: 0;
+}
+
+.townhall-feed-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.townhall-feed-item {
+  min-height: 100%;
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  padding-bottom: 8px;
+}
+
+.townhall-phone-shell-feed {
+  height: min(88dvh, 790px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.townhall-phone-shell-feed.immersive {
+  grid-template-rows: minmax(0, 1fr);
+  padding: 0;
+  gap: 0;
+}
+
+.townhall-phone-shell-feed.immersive .townhall-feed-viewport {
+  border-radius: 34px;
+}
+
+.townhall-phone-shell-feed.immersive .townhall-feed-item {
+  padding-bottom: 0;
+}
+
+.townhall-phone-shell-feed.immersive .townhall-stage {
+  border: 0;
+  border-radius: 34px;
+}
+
+.townhall-phone-shell-feed.immersive .townhall-overlay {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.22) 100%);
+}
+
+.townhall-phone-shell-feed.immersive .townhall-header,
+.townhall-phone-shell-feed.immersive .townhall-bottom-nav,
+.townhall-phone-shell-feed.immersive .townhall-content,
+.townhall-phone-shell-feed.immersive .townhall-social-rail,
+.townhall-phone-shell-feed.immersive .townhall-open-drop-link,
+.townhall-phone-shell-feed.immersive .townhall-overlay-panel {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .townhall-bottom-nav {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
   border: 1px solid #2d3b46;
   border-radius: 999px;
@@ -1186,17 +1328,236 @@ a {
   padding: 6px;
 }
 
-.townhall-bottom-link {
-  border-radius: 999px;
-  text-align: center;
-  padding: 8px 0;
-  color: #8ea4b3;
-  font-size: 0.7rem;
+.townhall-bottom-nav-icons {
+  gap: 2px;
+  padding: 4px 6px;
 }
 
-.townhall-bottom-link.active {
-  background: rgba(34, 62, 80, 0.8);
-  color: #e4f2fc;
+.townhall-bottom-icon {
+  border-radius: 999px;
+  color: #94a9b7;
+  text-align: center;
+  line-height: 1;
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+}
+
+.townhall-bottom-icon.active {
+  color: #f4f8fb;
+}
+
+.townhall-bottom-icon-glyph {
+  width: 18px;
+  height: 18px;
+}
+
+.townhall-controls-toggle {
+  position: absolute;
+  right: 10px;
+  top: 12px;
+  z-index: 5;
+  border: 1px solid rgba(126, 150, 166, 0.68);
+  border-radius: 999px;
+  background: rgba(6, 12, 17, 0.72);
+  color: #d6e8f2;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  text-transform: uppercase;
+}
+
+.townhall-media-controls {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 12px;
+  z-index: 5;
+  border: 1px solid rgba(139, 170, 191, 0.5);
+  border-radius: 14px;
+  background: rgba(3, 9, 14, 0.82);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, auto)) minmax(120px, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.townhall-control-button {
+  border: 1px solid #4f6372;
+  border-radius: 999px;
+  background: rgba(7, 13, 19, 0.75);
+  color: #e5f2fa;
+  font-size: 0.68rem;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.townhall-volume-control {
+  display: grid;
+  gap: 4px;
+  color: #adc2d1;
+  font-size: 0.66rem;
+}
+
+.townhall-volume-control input {
+  width: 100%;
+}
+
+.townhall-overlay-panel {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 72px;
+  z-index: 4;
+  border: 1px solid rgba(118, 142, 159, 0.42);
+  border-radius: 14px;
+  background: rgba(4, 10, 15, 0.84);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  max-height: 58%;
+  overflow: auto;
+}
+
+.townhall-overlay-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.townhall-overlay-head h2 {
+  margin: 0;
+  color: #e5eef5;
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.townhall-overlay-head button {
+  border: 0;
+  background: transparent;
+  color: #a6bdcd;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.townhall-comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.townhall-comment-list li {
+  border: 1px solid #344b5a;
+  border-radius: 10px;
+  background: rgba(8, 14, 19, 0.75);
+  padding: 8px;
+}
+
+.townhall-comment-list p {
+  margin: 0 0 4px;
+  color: #b6cad8;
+  font-size: 0.73rem;
+  line-height: 1.35;
+}
+
+.townhall-comment-list p:last-child {
+  margin-bottom: 0;
+}
+
+.townhall-comment-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.townhall-comment-form input {
+  border-radius: 999px;
+  border: 1px solid #3f5565;
+  background: rgba(8, 13, 18, 0.78);
+  color: #d5e5f1;
+  padding: 7px 11px;
+  font-size: 0.73rem;
+}
+
+.townhall-comment-form button {
+  border: 1px solid #4f6472;
+  border-radius: 999px;
+  background: rgba(28, 50, 66, 0.78);
+  color: #e0f2fd;
+  font-size: 0.72rem;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.townhall-collect-stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.townhall-collect-stats div {
+  border: 1px solid #314856;
+  border-radius: 10px;
+  background: rgba(6, 12, 17, 0.76);
+  padding: 7px;
+}
+
+.townhall-collect-stats dt {
+  color: #97b0c0;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.townhall-collect-stats dd {
+  margin: 5px 0 0;
+  color: #f0f7fc;
+  font-size: 0.78rem;
+}
+
+.townhall-overlay-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.townhall-overlay-actions a {
+  border: 1px solid #4b6070;
+  border-radius: 999px;
+  color: #e0f0fb;
+  background: rgba(25, 46, 63, 0.74);
+  font-size: 0.72rem;
+  padding: 7px 11px;
+}
+
+.townhall-share-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.townhall-share-grid a,
+.townhall-share-grid button {
+  border: 1px solid #42596a;
+  border-radius: 10px;
+  background: rgba(7, 13, 19, 0.78);
+  color: #dceaf4;
+  text-align: center;
+  font-size: 0.72rem;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.townhall-share-note {
+  margin: 0;
+  color: #9eb6c6;
+  font-size: 0.7rem;
 }
 
 .townhall-side-notes {
@@ -1359,15 +1720,7 @@ a {
   }
 
   .townhall-header {
-    grid-template-columns: 34px minmax(100px, 1fr);
-  }
-
-  .townhall-brand {
-    display: none;
-  }
-
-  .townhall-search-form {
-    grid-column: 2;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
   }
 
   .townhall-phone-shell {
@@ -1375,12 +1728,24 @@ a {
     padding: 8px;
   }
 
+  .townhall-phone-shell-feed {
+    height: calc(100dvh - 20px);
+  }
+
+  .townhall-phone-shell-feed.immersive {
+    border-radius: 26px;
+  }
+
   .townhall-stage {
-    min-height: 520px;
+    border-radius: 22px;
   }
 
   .townhall-title {
     font-size: 1.95rem;
+  }
+
+  .townhall-media-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

@@ -2,6 +2,8 @@ import { formatUsd } from "@/features/shared/format";
 import type { Drop, Session, Studio, World } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
+import { TownhallBottomNav } from "./townhall-bottom-nav";
+import { ArrowLeftIcon, SearchIcon } from "./townhall-icons";
 
 type TownhallSearchScreenProps = {
   query: string;
@@ -82,10 +84,6 @@ function sortByScore<T>(
     .map((entry) => entry.item);
 }
 
-function navLinkClass(active: boolean): string {
-  return `townhall-bottom-link ${active ? "active" : ""}`;
-}
-
 export function TownhallSearchScreen({ query, session, drops, worlds, studios }: TownhallSearchScreenProps) {
   const normalizedQuery = normalize(query);
   const users = dedupeUsers(studios, drops, worlds);
@@ -125,9 +123,9 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
   return (
     <main className="townhall-page">
       <section className="townhall-phone-shell" aria-label="townhall search surface">
-        <header className="townhall-header">
+        <header className="townhall-header townhall-header-search">
           <Link href={routes.townhall()} className="townhall-icon-link" aria-label="back to townhall">
-            ←
+            <ArrowLeftIcon className="townhall-ui-icon" />
           </Link>
           <p className="townhall-brand">oneofakinde</p>
           <form
@@ -137,6 +135,7 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
             role="search"
             aria-label="search oneofakinde"
           >
+            <SearchIcon className="townhall-search-inline-icon" />
             <input
               type="search"
               name="q"
@@ -242,14 +241,7 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
           </section>
         </section>
 
-        <nav className="townhall-bottom-nav" aria-label="townhall bottom nav">
-          <Link href={routes.townhallListen()} className={navLinkClass(false)}>listen</Link>
-          <Link href={routes.townhallRead()} className={navLinkClass(false)}>read</Link>
-          <Link href={routes.townhallWatch()} className={navLinkClass(false)}>watch</Link>
-          <Link href={routes.townhallGallery()} className={navLinkClass(false)}>gallery</Link>
-          <Link href={routes.collect()} className={navLinkClass(false)}>collect</Link>
-          <Link href={routes.townhallLive()} className={navLinkClass(false)}>live</Link>
-        </nav>
+        <TownhallBottomNav activeMode="townhall" />
       </section>
 
       <aside className="townhall-side-notes" aria-label="townhall search notes">

@@ -7,9 +7,7 @@ export type GatewayProvider = "mock" | "bff";
 function isProductionRuntime(): boolean {
   const appEnv = process.env.OOK_APP_ENV?.trim().toLowerCase();
   const vercelEnv = process.env.VERCEL_ENV?.trim().toLowerCase();
-  const nodeEnv = process.env.NODE_ENV?.trim().toLowerCase();
-
-  return appEnv === "production" || vercelEnv === "production" || nodeEnv === "production";
+  return appEnv === "production" || vercelEnv === "production";
 }
 
 function resolveProvider(): GatewayProvider {
