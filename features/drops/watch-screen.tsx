@@ -24,7 +24,7 @@ export function WatchScreen({
       title="watch"
       subtitle="full watch consume surface with entitlement checks"
       session={session}
-      activeNav="explore"
+      activeNav="townhall"
     >
       {!hasEntitlement ? (
         <section className="slice-panel">

@@ -24,7 +24,7 @@ export function WorkshopRootScreen({
       title="workshop"
       subtitle="creator workspace for drop lifecycle and publishing"
       session={session}
-      activeNav="explore"
+      activeNav="townhall"
     >
       <section className="slice-panel">
         <p className="slice-label">creator @{session.handle}</p>

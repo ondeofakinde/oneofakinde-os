@@ -31,7 +31,7 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
       title="certificate"
       subtitle="public certificate verification for a drop"
       session={session}
-      activeNav="explore"
+      activeNav="townhall"
     >
       <section className="slice-panel">
         <p className="slice-label">step 9 of 9 · certificate</p>

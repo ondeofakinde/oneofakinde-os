@@ -26,7 +26,7 @@ type OpsControlSurfaceScreenProps = {
 type SurfaceMeta = {
   title: string;
   subtitle: string;
-  activeNav: "explore" | "townhall" | "my_collection" | "favorites" | "worlds";
+  activeNav: "townhall" | "my_collection" | "favorites" | "worlds";
 };
 
 type CampaignState = "running" | "scheduled" | "draft";
@@ -48,12 +48,12 @@ const SURFACE_META: Record<OpsSurface, SurfaceMeta> = {
   auctions: {
     title: "auctions",
     subtitle: "live bidding lanes for active drops and world editions",
-    activeNav: "explore"
+    activeNav: "townhall"
   },
   invest: {
     title: "invest",
     subtitle: "positioning panel for collector participation and offers",
-    activeNav: "explore"
+    activeNav: "townhall"
   },
   following: {
     title: "following",
@@ -63,7 +63,7 @@ const SURFACE_META: Record<OpsSurface, SurfaceMeta> = {
   create: {
     title: "create",
     subtitle: "entry point for authoring drops, worlds, and campaign launches",
-    activeNav: "explore"
+    activeNav: "townhall"
   },
   dashboard: {
     title: "dashboard",

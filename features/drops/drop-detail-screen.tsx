@@ -23,7 +23,7 @@ export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
             ←
           </Link>
           <p className="dropflow-brand">oneofakinde</p>
-          <Link href={routes.explore()} className="dropflow-icon-link" aria-label="search drops">
+          <Link href={routes.townhall()} className="dropflow-icon-link" aria-label="search in townhall">
             ⌕
           </Link>
         </header>

@@ -18,7 +18,7 @@ export function SpaceSetupScreen({ session, collection, library, worlds }: Space
       title="space setup"
       subtitle="first run destination setup and account routing"
       session={session}
-      activeNav="explore"
+      activeNav="townhall"
     >
       <section className="slice-panel">
         <p className="slice-label">welcome @{session.handle}</p>

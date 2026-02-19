@@ -18,7 +18,7 @@ export function HomeScreen({ session, drops, worlds }: HomeScreenProps) {
       title="oneofakinde"
       subtitle="home surface for drops, worlds, and studio pathways"
       session={session}
-      activeNav="explore"
+      activeNav="townhall"
     >
       <section className="slice-panel">
         <div className="slice-row">
