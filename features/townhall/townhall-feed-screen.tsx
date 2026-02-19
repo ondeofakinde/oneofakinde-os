@@ -47,6 +47,7 @@ type StageTapEvent =
   | React.MouseEvent<HTMLElement>
   | React.PointerEvent<HTMLElement>
   | React.TouchEvent<HTMLElement>;
+type StageTapSource = "pointer" | "click";
 
 type CollectStats = {
   collectors: number;
@@ -213,6 +214,7 @@ export function TownhallFeedScreen({
   const lastScrollTopRef = useRef(0);
   const lastImmersiveEnterMsRef = useRef(0);
   const lastStageTapMsRef = useRef(0);
+  const lastStagePointerTapMsRef = useRef(0);
 
   const likedSet = useMemo(() => new Set(likedDropIds), [likedDropIds]);
   const savedSet = useMemo(() => new Set(savedDropIds), [savedDropIds]);
@@ -328,8 +330,15 @@ export function TownhallFeedScreen({
     setShareNotice("");
   }
 
-  function handleStageTap(event: StageTapEvent, index: number) {
+  function handleStageTap(event: StageTapEvent, index: number, source: StageTapSource) {
     const now = Date.now();
+    if (source === "click" && now - lastStagePointerTapMsRef.current < 700) {
+      // Ignore synthetic click that follows a touch/pointer tap.
+      return;
+    }
+    if (source === "pointer") {
+      lastStagePointerTapMsRef.current = now;
+    }
     if (now - lastStageTapMsRef.current < 180) {
       return;
     }
@@ -500,8 +509,8 @@ export function TownhallFeedScreen({
                 <section
                   className="townhall-stage"
                   aria-label={`${drop.title} preview`}
-                  onPointerUpCapture={(event) => handleStageTap(event, index)}
-                  onClickCapture={(event) => handleStageTap(event, index)}
+                  onPointerUpCapture={(event) => handleStageTap(event, index, "pointer")}
+                  onClickCapture={(event) => handleStageTap(event, index, "click")}
                 >
                   {failedVideoSet.has(drop.id) ? (
                     <div className="townhall-backdrop" />
