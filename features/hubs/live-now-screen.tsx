@@ -30,8 +30,8 @@ export function LiveNowScreen({ session, drops }: LiveNowScreenProps) {
       <section className="slice-panel">
         <div className="slice-row">
           <p className="slice-label">{feed.length} live entries</p>
-          <Link href={routes.explore()} className="slice-button ghost">
-            open explore
+          <Link href={routes.townhall()} className="slice-button ghost">
+            open townhall
           </Link>
         </div>
 

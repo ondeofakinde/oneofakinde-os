@@ -46,8 +46,8 @@ export function WorkshopRootScreen({
           <Link href={routes.spaceSetup()} className="slice-button ghost">
             open space setup
           </Link>
-          <Link href={routes.explore()} className="slice-button alt">
-            open explore
+          <Link href={routes.townhall()} className="slice-button alt">
+            open townhall
           </Link>
         </div>
       </section>

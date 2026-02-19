@@ -23,8 +23,8 @@ export function HomeScreen({ session, drops, worlds }: HomeScreenProps) {
       <section className="slice-panel">
         <div className="slice-row">
           <p className="slice-label">featured drops</p>
-          <Link href={routes.explore()} className="slice-button">
-            open explore
+          <Link href={routes.townhall()} className="slice-button">
+            open townhall
           </Link>
         </div>
 

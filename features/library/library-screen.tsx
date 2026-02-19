@@ -20,13 +20,13 @@ export function LibraryScreen({ session, library }: LibraryScreenProps) {
       <section className="slice-panel">
         <div className="slice-row">
           <p className="slice-label">{library.savedDrops.length} saved drops</p>
-          <Link href={routes.explore()} className="slice-button ghost">
-            open explore
+          <Link href={routes.townhall()} className="slice-button ghost">
+            open townhall
           </Link>
         </div>
 
         {library.savedDrops.length === 0 ? (
-          <p className="slice-copy">your library is empty. save drops from explore to populate it.</p>
+          <p className="slice-copy">your library is empty. save drops from townhall to populate it.</p>
         ) : (
           <ul className="slice-grid" aria-label="library drop list">
             {library.savedDrops.map((item) => (
