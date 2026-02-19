@@ -1,16 +1,7 @@
-import { RouteStub } from "@/components/route-stub";
+import { OpsControlSurfaceScreen } from "@/features/ops/ops-control-surface-screen";
 import { requireSession } from "@/lib/server/session";
 
 export default async function SettingsAppsPage() {
-  await requireSession("/settings/apps");
-
-  return (
-    <RouteStub
-      title="apps"
-      route="/settings/apps"
-      roles={["collector", "creator"]}
-      publicSafe={false}
-      summary="apps architecture route is wired for extension and integration controls."
-    />
-  );
+  const session = await requireSession("/settings/apps");
+  return <OpsControlSurfaceScreen surface="settings_apps" session={session} />;
 }

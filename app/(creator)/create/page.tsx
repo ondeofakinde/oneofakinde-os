@@ -1,16 +1,9 @@
-import { RouteStub } from "@/components/route-stub";
+import { OpsControlSurfaceScreen } from "@/features/ops/ops-control-surface-screen";
+import { gateway } from "@/lib/gateway";
 import { requireSessionRoles } from "@/lib/server/session";
 
 export default async function CreatePage() {
-  await requireSessionRoles("/create", ["creator"]);
-
-  return (
-    <RouteStub
-      title="create"
-      route="/create"
-      roles={["creator"]}
-      publicSafe={false}
-      summary="create architecture route is ready for drop and world authoring tools."
-    />
-  );
+  const session = await requireSessionRoles("/create", ["creator"]);
+  const drops = await gateway.listDrops();
+  return <OpsControlSurfaceScreen surface="create" session={session} drops={drops} />;
 }

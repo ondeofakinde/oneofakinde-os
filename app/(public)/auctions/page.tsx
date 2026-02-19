@@ -1,13 +1,8 @@
-import { RouteStub } from "@/components/route-stub";
+import { OpsControlSurfaceScreen } from "@/features/ops/ops-control-surface-screen";
+import { gateway } from "@/lib/gateway";
+import { getOptionalSession } from "@/lib/server/session";
 
-export default function AuctionsPage() {
-  return (
-    <RouteStub
-      title="auctions"
-      route="/auctions"
-      roles={["public", "collector", "creator"]}
-      publicSafe
-      summary="auction index architecture route is ready for auction contracts."
-    />
-  );
+export default async function AuctionsPage() {
+  const [session, drops] = await Promise.all([getOptionalSession(), gateway.listDrops()]);
+  return <OpsControlSurfaceScreen surface="auctions" session={session} drops={drops} />;
 }

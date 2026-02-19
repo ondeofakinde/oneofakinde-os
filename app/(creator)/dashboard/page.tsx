@@ -1,16 +1,9 @@
-import { RouteStub } from "@/components/route-stub";
+import { OpsControlSurfaceScreen } from "@/features/ops/ops-control-surface-screen";
+import { gateway } from "@/lib/gateway";
 import { requireSessionRoles } from "@/lib/server/session";
 
 export default async function DashboardPage() {
-  await requireSessionRoles("/dashboard", ["creator"]);
-
-  return (
-    <RouteStub
-      title="dashboard"
-      route="/dashboard"
-      roles={["creator"]}
-      publicSafe={false}
-      summary="dashboard architecture route is ready for analytics, conversion, and sales metrics."
-    />
-  );
+  const session = await requireSessionRoles("/dashboard", ["creator"]);
+  const drops = await gateway.listDrops();
+  return <OpsControlSurfaceScreen surface="dashboard" session={session} drops={drops} />;
 }

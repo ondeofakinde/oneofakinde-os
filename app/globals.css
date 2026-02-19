@@ -397,6 +397,131 @@ a {
   border-color: #32554a;
 }
 
+.ops-grid {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.ops-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(7, 11, 15, 0.56);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.ops-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.ops-kpi-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.ops-kpi {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(7, 11, 15, 0.56);
+  padding: 10px;
+}
+
+.ops-kpi h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.ops-kpi p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.ops-table {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ops-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 2fr) repeat(2, minmax(100px, 1fr)) minmax(84px, auto);
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.86rem;
+}
+
+.ops-row:last-child {
+  border-bottom: none;
+}
+
+.ops-row.header {
+  background: rgba(10, 16, 22, 0.84);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.ops-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  width: fit-content;
+}
+
+.ops-pill.running {
+  border-color: #386854;
+  color: #b8e8d4;
+}
+
+.ops-pill.scheduled {
+  border-color: #49637d;
+  color: #c7ddf1;
+}
+
+.ops-pill.draft {
+  border-color: #5f5651;
+  color: #decabf;
+}
+
+.ops-settings-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.ops-toggle {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(8, 12, 16, 0.58);
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #d3dee6;
+  font-size: 0.88rem;
+}
+
+.ops-toggle input[type="checkbox"] {
+  accent-color: #74aeb9;
+}
+
 @media (max-width: 640px) {
   .slice-shell {
     padding-top: 18px;
@@ -408,6 +533,11 @@ a {
 
   .slice-nav {
     justify-content: flex-start;
+  }
+
+  .ops-row {
+    grid-template-columns: minmax(120px, 1.6fr) repeat(2, minmax(72px, 1fr)) minmax(70px, auto);
+    font-size: 0.8rem;
   }
 }
 
