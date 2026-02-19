@@ -34,6 +34,7 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
       activeNav="explore"
     >
       <section className="slice-panel">
+        <p className="slice-label">step 9 of 9 · certificate</p>
         <p className="slice-label">verification status</p>
         <h2 className="slice-title">{certificate.status}</h2>
         <p className="slice-copy">
@@ -67,11 +68,23 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
           <Link href={routes.drop(drop.id)} className="slice-button ghost">
             open drop
           </Link>
+          <Link href={routes.myCollection()} className="slice-button ghost">
+            my collection
+          </Link>
           <Link href={routes.studio(drop.studioHandle)} className="slice-button alt">
             open studio
           </Link>
           <Link href={routes.dropWatch(drop.id)} className="slice-button alt">
             watch
+          </Link>
+          <Link href={routes.dropListen(drop.id)} className="slice-button alt">
+            listen
+          </Link>
+          <Link href={routes.dropRead(drop.id)} className="slice-button alt">
+            read
+          </Link>
+          <Link href={routes.dropPhotos(drop.id)} className="slice-button alt">
+            gallery
           </Link>
         </div>
       </section>

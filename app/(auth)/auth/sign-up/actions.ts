@@ -42,5 +42,7 @@ export async function signUpAction(formData: FormData): Promise<void> {
     maxAge: 60 * 60 * 24 * 14
   });
 
-  redirect(normalizeReturnTo(returnTo, "/onboarding/profile-setup") as Route);
+  const finalReturnTo = normalizeReturnTo(returnTo, "/townhall");
+  const onboardingReturnTo = `/onboarding/profile-setup?returnTo=${encodeURIComponent(finalReturnTo)}`;
+  redirect(`/auth/wallet-connect?returnTo=${encodeURIComponent(onboardingReturnTo)}` as Route);
 }

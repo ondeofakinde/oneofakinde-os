@@ -42,5 +42,5 @@ export async function signInAction(formData: FormData): Promise<void> {
     maxAge: 60 * 60 * 24 * 14
   });
 
-  redirect(normalizeReturnTo(returnTo) as Route);
+  redirect(normalizeReturnTo(returnTo, "/townhall") as Route);
 }

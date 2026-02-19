@@ -33,7 +33,11 @@ export function MyCollectionScreen({
     >
       {status ? (
         <section className="slice-banner" aria-live="polite">
-          {status === "completed" ? "purchase completed" : "drop already in my collection"}
+          {status === "completed"
+            ? "purchase completed"
+            : status === "checkout_success"
+              ? "checkout completed. waiting for receipt confirmation."
+              : "drop already in my collection"}
           {receipt ? ` · receipt ${receipt.id}` : ""}
           {certificate ? (
             <>
@@ -46,6 +50,7 @@ export function MyCollectionScreen({
 
       {receipt ? (
         <section className="slice-panel">
+          <p className="slice-label">step 7 of 9 · receipt</p>
           <p className="slice-label">receipt detail</p>
           <dl className="slice-list">
             <div>
@@ -77,6 +82,7 @@ export function MyCollectionScreen({
       ) : null}
 
       <section className="slice-panel">
+        <p className="slice-label">step 8 of 9 · my collection</p>
         <div className="slice-row">
           <p className="slice-label">{collection.ownedDrops.length} collected drops</p>
           <p className="slice-total">total spent {formatUsd(collection.totalSpentUsd)}</p>
@@ -98,6 +104,15 @@ export function MyCollectionScreen({
                   </Link>
                   <Link href={routes.dropWatch(owned.drop.id)} className="slice-button alt">
                     watch
+                  </Link>
+                  <Link href={routes.dropListen(owned.drop.id)} className="slice-button alt">
+                    listen
+                  </Link>
+                  <Link href={routes.dropRead(owned.drop.id)} className="slice-button alt">
+                    read
+                  </Link>
+                  <Link href={routes.dropPhotos(owned.drop.id)} className="slice-button alt">
+                    gallery
                   </Link>
                   <Link href={routes.certificate(owned.certificateId)} className="slice-button alt">
                     certificate

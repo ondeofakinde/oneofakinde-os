@@ -1,13 +1,7 @@
-import { HomeScreen } from "@/features/explore/home-screen";
-import { gateway } from "@/lib/gateway";
+import { EntryScreen } from "@/features/entry/entry-screen";
 import { getOptionalSession } from "@/lib/server/session";
 
 export default async function IndexPage() {
-  const [session, drops, worlds] = await Promise.all([
-    getOptionalSession(),
-    gateway.listDrops(),
-    gateway.listWorlds()
-  ]);
-
-  return <HomeScreen session={session} drops={drops} worlds={worlds} />;
+  const session = await getOptionalSession();
+  return <EntryScreen session={session} />;
 }
