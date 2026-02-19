@@ -1,8 +1,10 @@
-import { routes } from "@/lib/routes";
+import { CollectMarketplaceScreen } from "@/features/collect/collect-marketplace-screen";
+import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
-import { redirect } from "next/navigation";
 
 export default async function CollectPage() {
-  await requireSession("/collect");
-  redirect(routes.myCollection());
+  const session = await requireSession("/collect");
+  const drops = await gateway.listDrops();
+
+  return <CollectMarketplaceScreen session={session} drops={drops} />;
 }

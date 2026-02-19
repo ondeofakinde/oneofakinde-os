@@ -944,7 +944,7 @@ a {
 
 .townhall-header {
   display: grid;
-  grid-template-columns: 34px 1fr 34px;
+  grid-template-columns: 34px 1fr minmax(160px, 220px);
   align-items: center;
   gap: 8px;
 }
@@ -967,6 +967,30 @@ a {
   font-size: 0.74rem;
   letter-spacing: 0.08em;
   color: #d8e0e6;
+}
+
+.townhall-search-form {
+  width: 100%;
+}
+
+.townhall-search-input {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid #33424e;
+  background: rgba(10, 15, 20, 0.8);
+  color: #dbe7f0;
+  font-size: 0.72rem;
+  padding: 0 12px;
+}
+
+.townhall-search-input::placeholder {
+  color: #95a8b6;
+}
+
+.townhall-search-input:focus-visible {
+  outline: 2px solid rgba(114, 168, 203, 0.9);
+  outline-offset: 1px;
 }
 
 .townhall-stage {
@@ -1213,6 +1237,18 @@ a {
 @media (max-width: 520px) {
   .townhall-page {
     padding: 10px;
+  }
+
+  .townhall-header {
+    grid-template-columns: 34px minmax(100px, 1fr);
+  }
+
+  .townhall-brand {
+    display: none;
+  }
+
+  .townhall-search-form {
+    grid-column: 2;
   }
 
   .townhall-phone-shell {

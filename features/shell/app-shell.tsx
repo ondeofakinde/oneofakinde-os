@@ -2,7 +2,7 @@ import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
-type AppShellNavKey = "explore" | "townhall" | "my_collection" | "favorites" | "worlds";
+type AppShellNavKey = "explore" | "townhall" | "collect" | "my_collection" | "favorites" | "worlds";
 
 type AppShellProps = {
   title: string;
@@ -28,6 +28,9 @@ export function AppShell({ title, subtitle, session, activeNav, children }: AppS
           </Link>
           <Link href={routes.explore()} className={`slice-link ${activeNav === "explore" ? "active" : ""}`}>
             explore
+          </Link>
+          <Link href={routes.collect()} className={`slice-link ${activeNav === "collect" ? "active" : ""}`}>
+            collect
           </Link>
           <Link
             href={routes.myCollection()}

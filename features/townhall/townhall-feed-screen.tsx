@@ -98,9 +98,15 @@ export function TownhallFeedScreen({ mode, session, drops }: TownhallFeedScreenP
             +
           </Link>
           <p className="townhall-brand">oneofakinde</p>
-          <Link href={routes.explore()} className="townhall-icon-link" aria-label="search oneofakinde cosmos">
-            ⌕
-          </Link>
+          <form action={routes.townhall()} method="get" className="townhall-search-form" role="search" aria-label="search oneofakinde">
+            <input
+              type="search"
+              name="q"
+              className="townhall-search-input"
+              placeholder="search users, worlds, collections, drops"
+              aria-label="search users, worlds, collections, and drops"
+            />
+          </form>
         </header>
 
         <section className="townhall-stage" aria-label="featured townhall drop">
