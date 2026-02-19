@@ -48,16 +48,28 @@ export const routes = {
   favorites: (): Route => asRoute("/favorites"),
   library: (): Route => asRoute("/favorites"),
 
-  profileSetup: (): Route => asRoute("/onboarding/profile-setup"),
+  profileSetup: (returnTo?: string): Route =>
+    returnTo
+      ? asRoute(`/onboarding/profile-setup?returnTo=${encodeURIComponent(returnTo)}`)
+      : asRoute("/onboarding/profile-setup"),
   spaceSetup: (): Route => asRoute("/onboarding/profile-setup"),
 
   signIn: (returnTo?: string): Route =>
     returnTo
       ? asRoute(`/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`)
       : asRoute("/auth/sign-in"),
-  signUp: (): Route => asRoute("/auth/sign-up"),
-  walletConnect: (): Route => asRoute("/auth/wallet-connect"),
-  walletLink: (): Route => asRoute("/auth/wallet-link"),
+  signUp: (returnTo?: string): Route =>
+    returnTo
+      ? asRoute(`/auth/sign-up?returnTo=${encodeURIComponent(returnTo)}`)
+      : asRoute("/auth/sign-up"),
+  walletConnect: (returnTo?: string): Route =>
+    returnTo
+      ? asRoute(`/auth/wallet-connect?returnTo=${encodeURIComponent(returnTo)}`)
+      : asRoute("/auth/wallet-connect"),
+  walletLink: (returnTo?: string): Route =>
+    returnTo
+      ? asRoute(`/auth/wallet-link?returnTo=${encodeURIComponent(returnTo)}`)
+      : asRoute("/auth/wallet-link"),
   logout: (): Route => asRoute("/logout"),
 
   workshop: (): Route => asRoute("/workshop"),

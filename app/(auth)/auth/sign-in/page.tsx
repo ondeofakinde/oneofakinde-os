@@ -17,7 +17,8 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const resolvedParams = await searchParams;
-  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo));
+  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/townhall");
+  const walletConnectReturnTo = routes.profileSetup(returnTo);
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
   const hasRoleError = errorCode === "role_required";
@@ -96,11 +97,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         </form>
 
         <footer className="identity-foot">
-          <Link href={routes.walletConnect()} className="identity-link">
+          <Link href={routes.walletConnect(walletConnectReturnTo)} className="identity-link">
             connect wallet
           </Link>
           <span>·</span>
-          <Link href={routes.signUp()} className="identity-link">
+          <Link href={routes.signUp(returnTo)} className="identity-link">
             create account
           </Link>
         </footer>
