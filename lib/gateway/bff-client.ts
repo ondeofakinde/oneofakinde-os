@@ -17,15 +17,50 @@ import { SESSION_COOKIE } from "@/lib/session";
 type Nullable<T> = T | null;
 
 type BffClientOptions = {
-  baseUrl: string;
+  baseUrl?: string;
 };
 
 function normalizeBaseUrl(input: string): string {
   return input.endsWith("/") ? input.slice(0, -1) : input;
 }
 
-function resolveBaseUrl(): string {
-  return normalizeBaseUrl(process.env.OOK_BFF_BASE_URL ?? "http://127.0.0.1:3000");
+function resolveBaseUrlFromEnvironment(): string {
+  const explicitBaseUrl = process.env.OOK_BFF_BASE_URL?.trim();
+  if (explicitBaseUrl) {
+    return normalizeBaseUrl(explicitBaseUrl);
+  }
+
+  const deploymentHost = process.env.VERCEL_URL?.trim();
+  if (deploymentHost) {
+    const deploymentBaseUrl = deploymentHost.startsWith("http")
+      ? deploymentHost
+      : `https://${deploymentHost}`;
+    return normalizeBaseUrl(deploymentBaseUrl);
+  }
+
+  const localPort = process.env.PORT?.trim() || "3000";
+  return `http://127.0.0.1:${localPort}`;
+}
+
+async function resolveBaseUrlFromRequestContext(): Promise<string | null> {
+  try {
+    const nextHeaders = await import("next/headers");
+    const headerStore = await nextHeaders.headers();
+    const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+
+    if (!host) {
+      return null;
+    }
+
+    const forwardedProtocol = headerStore.get("x-forwarded-proto");
+    const protocol =
+      forwardedProtocol ??
+      (host.includes("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+
+    return normalizeBaseUrl(`${protocol}://${host}`);
+  } catch {
+    return null;
+  }
 }
 
 async function resolveSessionTokenFromRequestContext(): Promise<string | null> {
@@ -43,6 +78,10 @@ async function requestJson<T>(
   pathname: string,
   init?: RequestInit
 ): Promise<{ ok: boolean; status: number; payload: Nullable<T> }> {
+  const baseUrl =
+    options.baseUrl ??
+    (await resolveBaseUrlFromRequestContext()) ??
+    resolveBaseUrlFromEnvironment();
   const sessionToken = await resolveSessionTokenFromRequestContext();
   const headers = new Headers(init?.headers ?? {});
   headers.set("content-type", "application/json");
@@ -50,7 +89,7 @@ async function requestJson<T>(
     headers.set("x-ook-session-token", sessionToken);
   }
 
-  const response = await fetch(`${options.baseUrl}${pathname}`, {
+  const response = await fetch(`${baseUrl}${pathname}`, {
     ...init,
     cache: "no-store",
     headers
@@ -74,9 +113,9 @@ async function requestJson<T>(
   };
 }
 
-export function createBffGateway(baseUrl = resolveBaseUrl()): CommerceGateway {
+export function createBffGateway(baseUrl?: string): CommerceGateway {
   const options: BffClientOptions = {
-    baseUrl
+    baseUrl: baseUrl ? normalizeBaseUrl(baseUrl) : undefined
   };
 
   return {
