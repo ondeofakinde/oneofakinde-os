@@ -28,7 +28,7 @@ export default async function DropGalleryPage({ params }: DropGalleryPageProps) 
 
   return (
     <DropConsumeScreen
-      mode="photos"
+      mode="gallery"
       session={session}
       drop={drop}
       hasEntitlement={hasEntitlement}

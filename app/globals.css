@@ -981,3 +981,513 @@ a {
     font-size: 1.95rem;
   }
 }
+
+.dropflow-page,
+.dropmedia-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(300px, 520px) minmax(200px, 320px);
+  gap: clamp(12px, 2vw, 24px);
+  justify-content: center;
+  align-items: center;
+  padding: clamp(10px, 2vw, 24px);
+}
+
+.dropflow-phone-shell,
+.dropmedia-phone-shell {
+  width: 100%;
+  background: linear-gradient(180deg, #05070a 0%, #050709 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 34px;
+  padding: 12px;
+  box-shadow: 0 28px 58px rgba(0, 0, 0, 0.45);
+  display: grid;
+  gap: 10px;
+}
+
+.dropflow-header,
+.dropmedia-header {
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropflow-icon-link,
+.dropmedia-icon-link {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #344450;
+  color: #d4dfe8;
+  background: rgba(10, 14, 18, 0.78);
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+}
+
+.dropflow-brand,
+.dropmedia-brand {
+  margin: 0;
+  text-align: center;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  color: #dbe5ec;
+}
+
+.dropflow-stage {
+  position: relative;
+  min-height: 450px;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dropflow-stage.compact {
+  min-height: 300px;
+}
+
+.dropflow-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(48% 60% at 54% 38%, rgba(78, 126, 137, 0.54), transparent 70%),
+    radial-gradient(50% 70% at 50% 64%, rgba(20, 31, 38, 0.62), transparent 78%),
+    linear-gradient(180deg, #060a0d 0%, #040608 100%);
+}
+
+.dropflow-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22) 26%, rgba(0, 0, 0, 0.88) 100%);
+}
+
+.dropflow-social-rail {
+  position: absolute;
+  right: 10px;
+  top: 16px;
+  z-index: 2;
+  display: grid;
+  gap: 7px;
+}
+
+.dropflow-social-action {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid #354652;
+  background: rgba(8, 12, 16, 0.82);
+  color: #dbe7f0;
+  display: grid;
+  place-items: center;
+}
+
+.dropflow-content {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+}
+
+.dropflow-meta {
+  margin: 0;
+  color: #a6bccb;
+  font-size: 0.74rem;
+}
+
+.dropflow-title {
+  margin: 0;
+  color: #f5f8fb;
+  font-size: clamp(1.9rem, 6vw, 2.7rem);
+  line-height: 0.94;
+  letter-spacing: -0.03em;
+}
+
+.dropflow-subtitle {
+  margin: 0;
+  color: #dde7ee;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.dropflow-synopsis {
+  margin: 0;
+  color: #b8c8d3;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  max-width: 34ch;
+}
+
+.dropflow-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dropflow-primary-cta,
+.dropflow-secondary-cta,
+.dropmedia-primary-cta,
+.dropmedia-secondary-cta {
+  border-radius: 999px;
+  border: 1px solid #2f3f4b;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.dropflow-primary-cta,
+.dropmedia-primary-cta {
+  color: #def6ff;
+  background: linear-gradient(180deg, rgba(58, 100, 122, 0.84) 0%, rgba(34, 63, 80, 0.92) 100%);
+}
+
+.dropflow-secondary-cta,
+.dropmedia-secondary-cta {
+  color: #b2c5d2;
+  background: rgba(7, 11, 14, 0.78);
+}
+
+.dropflow-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dropflow-tab {
+  border-radius: 999px;
+  border: 1px solid #2f3f4b;
+  color: #91a7b7;
+  background: rgba(8, 12, 16, 0.74);
+  padding: 7px 11px;
+  font-size: 0.74rem;
+}
+
+.dropflow-tab.active {
+  color: #e0f2ff;
+  border-color: #4f728f;
+  background: rgba(29, 51, 69, 0.78);
+}
+
+.dropflow-panel {
+  border: 1px solid #2a3945;
+  border-radius: 16px;
+  background: rgba(8, 12, 16, 0.62);
+  padding: 11px;
+  display: grid;
+  gap: 10px;
+}
+
+.dropflow-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.dropflow-panel-head p,
+.dropflow-panel-head span {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #9db2c1;
+}
+
+.dropflow-chart {
+  height: 110px;
+  border: 1px solid #304250;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(12, 20, 27, 0.86) 0%, rgba(8, 12, 16, 0.9) 100%);
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  padding: 10px;
+}
+
+.dropflow-chart span {
+  display: block;
+  width: 7%;
+  border-radius: 999px 999px 4px 4px;
+  background: linear-gradient(180deg, #7fb0ca 0%, #36586f 100%);
+}
+
+.dropflow-metadata-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dropflow-metadata-grid div {
+  border: 1px solid #2e404d;
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(8, 12, 16, 0.58);
+}
+
+.dropflow-metadata-grid dt {
+  color: #8fa5b3;
+  font-size: 0.68rem;
+}
+
+.dropflow-metadata-grid dd {
+  margin: 4px 0 0;
+  color: #e1e8ed;
+  font-size: 0.75rem;
+}
+
+.dropflow-bullet-list {
+  margin: 0;
+  padding: 0 0 0 16px;
+  display: grid;
+  gap: 6px;
+  color: #b5c5d0;
+  font-size: 0.79rem;
+}
+
+.dropflow-side-notes,
+.dropmedia-side-notes {
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 20px;
+  background: rgba(9, 14, 18, 0.58);
+  padding: 16px;
+  color: #adc0cd;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.dropflow-side-notes h2,
+.dropmedia-side-notes h2 {
+  margin: 0 0 8px;
+  color: #e5eef5;
+  font-size: 1.05rem;
+}
+
+.dropflow-side-notes p,
+.dropmedia-side-notes p {
+  margin: 0 0 8px;
+}
+
+.dropmedia-stage {
+  position: relative;
+  min-height: 560px;
+  border-radius: 26px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dropmedia-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(44% 56% at 46% 34%, rgba(84, 139, 146, 0.45), transparent 72%),
+    radial-gradient(45% 65% at 51% 61%, rgba(18, 29, 37, 0.62), transparent 79%),
+    linear-gradient(180deg, #05080b 0%, #030507 100%);
+}
+
+.dropmedia-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 26%, rgba(0, 0, 0, 0.9) 100%);
+}
+
+.dropmedia-social-rail {
+  position: absolute;
+  right: 10px;
+  bottom: 120px;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+}
+
+.dropmedia-social-action {
+  width: 40px;
+  border: 1px solid #334551;
+  border-radius: 999px;
+  background: rgba(8, 12, 16, 0.84);
+  color: #d8e4ed;
+  padding: 6px 0;
+  display: grid;
+  place-items: center;
+}
+
+.dropmedia-content {
+  position: absolute;
+  left: 14px;
+  right: 62px;
+  bottom: 16px;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+}
+
+.dropmedia-meta {
+  margin: 0;
+  color: #a7bcc9;
+  font-size: 0.73rem;
+}
+
+.dropmedia-title {
+  margin: 0;
+  color: #f4f8fb;
+  font-size: clamp(2rem, 6vw, 2.9rem);
+  line-height: 0.94;
+  letter-spacing: -0.03em;
+}
+
+.dropmedia-subtitle {
+  margin: 0;
+  color: #d9e4eb;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.dropmedia-copy {
+  margin: 0;
+  color: #b7c7d2;
+  font-size: 0.82rem;
+  line-height: 1.38;
+}
+
+.dropmedia-mode-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid #2c3a46;
+  border-radius: 999px;
+  background: rgba(7, 10, 14, 0.74);
+  padding: 6px;
+}
+
+.dropmedia-mode-link {
+  border-radius: 999px;
+  color: #8fa6b5;
+  text-align: center;
+  padding: 7px 0;
+  font-size: 0.72rem;
+}
+
+.dropmedia-mode-link.active {
+  background: rgba(35, 63, 82, 0.84);
+  color: #e6f3fc;
+}
+
+.dropmedia-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dropmedia-panel {
+  margin: 0;
+  border: 1px solid #293944;
+  border-radius: 14px;
+  background: rgba(8, 12, 16, 0.62);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.dropmedia-panel div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed #334651;
+  padding-bottom: 6px;
+}
+
+.dropmedia-panel dt {
+  color: #90a6b4;
+  font-size: 0.72rem;
+}
+
+.dropmedia-panel dd {
+  margin: 0;
+  color: #e3eaef;
+  font-size: 0.76rem;
+}
+
+.dropmedia-paywall {
+  border: 1px solid #2d3d48;
+  border-radius: 18px;
+  background: rgba(8, 12, 16, 0.72);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  min-height: 380px;
+  align-content: center;
+}
+
+.dropmedia-paywall-label {
+  margin: 0;
+  color: #88a2b3;
+  font-size: 0.74rem;
+  letter-spacing: 0.07em;
+}
+
+.dropmedia-paywall-title {
+  margin: 0;
+  color: #f5f8fb;
+  font-size: clamp(1.5rem, 5vw, 2.3rem);
+  line-height: 1;
+}
+
+.dropmedia-paywall-copy {
+  margin: 0;
+  color: #afc0cb;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.dropmedia-paywall-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 1024px) {
+  .dropflow-page,
+  .dropmedia-page {
+    grid-template-columns: minmax(290px, 520px);
+  }
+
+  .dropflow-side-notes,
+  .dropmedia-side-notes {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .dropflow-page,
+  .dropmedia-page {
+    padding: 10px;
+  }
+
+  .dropflow-phone-shell,
+  .dropmedia-phone-shell {
+    border-radius: 26px;
+    padding: 8px;
+  }
+
+  .dropflow-stage {
+    min-height: 430px;
+  }
+
+  .dropflow-stage.compact {
+    min-height: 280px;
+  }
+
+  .dropmedia-stage {
+    min-height: 520px;
+  }
+
+  .dropmedia-content {
+    right: 56px;
+  }
+
+  .dropflow-title,
+  .dropmedia-title {
+    font-size: 1.95rem;
+  }
+}
