@@ -43,8 +43,8 @@ export function SpaceSetupScreen({ session, collection, library, worlds }: Space
         </dl>
 
         <div className="slice-button-row">
-          <Link href={routes.explore()} className="slice-button">
-            open explore
+          <Link href={routes.townhall()} className="slice-button">
+            open townhall
           </Link>
           <Link href={routes.myCollection()} className="slice-button alt">
             open my collection

@@ -20,13 +20,13 @@ export function FavoritesScreen({ session, favorites }: FavoritesScreenProps) {
       <section className="slice-panel">
         <div className="slice-row">
           <p className="slice-label">{favorites.savedDrops.length} saved drops</p>
-          <Link href={routes.explore()} className="slice-button ghost">
-            open explore
+          <Link href={routes.townhall()} className="slice-button ghost">
+            open townhall
           </Link>
         </div>
 
         {favorites.savedDrops.length === 0 ? (
-          <p className="slice-copy">your favorites list is empty. save drops from explore to populate it.</p>
+          <p className="slice-copy">your favorites list is empty. save drops from townhall to populate it.</p>
         ) : (
           <ul className="slice-grid" aria-label="favorites drop list">
             {favorites.savedDrops.map((item) => (

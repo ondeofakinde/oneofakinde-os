@@ -66,8 +66,8 @@ export function MediaHubScreen({ mode, session, drops }: MediaHubScreenProps) {
       <section className="slice-panel">
         <div className="slice-row">
           <p className="slice-label">{featuredDrops.length} featured drops</p>
-          <Link href={routes.explore()} className="slice-button ghost">
-            open explore
+          <Link href={routes.townhall()} className="slice-button ghost">
+            open townhall
           </Link>
         </div>
         <p className="slice-copy">{copy.intro}</p>

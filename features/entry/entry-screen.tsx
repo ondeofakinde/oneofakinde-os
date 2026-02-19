@@ -28,8 +28,8 @@ export function EntryScreen({ session }: EntryScreenProps) {
             <Link href={routes.townhall()} className="entry-primary-cta">
               open townhall
             </Link>
-            <Link href={routes.explore()} className="entry-secondary-cta">
-              open explore
+            <Link href={routes.collect()} className="entry-secondary-cta">
+              open collect
             </Link>
             <Link href={routes.myCollection()} className="entry-secondary-cta">
               open my collection
