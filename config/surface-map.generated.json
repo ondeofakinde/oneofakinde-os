@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-18T06:28:13.639Z",
+  "generated_at": "2026-02-19T17:20:01.476Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
@@ -209,6 +209,39 @@
       "ui_title": "townhall",
       "ui_nouns": [
         "townhall",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "openapi_v1.search",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/search",
+      "legacy_routes": [],
+      "surface_key": "townhall_search",
+      "ui_title": "townhall search",
+      "ui_nouns": [
+        "townhall",
+        "studio",
+        "world",
         "drop"
       ],
       "lint_targets": [
@@ -1758,6 +1791,7 @@
     "/",
     "/explore",
     "/townhall",
+    "/townhall/search",
     "/townhall/watch",
     "/townhall/listen",
     "/townhall/read",
@@ -1792,8 +1826,8 @@
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 51,
-    "public_safe_count": 29,
+    "route_count": 52,
+    "public_safe_count": 30,
     "session_required_count": 22,
     "legacy_redirect_count": 33
   }

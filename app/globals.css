@@ -1224,6 +1224,125 @@ a {
   text-align: center;
 }
 
+.townhall-search-results {
+  border: 1px solid #273541;
+  border-radius: 16px;
+  background: rgba(8, 12, 16, 0.66);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.townhall-search-head {
+  display: grid;
+  gap: 4px;
+}
+
+.townhall-search-title {
+  margin: 0;
+  color: #e8f0f6;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.townhall-search-section {
+  border: 1px solid #2a3a46;
+  border-radius: 12px;
+  background: rgba(6, 10, 13, 0.72);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.townhall-search-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.townhall-search-section-head h2 {
+  margin: 0;
+  color: #dce7ef;
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.townhall-search-section-head span {
+  border: 1px solid #3b5261;
+  border-radius: 999px;
+  color: #a9becc;
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.townhall-search-empty {
+  margin: 0;
+  color: #95a9b8;
+  font-size: 0.76rem;
+}
+
+.townhall-search-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.townhall-search-card {
+  border: 1px solid #2f424f;
+  border-radius: 11px;
+  background: rgba(8, 12, 16, 0.78);
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.townhall-search-card-kicker {
+  margin: 0;
+  color: #91a8b8;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.townhall-search-card h3 {
+  margin: 0;
+  color: #eff5fa;
+  font-size: 0.9rem;
+}
+
+.townhall-search-card > p:not(.townhall-search-card-kicker) {
+  margin: 0;
+  color: #a9bcc9;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.townhall-search-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.townhall-search-card-link {
+  border: 1px solid #3d5565;
+  border-radius: 999px;
+  color: #d7ecf9;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 6px 10px;
+  background: rgba(26, 50, 68, 0.72);
+}
+
+.townhall-search-card-link.ghost {
+  color: #a9becd;
+  border-color: #344957;
+  background: rgba(7, 10, 14, 0.8);
+}
+
 @media (max-width: 1024px) {
   .townhall-page {
     grid-template-columns: minmax(290px, 520px);
