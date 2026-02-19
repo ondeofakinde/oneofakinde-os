@@ -215,6 +215,7 @@ export function TownhallFeedScreen({
   const lastImmersiveEnterMsRef = useRef(0);
   const lastStageTapMsRef = useRef(0);
   const lastStagePointerTapMsRef = useRef(0);
+  const scrollIntentUntilMsRef = useRef(0);
 
   const likedSet = useMemo(() => new Set(likedDropIds), [likedDropIds]);
   const savedSet = useMemo(() => new Set(savedDropIds), [savedDropIds]);
@@ -373,6 +374,7 @@ export function TownhallFeedScreen({
       setOpenPanel(null);
       setPanelDropId(null);
       lastImmersiveEnterMsRef.current = Date.now();
+      scrollIntentUntilMsRef.current = 0;
       const root = viewportRef.current;
       if (root) {
         lastScrollTopRef.current = root.scrollTop;
@@ -397,14 +399,28 @@ export function TownhallFeedScreen({
     const nextScrollTop = root.scrollTop;
     const delta = Math.abs(nextScrollTop - lastScrollTopRef.current);
     lastScrollTopRef.current = nextScrollTop;
+    const now = Date.now();
 
-    // Avoid accidental exit from tiny inertial/jitter scroll events right after entering immersive mode.
-    if (Date.now() - lastImmersiveEnterMsRef.current < 280 || delta < 14) {
+    if (isImmersive) {
+      const hasExplicitScrollIntent = now <= scrollIntentUntilMsRef.current;
+      // Ignore layout/inertia scroll unless it follows a real wheel/touch gesture.
+      if (!hasExplicitScrollIntent) {
+        return;
+      }
+      // Avoid accidental exit from tiny inertial/jitter scroll events right after entering immersive mode.
+      if (now - lastImmersiveEnterMsRef.current < 900 && delta < 90) {
+        return;
+      }
+    } else if (delta < 14) {
       return;
     }
 
     setIsImmersive(false);
     setShowControls(false);
+  }
+
+  function markScrollIntent() {
+    scrollIntentUntilMsRef.current = Date.now() + 650;
   }
 
   function activeShareUrl(dropId: string): string {
@@ -478,7 +494,13 @@ export function TownhallFeedScreen({
           </form>
         </header>
 
-        <div className="townhall-feed-viewport" ref={viewportRef} onScroll={handleFeedScroll}>
+        <div
+          className="townhall-feed-viewport"
+          ref={viewportRef}
+          onScroll={handleFeedScroll}
+          onWheelCapture={markScrollIntent}
+          onTouchMoveCapture={markScrollIntent}
+        >
           {drops.map((drop, index) => {
             const isActive = index === activeIndex;
             const isPaywalled = !ownedSet.has(drop.id);
