@@ -33,7 +33,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         <header className="identity-head">
           <p className="identity-brand">oneofakinde</p>
           <h1 className="identity-title">sign in</h1>
-          <p className="identity-copy">sign in, connect wallet, complete profile setup, then enter townhall.</p>
+          <p className="identity-copy">sign in, connect wallet, complete identity setup, then enter townhall.</p>
         </header>
 
         <form action={signInAction} className="identity-form">
