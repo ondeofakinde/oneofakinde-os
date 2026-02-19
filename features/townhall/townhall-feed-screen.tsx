@@ -43,6 +43,8 @@ type TownhallComment = {
 
 type TownhallPanel = "comments" | "collect" | "share";
 
+type StageTapEvent = React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>;
+
 type CollectStats = {
   collectors: number;
   royaltyPercent: number | null;
@@ -205,6 +207,8 @@ export function TownhallFeedScreen({
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
   const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
+  const lastScrollTopRef = useRef(0);
+  const lastImmersiveEnterMsRef = useRef(0);
 
   const likedSet = useMemo(() => new Set(likedDropIds), [likedDropIds]);
   const savedSet = useMemo(() => new Set(savedDropIds), [savedDropIds]);
@@ -231,6 +235,8 @@ export function TownhallFeedScreen({
     if (!root) {
       return;
     }
+
+    lastScrollTopRef.current = root.scrollTop;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -318,7 +324,7 @@ export function TownhallFeedScreen({
     setShareNotice("");
   }
 
-  function handleStageTap(event: React.MouseEvent<HTMLElement>, index: number) {
+  function handleStageTap(event: StageTapEvent, index: number) {
     const target = event.target as HTMLElement;
     if (target.closest("a,button,input,textarea,label,[data-no-immersive-toggle='true']")) {
       return;
@@ -334,6 +340,11 @@ export function TownhallFeedScreen({
       setShowControls(false);
       setOpenPanel(null);
       setPanelDropId(null);
+      lastImmersiveEnterMsRef.current = Date.now();
+      const root = viewportRef.current;
+      if (root) {
+        lastScrollTopRef.current = root.scrollTop;
+      }
       return;
     }
 
@@ -342,10 +353,26 @@ export function TownhallFeedScreen({
   }
 
   function handleFeedScroll() {
-    if (isImmersive || showControls) {
-      setIsImmersive(false);
-      setShowControls(false);
+    if (!isImmersive && !showControls) {
+      return;
     }
+
+    const root = viewportRef.current;
+    if (!root) {
+      return;
+    }
+
+    const nextScrollTop = root.scrollTop;
+    const delta = Math.abs(nextScrollTop - lastScrollTopRef.current);
+    lastScrollTopRef.current = nextScrollTop;
+
+    // Avoid accidental exit from tiny inertial/jitter scroll events right after entering immersive mode.
+    if (Date.now() - lastImmersiveEnterMsRef.current < 280 || delta < 14) {
+      return;
+    }
+
+    setIsImmersive(false);
+    setShowControls(false);
   }
 
   function activeShareUrl(dropId: string): string {
@@ -447,7 +474,11 @@ export function TownhallFeedScreen({
                   itemRefs.current[index] = element;
                 }}
               >
-                <section className="townhall-stage" aria-label={`${drop.title} preview`} onClick={(event) => handleStageTap(event, index)}>
+                <section
+                  className="townhall-stage"
+                  aria-label={`${drop.title} preview`}
+                  onPointerUp={(event) => handleStageTap(event, index)}
+                >
                   {failedVideoSet.has(drop.id) ? (
                     <div className="townhall-backdrop" />
                   ) : (
