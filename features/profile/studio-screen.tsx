@@ -17,7 +17,7 @@ export function StudioScreen({ session, studio, worlds, drops }: StudioScreenPro
       title="studio"
       subtitle="public studio surface with drops and world context"
       session={session}
-      activeNav="explore"
+      activeNav="townhall"
     >
       <section className="slice-panel">
         <p className="slice-label">@{studio.handle}</p>

@@ -62,7 +62,7 @@ export function MediaHubScreen({ mode, session, drops }: MediaHubScreenProps) {
   const featuredDrops = drops.slice(0, 12);
 
   return (
-    <AppShell title={mode} subtitle={copy.subtitle} session={session} activeNav="explore">
+    <AppShell title={mode} subtitle={copy.subtitle} session={session} activeNav="townhall">
       <section className="slice-panel">
         <div className="slice-row">
           <p className="slice-label">{featuredDrops.length} featured drops</p>

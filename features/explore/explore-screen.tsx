@@ -16,7 +16,7 @@ export function ExploreScreen({ session, drops, worlds }: ExploreScreenProps) {
       title="explore"
       subtitle="explore drops across worlds and studios"
       session={session}
-      activeNav="explore"
+      activeNav="townhall"
     >
       <section className="slice-panel">
         <div className="slice-row">

@@ -26,7 +26,7 @@ export function LiveNowScreen({ session, drops }: LiveNowScreenProps) {
   const feed = drops.slice(0, 8);
 
   return (
-    <AppShell title="live" subtitle="live hub for current drop programming" session={session} activeNav="explore">
+    <AppShell title="live" subtitle="live hub for current drop programming" session={session} activeNav="townhall">
       <section className="slice-panel">
         <div className="slice-row">
           <p className="slice-label">{feed.length} live entries</p>
