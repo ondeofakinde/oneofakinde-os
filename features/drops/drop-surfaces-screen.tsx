@@ -1,4 +1,3 @@
-import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import type { Drop, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
@@ -15,7 +14,7 @@ type DropSurfaceKey =
 type DropSurfaceContent = {
   title: string;
   subtitle: string;
-  note: string;
+  bullets: string[];
 };
 
 type DropSurfaceScreenProps = {
@@ -27,42 +26,48 @@ type DropSurfaceScreenProps = {
 const SURFACE_CONTENT: Record<DropSurfaceKey, DropSurfaceContent> = {
   details: {
     title: "details",
-    subtitle: "drop details surface",
-    note: "details describe this drop storyline, world context, and published metadata."
+    subtitle: "drop details and story context",
+    bullets: [
+      "season and episode framing",
+      "story synopsis and release context",
+      "world placement and studio context"
+    ]
   },
   properties: {
     title: "properties",
-    subtitle: "drop properties surface",
-    note: "properties map fixed fields and provenance metadata for this drop."
+    subtitle: "fixed metadata and provenance",
+    bullets: ["creator handle and world id", "release timestamp", "supply and rights metadata"]
   },
   offers: {
     title: "offers",
-    subtitle: "drop offers surface",
-    note: "offers summarize purchase and listing intents around this drop."
+    subtitle: "active offers and intent",
+    bullets: ["open offers from collectors", "latest accepted price", "purchase routing"]
   },
   activity: {
     title: "activity",
-    subtitle: "drop activity surface",
-    note: "activity tracks timeline events, certificates, and transfer actions."
+    subtitle: "timeline and transfer events",
+    bullets: ["mint and ownership timeline", "certificate status changes", "market actions"]
   },
   preview: {
     title: "preview",
-    subtitle: "safe preview surface",
-    note: "preview exposes public-safe snippets before watch entitlement."
+    subtitle: "public-safe preview content",
+    bullets: ["watermarked sample media", "teaser synopsis", "buy and watch routing"]
   },
   photos_preview: {
-    title: "photos preview",
-    subtitle: "photos preview surface",
-    note: "photos preview gives public-safe photo snippets for this drop."
+    title: "gallery preview",
+    subtitle: "public-safe still-image preview",
+    bullets: ["curated still-image slices", "teaser card for gallery mode", "buy and access routing"]
   }
 };
 
 function navClass(isActive: boolean): string {
-  return `slice-link ${isActive ? "active" : ""}`;
+  return `dropflow-tab ${isActive ? "active" : ""}`;
 }
 
 export function DropSurfaceScreen({ drop, session, surface }: DropSurfaceScreenProps) {
   const content = SURFACE_CONTENT[surface];
+  const watchHref = session ? routes.dropWatch(drop.id) : routes.signIn(routes.dropWatch(drop.id));
+  const buyHref = session ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
 
   const links = [
     { key: "details", label: "details", href: routes.dropDetails(drop.id) },
@@ -70,60 +75,72 @@ export function DropSurfaceScreen({ drop, session, surface }: DropSurfaceScreenP
     { key: "offers", label: "offers", href: routes.dropOffers(drop.id) },
     { key: "activity", label: "activity", href: routes.dropActivity(drop.id) },
     { key: "preview", label: "preview", href: routes.dropPreview(drop.id) },
-    { key: "photos_preview", label: "photos preview", href: routes.dropPreviewPhotos(drop.id) }
+    { key: "photos_preview", label: "gallery preview", href: routes.dropPreviewPhotos(drop.id) }
   ] as const;
 
   return (
-    <AppShell
-      title={content.title}
-      subtitle={content.subtitle}
-      session={session}
-      activeNav="explore"
-    >
-      <section className="slice-panel">
-        <p className="slice-label">{drop.seasonLabel}</p>
-        <h2 className="slice-title">{drop.title}</h2>
-        <p className="slice-copy">{content.note}</p>
+    <main className="dropflow-page">
+      <section className="dropflow-phone-shell" aria-label={`${content.title} surface`}>
+        <header className="dropflow-header">
+          <Link href={routes.drop(drop.id)} className="dropflow-icon-link" aria-label="back to drop">
+            ←
+          </Link>
+          <p className="dropflow-brand">oneofakinde</p>
+          <Link href={routes.townhall()} className="dropflow-icon-link" aria-label="open townhall">
+            ⌕
+          </Link>
+        </header>
 
-        <div className="slice-nav-grid" aria-label="drop surface navigation">
+        <section className="dropflow-stage compact">
+          <div className="dropflow-backdrop" />
+          <div className="dropflow-overlay" />
+          <div className="dropflow-content">
+            <p className="dropflow-meta">{content.subtitle}</p>
+            <h1 className="dropflow-title">{drop.title}</h1>
+            <p className="dropflow-subtitle">{content.title}</p>
+            <p className="dropflow-synopsis">{drop.synopsis}</p>
+            <p className="dropflow-meta">@{drop.studioHandle} · {drop.worldLabel}</p>
+          </div>
+        </section>
+
+        <nav className="dropflow-tabs" aria-label="drop section tabs">
           {links.map((item) => (
             <Link key={item.key} href={item.href} className={navClass(item.key === surface)}>
               {item.label}
             </Link>
           ))}
-        </div>
+        </nav>
 
-        <dl className="slice-list">
-          <div>
-            <dt>world</dt>
-            <dd>{drop.worldLabel}</dd>
+        <section className="dropflow-panel" aria-label={`${content.title} panel`}>
+          <div className="dropflow-panel-head">
+            <p>{content.title}</p>
+            <span>{formatUsd(drop.priceUsd)}</span>
           </div>
-          <div>
-            <dt>studio</dt>
-            <dd>@{drop.studioHandle}</dd>
-          </div>
-          <div>
-            <dt>price</dt>
-            <dd>{formatUsd(drop.priceUsd)}</dd>
-          </div>
-          <div>
-            <dt>release</dt>
-            <dd>{drop.releaseDate}</dd>
-          </div>
-        </dl>
 
-        <div className="slice-button-row">
-          <Link href={routes.drop(drop.id)} className="slice-button ghost">
-            open drop
-          </Link>
-          <Link href={routes.buyDrop(drop.id)} className="slice-button alt">
-            buy
-          </Link>
-          <Link href={routes.dropWatch(drop.id)} className="slice-button alt">
-            watch
-          </Link>
-        </div>
+          <ul className="dropflow-bullet-list">
+            {content.bullets.map((bullet) => (
+              <li key={bullet}>{bullet}</li>
+            ))}
+          </ul>
+
+          <div className="dropflow-cta-row">
+            <Link href={buyHref} className="dropflow-primary-cta">
+              buy now
+            </Link>
+            <Link href={watchHref} className="dropflow-secondary-cta">
+              watch
+            </Link>
+            <Link href={routes.drop(drop.id)} className="dropflow-secondary-cta">
+              open drop
+            </Link>
+          </div>
+        </section>
       </section>
-    </AppShell>
+
+      <aside className="dropflow-side-notes" aria-label="surface notes">
+        <h2>{content.title}</h2>
+        <p>{content.subtitle}</p>
+      </aside>
+    </main>
   );
 }

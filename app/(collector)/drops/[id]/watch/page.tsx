@@ -1,4 +1,4 @@
-import { WatchScreen } from "@/features/drops/watch-screen";
+import { DropConsumeScreen } from "@/features/drops/drop-consume-screen";
 import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
@@ -34,7 +34,8 @@ export default async function DropWatchPage({ params }: DropWatchPageProps) {
   ]);
 
   return (
-    <WatchScreen
+    <DropConsumeScreen
+      mode="watch"
       session={session}
       drop={drop}
       hasEntitlement={hasEntitlement}
