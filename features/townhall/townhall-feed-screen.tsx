@@ -43,7 +43,10 @@ type TownhallComment = {
 
 type TownhallPanel = "comments" | "collect" | "share";
 
-type StageTapEvent = React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>;
+type StageTapEvent =
+  | React.MouseEvent<HTMLElement>
+  | React.PointerEvent<HTMLElement>
+  | React.TouchEvent<HTMLElement>;
 
 type CollectStats = {
   collectors: number;
@@ -209,6 +212,7 @@ export function TownhallFeedScreen({
   const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
   const lastScrollTopRef = useRef(0);
   const lastImmersiveEnterMsRef = useRef(0);
+  const lastStageTapMsRef = useRef(0);
 
   const likedSet = useMemo(() => new Set(likedDropIds), [likedDropIds]);
   const savedSet = useMemo(() => new Set(savedDropIds), [savedDropIds]);
@@ -325,8 +329,19 @@ export function TownhallFeedScreen({
   }
 
   function handleStageTap(event: StageTapEvent, index: number) {
-    const target = event.target as HTMLElement;
-    if (target.closest("a,button,input,textarea,label,[data-no-immersive-toggle='true']")) {
+    const now = Date.now();
+    if (now - lastStageTapMsRef.current < 180) {
+      return;
+    }
+    lastStageTapMsRef.current = now;
+
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    // Keep explicit no-toggle controls interactive (social rail, overlay panels, etc).
+    if (target.closest("[data-no-immersive-toggle='true']")) {
       return;
     }
 
@@ -335,7 +350,15 @@ export function TownhallFeedScreen({
       return;
     }
 
+    const isActionTarget = Boolean(target.closest("a,button,input,textarea,label,select"));
+
     if (!isImmersive) {
+      // First tap should always enter immersive preview, even if it lands on CTA chrome.
+      if (isActionTarget) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
       setIsImmersive(true);
       setShowControls(false);
       setOpenPanel(null);
@@ -477,7 +500,8 @@ export function TownhallFeedScreen({
                 <section
                   className="townhall-stage"
                   aria-label={`${drop.title} preview`}
-                  onPointerUp={(event) => handleStageTap(event, index)}
+                  onPointerUpCapture={(event) => handleStageTap(event, index)}
+                  onClickCapture={(event) => handleStageTap(event, index)}
                 >
                   {failedVideoSet.has(drop.id) ? (
                     <div className="townhall-backdrop" />
@@ -514,7 +538,7 @@ export function TownhallFeedScreen({
                     <p className="townhall-meta">{formatPublishedDate(drop.releaseDate)}</p>
 
                     {isPaywalled ? (
-                      <div className="townhall-cta-row" data-no-immersive-toggle="true">
+                      <div className="townhall-cta-row">
                         <Link href={paywallHref} className="townhall-primary-cta">
                           {copy.unlockCta}
                         </Link>
