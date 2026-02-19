@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "prestart": "node scripts/ensure-next-build.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "next typegen && tsc --noEmit",

@@ -106,7 +106,7 @@ test("persistence cutover: non-production can use file backend", async () => {
   );
 });
 
-test("persistence cutover: NODE_ENV production enforces postgres", async () => {
+test("persistence cutover: NODE_ENV production alone does not force cutover", async () => {
   await withEnv(
     {
       OOK_APP_ENV: null,
@@ -114,10 +114,11 @@ test("persistence cutover: NODE_ENV production enforces postgres", async () => {
       NODE_ENV: "production",
       OOK_BFF_PERSISTENCE_BACKEND: null,
       OOK_BFF_DB_PATH: null,
-      OOK_BFF_DATABASE_URL: "postgres://example.com/ook"
+      OOK_BFF_DATABASE_URL: null,
+      DATABASE_URL: null
     },
     () => {
-      assert.equal(getPersistenceBackend(), "postgres");
+      assert.equal(getPersistenceBackend(), "file");
     }
   );
 });
