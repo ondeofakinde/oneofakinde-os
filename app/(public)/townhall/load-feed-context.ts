@@ -1,5 +1,6 @@
 import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
+import { rankDropsForTownhall } from "@/lib/townhall/ranking";
 
 type TownhallViewer = {
   accountId: string;
@@ -8,11 +9,12 @@ type TownhallViewer = {
 
 export async function loadTownhallFeedContext() {
   const [session, drops] = await Promise.all([getOptionalSession(), gateway.listDrops()]);
+  const rankedDrops = rankDropsForTownhall(drops);
 
   if (!session) {
     return {
       viewer: null as TownhallViewer | null,
-      drops,
+      drops: rankedDrops,
       ownedDropIds: [] as string[]
     };
   }
@@ -24,7 +26,7 @@ export async function loadTownhallFeedContext() {
       accountId: session.accountId,
       handle: session.handle
     } as TownhallViewer,
-    drops,
+    drops: rankedDrops,
     ownedDropIds: (collection?.ownedDrops ?? []).map((entry) => entry.drop.id)
   };
 }

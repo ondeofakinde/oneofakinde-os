@@ -1352,21 +1352,6 @@ a {
   height: 18px;
 }
 
-.townhall-controls-toggle {
-  position: absolute;
-  right: 10px;
-  top: 12px;
-  z-index: 5;
-  border: 1px solid rgba(126, 150, 166, 0.68);
-  border-radius: 999px;
-  background: rgba(6, 12, 17, 0.72);
-  color: #d6e8f2;
-  font-size: 0.64rem;
-  letter-spacing: 0.08em;
-  padding: 6px 10px;
-  text-transform: uppercase;
-}
-
 .townhall-media-controls {
   position: absolute;
   left: 10px;
