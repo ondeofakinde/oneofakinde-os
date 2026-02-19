@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateRoutePolicy } from "../../lib/route-policy";
 import { routes } from "../../lib/routes";
-import { buildDefaultEntryFlow } from "../../lib/system-flow";
+import { buildDefaultEntryFlow, extractFinalReturnTo } from "../../lib/system-flow";
 
 const FLOW_DROP_ID = "stardust";
 const FLOW_CERT_ID = "cert_flow";
@@ -20,6 +20,8 @@ test("system flow: default entry journey routes through auth -> wallet -> profil
   assert.equal(getReturnTo(flow.walletConnectReturnTo), flow.profileSetupReturnTo);
   assert.equal(getReturnTo(flow.signInHref), flow.walletConnectReturnTo);
   assert.equal(getReturnTo(flow.signUpHref), routes.townhall());
+  assert.equal(extractFinalReturnTo(flow.walletConnectReturnTo), routes.townhall());
+  assert.equal(extractFinalReturnTo(flow.profileSetupReturnTo), routes.townhall());
 });
 
 test("system flow: public steps stay public and protected steps enforce session", () => {

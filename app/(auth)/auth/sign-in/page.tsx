@@ -1,6 +1,6 @@
 import { normalizeReturnTo } from "@/lib/session";
 import { routes } from "@/lib/routes";
-import { buildDefaultEntryFlow } from "@/lib/system-flow";
+import { buildDefaultEntryFlow, extractFinalReturnTo } from "@/lib/system-flow";
 import Link from "next/link";
 import { signInAction } from "./actions";
 
@@ -23,6 +23,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const walletConnectHref = returnTo.startsWith("/auth/wallet-connect")
     ? (returnTo as ReturnType<typeof routes.walletConnect>)
     : routes.walletConnect(routes.profileSetup(returnTo));
+  const signUpReturnTo = extractFinalReturnTo(returnTo);
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
   const hasRoleError = errorCode === "role_required";
@@ -105,7 +106,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             connect wallet
           </Link>
           <span>·</span>
-          <Link href={routes.signUp(returnTo)} className="identity-link">
+          <Link href={routes.signUp(signUpReturnTo)} className="identity-link">
             create account
           </Link>
         </footer>
