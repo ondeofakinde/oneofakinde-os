@@ -547,18 +547,6 @@ export function TownhallFeedScreen({
                     </button>
                   </aside>
 
-                  {isActive && isImmersive && !showControls ? (
-                    <button
-                      type="button"
-                      className="townhall-controls-toggle"
-                      data-no-immersive-toggle="true"
-                      aria-label="reveal media controls"
-                      onClick={() => setShowControls(true)}
-                    >
-                      controls
-                    </button>
-                  ) : null}
-
                   {isActive && showControls ? (
                     <section className="townhall-media-controls" aria-label="media controls" data-no-immersive-toggle="true">
                       <button
