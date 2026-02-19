@@ -46,7 +46,7 @@ export const routes = {
   buyDrop: (dropId: string): Route => asRoute(`/pay/buy/${dropId}`),
   myCollection: (): Route => asRoute("/my-collection"),
   favorites: (): Route => asRoute("/favorites"),
-  library: (): Route => asRoute("/favorites"),
+  library: (): Route => asRoute("/library"),
 
   profileSetup: (returnTo?: string): Route =>
     returnTo

@@ -1,5 +1,6 @@
 import { normalizeReturnTo } from "@/lib/session";
 import { routes } from "@/lib/routes";
+import { buildDefaultEntryFlow, extractFinalReturnTo } from "@/lib/system-flow";
 import Link from "next/link";
 import { signInAction } from "./actions";
 
@@ -17,8 +18,12 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const resolvedParams = await searchParams;
-  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/townhall");
-  const walletConnectReturnTo = routes.profileSetup(returnTo);
+  const defaultReturnTo = buildDefaultEntryFlow().walletConnectReturnTo;
+  const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), defaultReturnTo);
+  const walletConnectHref = returnTo.startsWith("/auth/wallet-connect")
+    ? (returnTo as ReturnType<typeof routes.walletConnect>)
+    : routes.walletConnect(routes.profileSetup(returnTo));
+  const signUpReturnTo = extractFinalReturnTo(returnTo);
   const errorCode = firstParam(resolvedParams.error);
   const hasInvalidEmail = errorCode === "invalid_email";
   const hasRoleError = errorCode === "role_required";
@@ -29,7 +34,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         <header className="identity-head">
           <p className="identity-brand">oneofakinde</p>
           <h1 className="identity-title">sign in</h1>
-          <p className="identity-copy">enter your email and continue your drop flow.</p>
+          <p className="identity-copy">sign in, connect wallet, complete identity setup, then enter townhall.</p>
         </header>
 
         <form action={signInAction} className="identity-form">
@@ -97,11 +102,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         </form>
 
         <footer className="identity-foot">
-          <Link href={routes.walletConnect(walletConnectReturnTo)} className="identity-link">
+          <Link href={walletConnectHref} className="identity-link">
             connect wallet
           </Link>
           <span>·</span>
-          <Link href={routes.signUp(returnTo)} className="identity-link">
+          <Link href={routes.signUp(signUpReturnTo)} className="identity-link">
             create account
           </Link>
         </footer>
