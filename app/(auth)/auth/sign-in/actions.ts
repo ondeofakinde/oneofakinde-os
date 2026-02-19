@@ -3,6 +3,7 @@
 import { gateway } from "@/lib/gateway";
 import type { AccountRole } from "@/lib/domain/contracts";
 import { normalizeReturnTo, serializeSessionRoles, SESSION_COOKIE, SESSION_ROLES_COOKIE } from "@/lib/session";
+import { buildDefaultEntryFlow } from "@/lib/system-flow";
 import { cookies } from "next/headers";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
@@ -42,5 +43,6 @@ export async function signInAction(formData: FormData): Promise<void> {
     maxAge: 60 * 60 * 24 * 14
   });
 
-  redirect(normalizeReturnTo(returnTo, "/townhall") as Route);
+  const defaultReturnTo = buildDefaultEntryFlow().walletConnectReturnTo;
+  redirect(normalizeReturnTo(returnTo, defaultReturnTo) as Route);
 }

@@ -1,21 +1,17 @@
 import type { Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
+import { buildDefaultEntryFlow } from "@/lib/system-flow";
 import Link from "next/link";
 
 type EntryScreenProps = {
   session: Session | null;
 };
 
-function getOnboardingPath(returnTo: string): string {
-  return routes.profileSetup(returnTo);
-}
-
 export function EntryScreen({ session }: EntryScreenProps) {
-  const finalReturnTo = routes.townhall();
-  const onboardingPath = getOnboardingPath(finalReturnTo);
-  const signInHref = routes.signIn(finalReturnTo);
-  const signUpHref = routes.signUp(finalReturnTo);
-  const walletConnectHref = routes.walletConnect(onboardingPath);
+  const flow = buildDefaultEntryFlow();
+  const signInHref = flow.signInHref;
+  const signUpHref = flow.signUpHref;
+  const walletConnectHref = flow.walletConnectHref;
 
   return (
     <main className="entry-page">
