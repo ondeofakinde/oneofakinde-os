@@ -19,9 +19,10 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 export default async function WalletLinkPage({ searchParams }: WalletLinkPageProps) {
   const resolvedParams = await searchParams;
+  const defaultReturnTo = routes.profileSetup(routes.townhall());
   const returnTo = normalizeReturnTo(
     firstParam(resolvedParams.returnTo),
-    "/onboarding/profile-setup?returnTo=%2Ftownhall"
+    defaultReturnTo
   );
   const continueHref = returnTo as Route;
   const session = await requireSession(`/auth/wallet-link?returnTo=${encodeURIComponent(returnTo)}`);
