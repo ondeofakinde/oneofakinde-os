@@ -1,16 +1,9 @@
-import { RouteStub } from "@/components/route-stub";
+import { OpsControlSurfaceScreen } from "@/features/ops/ops-control-surface-screen";
+import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 
 export default async function InvestPage() {
-  await requireSession("/invest");
-
-  return (
-    <RouteStub
-      title="invest"
-      route="/invest"
-      roles={["collector", "creator"]}
-      publicSafe={false}
-      summary="invest architecture route is wired for contract-backed investment flows."
-    />
-  );
+  const session = await requireSession("/invest");
+  const drops = await gateway.listDrops();
+  return <OpsControlSurfaceScreen surface="invest" session={session} drops={drops} />;
 }
