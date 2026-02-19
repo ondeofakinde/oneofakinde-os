@@ -43,6 +43,8 @@ export async function signUpAction(formData: FormData): Promise<void> {
   });
 
   const finalReturnTo = normalizeReturnTo(returnTo, "/townhall");
-  const onboardingReturnTo = `/onboarding/profile-setup?returnTo=${encodeURIComponent(finalReturnTo)}`;
+  const onboardingReturnTo = finalReturnTo.startsWith("/onboarding/profile-setup")
+    ? finalReturnTo
+    : `/onboarding/profile-setup?returnTo=${encodeURIComponent(finalReturnTo)}`;
   redirect(`/auth/wallet-connect?returnTo=${encodeURIComponent(onboardingReturnTo)}` as Route);
 }
