@@ -155,6 +155,13 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
+    "pathname": "/townhall/search",
+    "surfaceKey": "townhall_search",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
     "pathname": "/townhall/watch",
     "surfaceKey": "townhall_watch",
     "publicSafe": "true",

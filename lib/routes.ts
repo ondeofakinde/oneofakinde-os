@@ -13,6 +13,10 @@ export const routes = {
   create: (): Route => asRoute("/create"),
 
   townhall: (): Route => asRoute("/townhall"),
+  townhallSearch: (query?: string): Route =>
+    query
+      ? asRoute(`/townhall/search?q=${encodeURIComponent(query)}`)
+      : asRoute("/townhall/search"),
   townhallWatch: (): Route => asRoute("/townhall/watch"),
   townhallListen: (): Route => asRoute("/townhall/listen"),
   townhallRead: (): Route => asRoute("/townhall/read"),
