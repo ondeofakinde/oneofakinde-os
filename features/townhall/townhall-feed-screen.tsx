@@ -120,7 +120,8 @@ function formatPublishedDate(value: string): string {
   return parsed.toLocaleDateString("en-US", {
     month: "short",
     day: "2-digit",
-    year: "numeric"
+    year: "numeric",
+    timeZone: "UTC"
   });
 }
 
@@ -590,7 +591,7 @@ export function TownhallFeedScreen({
                       aria-label="like drop"
                     >
                       <HeartIcon className="townhall-social-icon" filled={isLiked} />
-                      <small>{likeCount.toLocaleString()}</small>
+                      <small>{likeCount.toLocaleString("en-US")}</small>
                     </button>
 
                     <button
