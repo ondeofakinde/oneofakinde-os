@@ -435,6 +435,28 @@ export function TownhallFeedScreen({
   }
 
   function handleStageTap(event: StageTapEvent, index: number, source: StageTapSource) {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    if (index !== activeIndex) {
+      itemRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (isImmersive) {
+      if (target.closest("[data-no-immersive-toggle='true']")) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      setIsImmersive(false);
+      setShowControls(false);
+      return;
+    }
+
     const now = Date.now();
     if (
       shouldIgnoreSyntheticFollowupClick({
@@ -453,45 +475,28 @@ export function TownhallFeedScreen({
     }
     lastStageTapMsRef.current = now;
 
-    const target = event.target as HTMLElement | null;
-    if (!target) {
-      return;
-    }
-
     // Keep explicit no-toggle controls interactive (social rail, overlay panels, etc).
     if (target.closest("[data-no-immersive-toggle='true']")) {
       return;
     }
 
-    if (index !== activeIndex) {
-      itemRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-
     const isActionTarget = Boolean(target.closest("a,button,input,textarea,label,select"));
-
-    if (!isImmersive) {
-      // First tap should always enter immersive preview, even if it lands on CTA chrome.
-      if (isActionTarget) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-
-      setIsImmersive(true);
-      setShowControls(false);
-      setOpenPanel(null);
-      setPanelDropId(null);
-      lastImmersiveEnterMsRef.current = Date.now();
-      scrollIntentUntilMsRef.current = 0;
-      const root = viewportRef.current;
-      if (root) {
-        lastScrollTopRef.current = root.scrollTop;
-      }
-      return;
+    // First tap should always enter immersive preview, even if it lands on CTA chrome.
+    if (isActionTarget) {
+      event.preventDefault();
+      event.stopPropagation();
     }
 
-    setIsImmersive(false);
+    setIsImmersive(true);
     setShowControls(false);
+    setOpenPanel(null);
+    setPanelDropId(null);
+    lastImmersiveEnterMsRef.current = Date.now();
+    scrollIntentUntilMsRef.current = 0;
+    const root = viewportRef.current;
+    if (root) {
+      lastScrollTopRef.current = root.scrollTop;
+    }
   }
 
   function handleFeedScroll() {
@@ -693,28 +698,6 @@ export function TownhallFeedScreen({
               aria-label="search users, worlds, and drops"
             />
           </form>
-          {mode === "townhall" ? (
-            <nav className="townhall-mode-row" aria-label="townhall mode shortcuts" data-no-immersive-toggle="true">
-              <Link href={routes.townhall()} className="townhall-mode-link active">
-                all
-              </Link>
-              <Link href={routes.townhallWatch()} className="townhall-mode-link">
-                watch
-              </Link>
-              <Link href={routes.townhallListen()} className="townhall-mode-link">
-                listen
-              </Link>
-              <Link href={routes.townhallRead()} className="townhall-mode-link">
-                read
-              </Link>
-              <Link href={routes.townhallGallery()} className="townhall-mode-link">
-                gallery
-              </Link>
-              <Link href={routes.townhallLive()} className="townhall-mode-link">
-                live
-              </Link>
-            </nav>
-          ) : null}
         </header>
 
         <div
@@ -835,11 +818,7 @@ export function TownhallFeedScreen({
                   ) : null}
 
                   {previewAsset.type === "text" ? (
-                    <div className="townhall-text-preview" aria-label={previewAsset.alt}>
-                      <div className="townhall-text-preview-body">
-                        <p>{previewAsset.text}</p>
-                      </div>
-                    </div>
+                    <div className="townhall-text-preview" aria-label={previewAsset.alt} />
                   ) : null}
 
                   {previewAsset.type === "video" && !previewAsset.posterSrc && (
