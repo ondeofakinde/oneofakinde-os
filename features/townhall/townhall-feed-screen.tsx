@@ -4,7 +4,8 @@ import { formatUsd } from "@/features/shared/format";
 import type {
   Drop,
   TownhallDropSocialSnapshot,
-  TownhallShareChannel
+  TownhallShareChannel,
+  TownhallTelemetryEventType
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import { resolveDropModeForTownhallSurface, type TownhallSurfaceMode } from "@/lib/townhall/feed-mode";
@@ -193,6 +194,10 @@ function formatRelativeAge(value: string): string {
   return `${Math.floor(seconds / 86_400)}d`;
 }
 
+function roundTelemetryMetric(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export function TownhallFeedScreen({
   mode,
   viewer,
@@ -224,6 +229,9 @@ export function TownhallFeedScreen({
   const lastStageTapMsRef = useRef(0);
   const lastStagePointerTapMsRef = useRef(0);
   const scrollIntentUntilMsRef = useRef(0);
+  const watchTimeDropIdRef = useRef<string | null>(null);
+  const watchTimeStartedAtMsRef = useRef(0);
+  const completionRecordedDropIdsRef = useRef<Set<string>>(new Set());
 
   const failedPreviewAssetKeySet = useMemo(
     () => new Set(failedPreviewAssetKeys),
@@ -233,9 +241,89 @@ export function TownhallFeedScreen({
 
   const activeDrop = drops[activeIndex] ?? drops[0] ?? null;
 
+  async function postTelemetryEvent(
+    dropId: string,
+    eventType: TownhallTelemetryEventType,
+    payload?: {
+      watchTimeSeconds?: number;
+      completionPercent?: number;
+    }
+  ) {
+    try {
+      await fetch("/api/v1/townhall/telemetry", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          dropId,
+          eventType,
+          ...(payload ?? {})
+        })
+      });
+    } catch {
+      // Best-effort telemetry should not interrupt the feed UX.
+    }
+  }
+
+  function flushWatchTimeTelemetry(nextStartMs: number) {
+    const previousDropId = watchTimeDropIdRef.current;
+    const previousStartedAtMs = watchTimeStartedAtMsRef.current;
+    if (!previousDropId || previousStartedAtMs <= 0) {
+      return;
+    }
+
+    const elapsedSeconds = roundTelemetryMetric((nextStartMs - previousStartedAtMs) / 1000);
+    if (elapsedSeconds < 1) {
+      return;
+    }
+
+    void postTelemetryEvent(previousDropId, "watch_time", {
+      watchTimeSeconds: elapsedSeconds
+    });
+  }
+
+  function recordCompletionTelemetry(dropId: string, media: HTMLMediaElement) {
+    if (completionRecordedDropIdsRef.current.has(dropId)) {
+      return;
+    }
+
+    if (watchTimeDropIdRef.current !== dropId) {
+      return;
+    }
+
+    const duration = media.duration;
+    if (!Number.isFinite(duration) || duration <= 0) {
+      return;
+    }
+
+    const completionPercent = (media.currentTime / duration) * 100;
+    if (completionPercent < 92) {
+      return;
+    }
+
+    completionRecordedDropIdsRef.current.add(dropId);
+    void postTelemetryEvent(dropId, "completion", {
+      completionPercent: roundTelemetryMetric(Math.min(100, completionPercent))
+    });
+  }
+
   useEffect(() => {
     setSocialByDrop((current) => upsertSocialMap(current, drops));
   }, [drops]);
+
+  useEffect(() => {
+    const nowMs = Date.now();
+    flushWatchTimeTelemetry(nowMs);
+    watchTimeDropIdRef.current = activeDrop?.id ?? null;
+    watchTimeStartedAtMsRef.current = nowMs;
+  }, [activeDrop?.id]);
+
+  useEffect(() => {
+    return () => {
+      flushWatchTimeTelemetry(Date.now());
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -340,6 +428,10 @@ export function TownhallFeedScreen({
     setOpenPanel(panel);
     setPanelDropId(dropId);
     setShareNotice("");
+
+    if (panel === "collect") {
+      void postTelemetryEvent(dropId, "collect_intent");
+    }
   }
 
   function handleStageTap(event: StageTapEvent, index: number, source: StageTapSource) {
@@ -694,6 +786,9 @@ export function TownhallFeedScreen({
                       onError={() => {
                         markPreviewAssetFailure(resolvedPreview.assetKey);
                       }}
+                      onTimeUpdate={(event) => {
+                        recordCompletionTelemetry(drop.id, event.currentTarget);
+                      }}
                     />
                   ) : null}
 
@@ -719,6 +814,9 @@ export function TownhallFeedScreen({
                         muted
                         onError={() => {
                           markPreviewAssetFailure(resolvedPreview.assetKey);
+                        }}
+                        onTimeUpdate={(event) => {
+                          recordCompletionTelemetry(drop.id, event.currentTarget);
                         }}
                       />
                     </>

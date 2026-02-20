@@ -14,6 +14,8 @@ import type {
   TownhallDropSocialSnapshot,
   TownhallShareChannel,
   TownhallSocialSnapshot,
+  TownhallTelemetryEventType,
+  TownhallTelemetrySignals,
   World
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
@@ -28,7 +30,8 @@ import {
   type BffDatabase,
   type CertificateRecord,
   type PaymentRecord,
-  type TownhallCommentRecord
+  type TownhallCommentRecord,
+  type TownhallTelemetryEventRecord
 } from "@/lib/bff/persistence";
 import { randomUUID } from "node:crypto";
 
@@ -44,6 +47,13 @@ const TOWNHALL_SHARE_CHANNEL_SET = new Set<TownhallShareChannel>([
   "whatsapp",
   "telegram"
 ]);
+const TOWNHALL_TELEMETRY_EVENT_SET = new Set<TownhallTelemetryEventType>([
+  "watch_time",
+  "completion",
+  "collect_intent"
+]);
+const TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT = 100_000;
+const MAX_WATCH_TIME_SECONDS_PER_EVENT = 600;
 
 type CompletePendingPaymentOptions = {
   expectedAccountId?: string;
@@ -58,6 +68,11 @@ type StripeWebhookMutationResult = {
 type TownhallSocialMutationResult = {
   persist: boolean;
   result: TownhallDropSocialSnapshot | null;
+};
+
+type TownhallTelemetryMutationResult = {
+  persist: boolean;
+  result: boolean;
 };
 
 function toSession(account: AccountRecord, sessionToken: string): Session {
@@ -260,6 +275,26 @@ function isTownhallShareChannel(value: string): value is TownhallShareChannel {
   return TOWNHALL_SHARE_CHANNEL_SET.has(value as TownhallShareChannel);
 }
 
+function isTownhallTelemetryEventType(value: string): value is TownhallTelemetryEventType {
+  return TOWNHALL_TELEMETRY_EVENT_SET.has(value as TownhallTelemetryEventType);
+}
+
+function normalizeWatchTimeSeconds(value: number | undefined): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(MAX_WATCH_TIME_SECONDS_PER_EVENT, Math.max(0, Number(value)));
+}
+
+function normalizeCompletionPercent(value: number | undefined): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, Number(value)));
+}
+
 function normalizeTownhallCommentBody(value: string): string {
   return value.trim().slice(0, TOWNHALL_COMMENT_MAX_LENGTH);
 }
@@ -332,6 +367,44 @@ function buildTownhallSocialSnapshot(
   }
 
   return { byDropId };
+}
+
+function emptyTelemetrySignals(): TownhallTelemetrySignals {
+  return {
+    watchTimeSeconds: 0,
+    completions: 0,
+    collectIntents: 0
+  };
+}
+
+function buildTownhallTelemetrySignals(
+  db: BffDatabase,
+  dropIds: string[]
+): Record<string, TownhallTelemetrySignals> {
+  const uniqueDropIds = Array.from(new Set(dropIds.map((dropId) => dropId.trim()).filter(Boolean)));
+  const byDropId = Object.fromEntries(
+    uniqueDropIds.map((dropId) => [dropId, emptyTelemetrySignals()])
+  ) as Record<string, TownhallTelemetrySignals>;
+  const trackedDropIdSet = new Set(uniqueDropIds);
+
+  for (const event of db.townhallTelemetryEvents) {
+    if (!trackedDropIdSet.has(event.dropId)) {
+      continue;
+    }
+
+    const current = byDropId[event.dropId] ?? emptyTelemetrySignals();
+    if (event.eventType === "watch_time") {
+      current.watchTimeSeconds += normalizeWatchTimeSeconds(event.watchTimeSeconds);
+    } else if (event.eventType === "completion") {
+      current.completions += 1;
+    } else if (event.eventType === "collect_intent") {
+      current.collectIntents += 1;
+    }
+
+    byDropId[event.dropId] = current;
+  }
+
+  return byDropId;
 }
 
 const gatewayMethods: CommerceGateway = {
@@ -1015,6 +1088,64 @@ export const commerceBffService = {
       return {
         persist: false,
         result: buildTownhallSocialSnapshot(db, viewerAccount?.id ?? null, uniqueDropIds)
+      };
+    });
+  },
+
+  async getTownhallTelemetrySignals(
+    dropIds: string[]
+  ): Promise<Record<string, TownhallTelemetrySignals>> {
+    return withDatabase<Record<string, TownhallTelemetrySignals>>(async (db) => {
+      const uniqueDropIds = Array.from(new Set(dropIds.map((dropId) => dropId.trim()).filter(Boolean)));
+      return {
+        persist: false,
+        result: buildTownhallTelemetrySignals(db, uniqueDropIds)
+      };
+    });
+  },
+
+  async recordTownhallTelemetryEvent(input: {
+    accountId: string | null;
+    dropId: string;
+    eventType: TownhallTelemetryEventType;
+    watchTimeSeconds?: number;
+    completionPercent?: number;
+    occurredAt?: string;
+  }): Promise<boolean> {
+    return withDatabase<boolean>(async (db): Promise<TownhallTelemetryMutationResult> => {
+      const drop = findDropById(db, input.dropId);
+      if (!drop || !isTownhallTelemetryEventType(input.eventType)) {
+        return {
+          persist: false,
+          result: false
+        };
+      }
+
+      const account = input.accountId ? findAccountById(db, input.accountId) : null;
+      const normalizedWatchTime =
+        input.eventType === "watch_time" ? normalizeWatchTimeSeconds(input.watchTimeSeconds) : 0;
+      const normalizedCompletion =
+        input.eventType === "completion"
+          ? normalizeCompletionPercent(input.completionPercent ?? 100)
+          : 0;
+
+      db.townhallTelemetryEvents.unshift({
+        id: `tel_${randomUUID()}`,
+        accountId: account?.id ?? null,
+        dropId: drop.id,
+        eventType: input.eventType,
+        watchTimeSeconds: normalizedWatchTime,
+        completionPercent: normalizedCompletion,
+        occurredAt: input.occurredAt ?? new Date().toISOString()
+      } satisfies TownhallTelemetryEventRecord);
+
+      if (db.townhallTelemetryEvents.length > TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT) {
+        db.townhallTelemetryEvents.length = TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT;
+      }
+
+      return {
+        persist: true,
+        result: true
       };
     });
   },

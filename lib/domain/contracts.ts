@@ -145,6 +145,14 @@ export type TownhallSocialSnapshot = {
   byDropId: Record<string, TownhallDropSocialSnapshot>;
 };
 
+export type TownhallTelemetryEventType = "watch_time" | "completion" | "collect_intent";
+
+export type TownhallTelemetrySignals = {
+  watchTimeSeconds: number;
+  completions: number;
+  collectIntents: number;
+};
+
 export type CreateSessionInput = {
   email: string;
   role: AccountRole;

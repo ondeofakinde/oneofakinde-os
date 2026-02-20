@@ -11,11 +11,16 @@ type TownhallViewer = {
 
 export async function loadTownhallFeedContext() {
   const [session, drops] = await Promise.all([getOptionalSession(), gateway.listDrops()]);
-  const rankedDrops = rankDropsForTownhall(drops);
-  const dropIds = rankedDrops.map((drop) => drop.id);
+  const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
+    drops.map((drop) => drop.id)
+  );
+  const rankedDrops = rankDropsForTownhall(drops, {
+    telemetryByDropId
+  });
+  const rankedDropIds = rankedDrops.map((drop) => drop.id);
 
   if (!session) {
-    const social = await commerceBffService.getTownhallSocialSnapshot(null, dropIds);
+    const social = await commerceBffService.getTownhallSocialSnapshot(null, rankedDropIds);
     return {
       viewer: null as TownhallViewer | null,
       drops: rankedDrops,
@@ -26,7 +31,7 @@ export async function loadTownhallFeedContext() {
 
   const [collection, social] = await Promise.all([
     gateway.getMyCollection(session.accountId),
-    commerceBffService.getTownhallSocialSnapshot(session.accountId, dropIds)
+    commerceBffService.getTownhallSocialSnapshot(session.accountId, rankedDropIds)
   ]);
 
   return {
