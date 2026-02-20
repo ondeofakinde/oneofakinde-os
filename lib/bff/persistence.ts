@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { Pool, type PoolClient } from "pg";
+import { seedPreviewMediaForDrop } from "@/lib/townhall/seed-preview-media";
 
 export type AccountRecord = {
   id: string;
@@ -279,7 +280,8 @@ function createSeedDatabase(): BffDatabase {
       worldLabel: "dark matter",
       synopsis: "through the dark, stardust traces identity in motion.",
       releaseDate: "2026-02-16",
-      priceUsd: 1.99
+      priceUsd: 1.99,
+      previewMedia: seedPreviewMediaForDrop("stardust")
     },
     {
       id: "twilight-whispers",
@@ -291,7 +293,8 @@ function createSeedDatabase(): BffDatabase {
       worldLabel: "dark matter",
       synopsis: "an ambient chapter where memory and water share a horizon.",
       releaseDate: "2026-02-10",
-      priceUsd: 3.49
+      priceUsd: 3.49,
+      previewMedia: seedPreviewMediaForDrop("twilight-whispers")
     },
     {
       id: "voidrunner",
@@ -303,7 +306,8 @@ function createSeedDatabase(): BffDatabase {
       worldLabel: "dark matter",
       synopsis: "a lone signal crosses worlds and leaves a live trail.",
       releaseDate: "2026-02-12",
-      priceUsd: 9.99
+      priceUsd: 9.99,
+      previewMedia: seedPreviewMediaForDrop("voidrunner")
     },
     {
       id: "through-the-lens",
@@ -315,7 +319,8 @@ function createSeedDatabase(): BffDatabase {
       worldLabel: "through the lens",
       synopsis: "a quiet table becomes a live scene with layered stories.",
       releaseDate: "2026-02-14",
-      priceUsd: 12
+      priceUsd: 12,
+      previewMedia: seedPreviewMediaForDrop("through-the-lens")
     }
   ];
 

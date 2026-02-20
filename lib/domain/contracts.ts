@@ -9,6 +9,20 @@ export type Session = {
   sessionToken: string;
 };
 
+export type DropPreviewMode = "watch" | "listen" | "read" | "gallery" | "live";
+
+export type DropPreviewAssetType = "video" | "audio" | "image" | "text";
+
+export type DropPreviewAsset = {
+  type: DropPreviewAssetType;
+  src?: string;
+  posterSrc?: string;
+  alt?: string;
+  text?: string;
+};
+
+export type DropPreviewMap = Partial<Record<DropPreviewMode, DropPreviewAsset>>;
+
 export type Drop = {
   id: string;
   title: string;
@@ -20,6 +34,7 @@ export type Drop = {
   synopsis: string;
   releaseDate: string;
   priceUsd: number;
+  previewMedia?: DropPreviewMap;
 };
 
 export type World = {
