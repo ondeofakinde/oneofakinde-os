@@ -1292,12 +1292,21 @@ a {
   gap: 0;
 }
 
+.townhall-phone-shell-feed.immersive .townhall-header,
+.townhall-phone-shell-feed.immersive .townhall-bottom-nav {
+  display: none;
+}
+
 .townhall-phone-shell-feed.immersive .townhall-feed-viewport {
   border-radius: 34px;
+  min-height: 100%;
+  height: 100%;
 }
 
 .townhall-phone-shell-feed.immersive .townhall-feed-item {
   padding-bottom: 0;
+  min-height: 100%;
+  height: 100%;
 }
 
 .townhall-phone-shell-feed.immersive .townhall-stage {
