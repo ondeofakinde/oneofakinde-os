@@ -17,3 +17,6 @@ tsconfig.tsbuildinfo
 
 # local bff persistence
 .data/
+
+# local release dry-run report output
+artifacts/

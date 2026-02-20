@@ -18,6 +18,8 @@ This package defines the target software architecture for oneofakinde OS using t
   - Phased rollout plan with risk controls.
 - `06-ops-security-release-gates.md`
   - Security scanning, observability hooks, and release governance controls.
+- `release-candidate-dry-run.md`
+  - Strict pass/fail launch dry run checklist and execution command.
 
 ## Source Basis
 
