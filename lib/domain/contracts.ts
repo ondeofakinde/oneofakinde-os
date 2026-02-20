@@ -121,6 +121,30 @@ export type LibrarySnapshot = {
   savedDrops: LibraryDrop[];
 };
 
+export type TownhallShareChannel = "sms" | "internal_dm" | "whatsapp" | "telegram";
+
+export type TownhallComment = {
+  id: string;
+  dropId: string;
+  authorHandle: string;
+  body: string;
+  createdAt: string;
+};
+
+export type TownhallDropSocialSnapshot = {
+  dropId: string;
+  likeCount: number;
+  commentCount: number;
+  shareCount: number;
+  likedByViewer: boolean;
+  savedByViewer: boolean;
+  comments: TownhallComment[];
+};
+
+export type TownhallSocialSnapshot = {
+  byDropId: Record<string, TownhallDropSocialSnapshot>;
+};
+
 export type CreateSessionInput = {
   email: string;
   role: AccountRole;
