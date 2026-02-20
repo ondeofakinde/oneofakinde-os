@@ -435,6 +435,20 @@ export function TownhallFeedScreen({
   }
 
   function handleStageTap(event: StageTapEvent, index: number, source: StageTapSource) {
+    const now = Date.now();
+    if (source === "pointer") {
+      lastStagePointerTapMsRef.current = now;
+    }
+    if (
+      shouldIgnoreSyntheticFollowupClick({
+        source,
+        nowMs: now,
+        lastPointerTapMs: lastStagePointerTapMsRef.current
+      })
+    ) {
+      return;
+    }
+
     const target = event.target as HTMLElement | null;
     if (!target) {
       return;
@@ -454,21 +468,8 @@ export function TownhallFeedScreen({
       event.stopPropagation();
       setIsImmersive(false);
       setShowControls(false);
+      lastStageTapMsRef.current = now;
       return;
-    }
-
-    const now = Date.now();
-    if (
-      shouldIgnoreSyntheticFollowupClick({
-        source,
-        nowMs: now,
-        lastPointerTapMs: lastStagePointerTapMsRef.current
-      })
-    ) {
-      return;
-    }
-    if (source === "pointer") {
-      lastStagePointerTapMsRef.current = now;
     }
     if (shouldIgnoreRapidTap({ nowMs: now, lastTapMs: lastStageTapMsRef.current })) {
       return;
@@ -754,6 +755,8 @@ export function TownhallFeedScreen({
                   onPointerUpCapture={(event) => handleStageTap(event, index, "pointer")}
                   onClickCapture={(event) => handleStageTap(event, index, "click")}
                 >
+                  <div className="townhall-backdrop" />
+
                   {previewAsset.type === "video" ? (
                     <video
                       ref={(element) => {
@@ -783,9 +786,7 @@ export function TownhallFeedScreen({
                           style={{ backgroundImage: `url(${previewAsset.posterSrc})` }}
                           aria-label={previewAsset.alt}
                         />
-                      ) : (
-                        <div className="townhall-backdrop" />
-                      )}
+                      ) : null}
                       <audio
                         ref={(element) => {
                           mediaRefs.current[index] = element;
@@ -820,10 +821,6 @@ export function TownhallFeedScreen({
                   {previewAsset.type === "text" ? (
                     <div className="townhall-text-preview" aria-label={previewAsset.alt} />
                   ) : null}
-
-                  {previewAsset.type === "video" && !previewAsset.posterSrc && (
-                    <div className="townhall-backdrop" />
-                  )}
 
                   <div className="townhall-overlay" />
 
