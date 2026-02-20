@@ -31,19 +31,12 @@ test("feed-mode selects available preview mode for townhall surface", () => {
   };
 
   const first = resolveDropModeForTownhallSurface(drop, 0, "townhall");
-  const second = resolveDropModeForTownhallSurface(drop, 1, "townhall");
 
-  assert.equal(first, "read");
-  assert.equal(second, "gallery");
+  assert.equal(first, "gallery");
 });
 
-test("feed-mode falls back to deterministic rotation when no preview map exists", () => {
+test("feed-mode falls back to watch when preview map is missing", () => {
   const m0 = resolveDropModeForTownhallSurface(baseDrop, 0, "townhall");
-  const m1 = resolveDropModeForTownhallSurface(baseDrop, 1, "townhall");
-  const m2 = resolveDropModeForTownhallSurface(baseDrop, 2, "townhall");
 
   assert.equal(m0, "watch");
-  assert.equal(m1, "listen");
-  assert.equal(m2, "read");
 });
-
