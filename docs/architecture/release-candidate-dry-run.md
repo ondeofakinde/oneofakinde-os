@@ -23,6 +23,16 @@ If `OOK_RC_BASE_URL` is omitted, the script defaults to:
 https://oneofakinde-os.vercel.app
 ```
 
+## GitHub Workflow
+
+Use workflow `.github/workflows/release-candidate-dry-run.yml`.
+
+1. Open `Actions` in GitHub.
+2. Select `release-candidate-dry-run`.
+3. Click `Run workflow`.
+4. Set `base_url` (production or staging deploy URL).
+5. Run and review step summary + uploaded artifact.
+
 ## Output
 
 - Console lines with strict `[PASS]` / `[FAIL]` checks.

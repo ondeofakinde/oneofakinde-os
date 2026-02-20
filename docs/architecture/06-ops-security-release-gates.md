@@ -27,6 +27,9 @@ Required jobs:
 The required check list is source-controlled in:
 - `config/release-required-checks.json`
 
+Release candidate dry run workflow:
+- `.github/workflows/release-candidate-dry-run.yml` (manual dispatch against deployed URL)
+
 ## Governance Files
 - `.github/CODEOWNERS`
 - `.github/pull_request_template.md`
