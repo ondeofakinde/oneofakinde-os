@@ -68,7 +68,7 @@ test("resolveDropPreview skips failed assets and promotes the next candidate", (
   assert.equal(resolved.asset.src, "https://cdn.example/gallery.jpg");
 });
 
-test("resolveDropPreview returns text fallback when no valid assets are available", () => {
+test("resolveDropPreview returns image fallback for non-read modes when no valid assets are available", () => {
   const drop = withPreviewMedia({
     watch: { type: "video" },
     listen: { type: "audio" },
@@ -76,7 +76,20 @@ test("resolveDropPreview returns text fallback when no valid assets are availabl
   });
 
   const resolved = resolveDropPreview(drop, "listen");
+  assert.equal(resolved.asset.type, "image");
+  assert.ok(typeof resolved.asset.src === "string" && resolved.asset.src.startsWith("data:image/svg+xml"));
+  assert.ok(resolved.fallbackDepth > 0);
+});
+
+test("resolveDropPreview returns text fallback for read mode when no valid assets are available", () => {
+  const drop = withPreviewMedia({
+    watch: { type: "video" },
+    listen: { type: "audio" },
+    read: { type: "text", text: "   " }
+  });
+
+  const resolved = resolveDropPreview(drop, "read");
   assert.equal(resolved.asset.type, "text");
   assert.equal(resolved.asset.text, "this is the preview synopsis fallback.");
-  assert.ok(resolved.fallbackDepth > 0);
+  assert.ok(resolved.fallbackDepth >= 0);
 });

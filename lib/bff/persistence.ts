@@ -652,7 +652,29 @@ async function persistFileDb(db: BffDatabase): Promise<void> {
 }
 
 function parseDropJson(value: unknown): Drop {
-  return (typeof value === "string" ? JSON.parse(value) : value) as Drop;
+  const parsed = (typeof value === "string" ? JSON.parse(value) : value) as Partial<Drop> | null;
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("invalid persisted drop payload");
+  }
+
+  const normalized: Drop = {
+    id: String(parsed.id ?? ""),
+    title: String(parsed.title ?? ""),
+    seasonLabel: String(parsed.seasonLabel ?? ""),
+    episodeLabel: String(parsed.episodeLabel ?? ""),
+    studioHandle: String(parsed.studioHandle ?? ""),
+    worldId: String(parsed.worldId ?? ""),
+    worldLabel: String(parsed.worldLabel ?? ""),
+    synopsis: String(parsed.synopsis ?? ""),
+    releaseDate: String(parsed.releaseDate ?? ""),
+    priceUsd: Number(parsed.priceUsd ?? 0),
+    previewMedia:
+      parsed.previewMedia && Object.keys(parsed.previewMedia).length > 0
+        ? parsed.previewMedia
+        : seedPreviewMediaForDrop(String(parsed.id ?? ""))
+  };
+
+  return normalized;
 }
 
 function parseWorldJson(value: unknown): World {
