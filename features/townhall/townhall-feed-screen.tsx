@@ -1,7 +1,11 @@
 "use client";
 
 import { formatUsd } from "@/features/shared/format";
-import type { Drop } from "@/lib/domain/contracts";
+import type {
+  Drop,
+  TownhallDropSocialSnapshot,
+  TownhallShareChannel
+} from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import { resolveDropModeForTownhallSurface, type TownhallSurfaceMode } from "@/lib/townhall/feed-mode";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
@@ -37,13 +41,7 @@ type TownhallFeedScreenProps = {
   } | null;
   drops: Drop[];
   ownedDropIds?: string[];
-};
-
-type TownhallComment = {
-  id: string;
-  author: string;
-  body: string;
-  publishedAt: string;
+  initialSocialByDropId?: Record<string, TownhallDropSocialSnapshot>;
 };
 
 type TownhallPanel = "comments" | "collect" | "share";
@@ -127,14 +125,6 @@ function formatPublishedDate(value: string): string {
   });
 }
 
-function baseLikeCount(index: number): number {
-  return 1200 + index * 93;
-}
-
-function baseShareCount(index: number): number {
-  return 70 + index * 11;
-}
-
 function buildCollectStats(drop: Drop, index: number): CollectStats {
   return {
     collectors: 140 + index * 37,
@@ -144,53 +134,71 @@ function buildCollectStats(drop: Drop, index: number): CollectStats {
   };
 }
 
-function createInitialComments(drops: Drop[]): Record<string, TownhallComment[]> {
-  const output: Record<string, TownhallComment[]> = {};
+function defaultDropSocialSnapshot(dropId: string): TownhallDropSocialSnapshot {
+  return {
+    dropId,
+    likeCount: 0,
+    commentCount: 0,
+    shareCount: 0,
+    likedByViewer: false,
+    savedByViewer: false,
+    comments: []
+  };
+}
 
-  for (const [index, drop] of drops.entries()) {
-    output[drop.id] = [
-      {
-        id: `${drop.id}-c1`,
-        author: "community",
-        body: `this ${drop.title} drop hits hard.`,
-        publishedAt: `${index + 1}h`
-      },
-      {
-        id: `${drop.id}-c2`,
-        author: "collector",
-        body: "sound and pacing are both clean.",
-        publishedAt: `${index + 2}h`
-      }
-    ];
+function createInitialSocialMap(
+  drops: Drop[],
+  initialSocialByDropId: Record<string, TownhallDropSocialSnapshot>
+): Record<string, TownhallDropSocialSnapshot> {
+  const output: Record<string, TownhallDropSocialSnapshot> = {};
+
+  for (const drop of drops) {
+    const seeded = initialSocialByDropId[drop.id];
+    output[drop.id] = seeded
+      ? {
+          ...seeded,
+          comments: [...seeded.comments]
+        }
+      : defaultDropSocialSnapshot(drop.id);
   }
 
   return output;
 }
 
-function upsertCommentMap(
-  existing: Record<string, TownhallComment[]>,
+function upsertSocialMap(
+  existing: Record<string, TownhallDropSocialSnapshot>,
   drops: Drop[]
-): Record<string, TownhallComment[]> {
-  const next: Record<string, TownhallComment[]> = { ...existing };
+): Record<string, TownhallDropSocialSnapshot> {
+  const next: Record<string, TownhallDropSocialSnapshot> = { ...existing };
 
   for (const drop of drops) {
     if (!next[drop.id]) {
-      next[drop.id] = [];
+      next[drop.id] = defaultDropSocialSnapshot(drop.id);
     }
   }
 
   return next;
 }
 
-function toggleId(ids: string[], id: string): string[] {
-  return ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id];
+function formatRelativeAge(value: string): string {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return "now";
+  }
+
+  const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
+  if (seconds < 60) return "now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86_400)}d`;
 }
 
 export function TownhallFeedScreen({
   mode,
   viewer,
   drops,
-  ownedDropIds = []
+  ownedDropIds = [],
+  initialSocialByDropId = {}
 }: TownhallFeedScreenProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isImmersive, setIsImmersive] = useState(false);
@@ -198,17 +206,15 @@ export function TownhallFeedScreen({
   const [isMuted, setIsMuted] = useState(true);
   const [volume, setVolume] = useState(0.7);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [likedDropIds, setLikedDropIds] = useState<string[]>([]);
-  const [savedDropIds, setSavedDropIds] = useState<string[]>([]);
+  const [socialByDrop, setSocialByDrop] = useState<Record<string, TownhallDropSocialSnapshot>>(() =>
+    createInitialSocialMap(drops, initialSocialByDropId)
+  );
   const [openPanel, setOpenPanel] = useState<TownhallPanel | null>(null);
   const [panelDropId, setPanelDropId] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [shareNotice, setShareNotice] = useState("");
   const [shareOrigin, setShareOrigin] = useState("https://oneofakinde-os.vercel.app");
   const [failedPreviewAssetKeys, setFailedPreviewAssetKeys] = useState<string[]>([]);
-  const [commentsByDrop, setCommentsByDrop] = useState<Record<string, TownhallComment[]>>(
-    () => createInitialComments(drops)
-  );
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
@@ -219,8 +225,6 @@ export function TownhallFeedScreen({
   const lastStagePointerTapMsRef = useRef(0);
   const scrollIntentUntilMsRef = useRef(0);
 
-  const likedSet = useMemo(() => new Set(likedDropIds), [likedDropIds]);
-  const savedSet = useMemo(() => new Set(savedDropIds), [savedDropIds]);
   const failedPreviewAssetKeySet = useMemo(
     () => new Set(failedPreviewAssetKeys),
     [failedPreviewAssetKeys]
@@ -230,7 +234,7 @@ export function TownhallFeedScreen({
   const activeDrop = drops[activeIndex] ?? drops[0] ?? null;
 
   useEffect(() => {
-    setCommentsByDrop((current) => upsertCommentMap(current, drops));
+    setSocialByDrop((current) => upsertSocialMap(current, drops));
   }, [drops]);
 
   useEffect(() => {
@@ -434,36 +438,124 @@ export function TownhallFeedScreen({
     return `${shareOrigin}${routes.drop(dropId)}`;
   }
 
-  function handleCommentSubmit(dropId: string) {
+  function currentFeedHref(): string {
+    if (mode === "townhall") return routes.townhall();
+    if (mode === "watch") return routes.townhallWatch();
+    if (mode === "listen") return routes.townhallListen();
+    if (mode === "read") return routes.townhallRead();
+    if (mode === "gallery") return routes.townhallGallery();
+    return routes.townhallLive();
+  }
+
+  function redirectToSignInForInteraction() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.location.href = routes.signIn(currentFeedHref());
+  }
+
+  function applySocialSnapshot(snapshot: TownhallDropSocialSnapshot) {
+    setSocialByDrop((current) => ({
+      ...current,
+      [snapshot.dropId]: {
+        ...snapshot,
+        comments: [...snapshot.comments]
+      }
+    }));
+  }
+
+  async function postSocialMutation(
+    pathname: string,
+    body?: Record<string, unknown>
+  ): Promise<TownhallDropSocialSnapshot | null> {
+    const response = await fetch(pathname, {
+      method: "POST",
+      headers: body ? { "content-type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as { social?: TownhallDropSocialSnapshot };
+    return payload.social ?? null;
+  }
+
+  async function handleLikeToggle(dropId: string) {
+    if (!viewer) {
+      redirectToSignInForInteraction();
+      return;
+    }
+
+    const social = await postSocialMutation(
+      `/api/v1/townhall/social/likes/${encodeURIComponent(dropId)}`
+    );
+    if (social) {
+      applySocialSnapshot(social);
+    }
+  }
+
+  async function handleSaveToggle(dropId: string) {
+    if (!viewer) {
+      redirectToSignInForInteraction();
+      return;
+    }
+
+    const social = await postSocialMutation(
+      `/api/v1/townhall/social/saves/${encodeURIComponent(dropId)}`
+    );
+    if (social) {
+      applySocialSnapshot(social);
+    }
+  }
+
+  async function handleCommentSubmit(dropId: string) {
     const body = commentDraft.trim();
     if (!body) return;
 
-    setCommentsByDrop((current) => {
-      const previous = current[dropId] ?? [];
-      const author = viewer?.handle ?? "guest";
-      const nextComment: TownhallComment = {
-        id: `${dropId}-${Date.now()}`,
-        author,
-        body,
-        publishedAt: "now"
-      };
+    if (!viewer) {
+      redirectToSignInForInteraction();
+      return;
+    }
 
-      return {
-        ...current,
-        [dropId]: [...previous, nextComment]
-      };
-    });
+    const social = await postSocialMutation(
+      `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}`,
+      { body }
+    );
+
+    if (social) {
+      applySocialSnapshot(social);
+    }
 
     setCommentDraft("");
   }
 
-  function handleCopyForInternalDm(dropId: string) {
-    const url = activeShareUrl(dropId);
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(url);
+  async function recordShare(dropId: string, channel: TownhallShareChannel) {
+    if (!viewer) {
+      redirectToSignInForInteraction();
+      return;
     }
 
-    setShareNotice("saved for internal dm delivery (mock).");
+    const social = await postSocialMutation(
+      `/api/v1/townhall/social/shares/${encodeURIComponent(dropId)}`,
+      { channel }
+    );
+
+    if (social) {
+      applySocialSnapshot(social);
+    }
+  }
+
+  async function handleCopyForInternalDm(dropId: string) {
+    const url = activeShareUrl(dropId);
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+    }
+
+    await recordShare(dropId, "internal_dm");
+    setShareNotice("saved for internal dm delivery.");
   }
 
   function markPreviewAssetFailure(assetKey: string) {
@@ -544,12 +636,14 @@ export function TownhallFeedScreen({
             const isActive = index === activeIndex;
             const isPaywalled = !ownedSet.has(drop.id);
             const openCurrentPanel = isActive && panelDropId === drop.id ? openPanel : null;
-            const comments = commentsByDrop[drop.id] ?? [];
+            const social = socialByDrop[drop.id] ?? defaultDropSocialSnapshot(drop.id);
+            const comments = social.comments;
+            const commentCount = social.commentCount;
             const collectStats = buildCollectStats(drop, index);
-            const likeCount = baseLikeCount(index) + (likedSet.has(drop.id) ? 1 : 0);
-            const shareCount = baseShareCount(index);
-            const isLiked = likedSet.has(drop.id);
-            const isSaved = savedSet.has(drop.id);
+            const likeCount = social.likeCount;
+            const shareCount = social.shareCount;
+            const isLiked = social.likedByViewer;
+            const isSaved = social.savedByViewer;
             const dropHeading = drop.seasonLabel.trim();
             const dropSubtitle = drop.episodeLabel.trim();
             const dropSurfaceMode = resolveDropModeForTownhallSurface(drop, index, mode);
@@ -681,7 +775,7 @@ export function TownhallFeedScreen({
                       type="button"
                       className={`townhall-social-action ${isLiked ? "active" : ""}`}
                       onClick={() => {
-                        setLikedDropIds((current) => toggleId(current, drop.id));
+                        void handleLikeToggle(drop.id);
                       }}
                       aria-label="like drop"
                     >
@@ -696,7 +790,7 @@ export function TownhallFeedScreen({
                       aria-label="open comments"
                     >
                       <CommentIcon className="townhall-social-icon" filled={openCurrentPanel === "comments"} />
-                      <small>{comments.length}</small>
+                      <small>{commentCount}</small>
                     </button>
 
                     <button
@@ -723,7 +817,7 @@ export function TownhallFeedScreen({
                       type="button"
                       className={`townhall-social-action ${isSaved ? "active" : ""}`}
                       onClick={() => {
-                        setSavedDropIds((current) => toggleId(current, drop.id));
+                        void handleSaveToggle(drop.id);
                       }}
                       aria-label="save drop to private library"
                     >
@@ -804,7 +898,7 @@ export function TownhallFeedScreen({
                         {comments.map((comment) => (
                           <li key={comment.id}>
                             <p>
-                              <strong>@{comment.author}</strong> · {comment.publishedAt}
+                              <strong>@{comment.authorHandle}</strong> · {formatRelativeAge(comment.createdAt)}
                             </p>
                             <p>{comment.body}</p>
                           </li>
@@ -817,7 +911,12 @@ export function TownhallFeedScreen({
                           placeholder="write a comment"
                           aria-label="write comment"
                         />
-                        <button type="button" onClick={() => handleCommentSubmit(drop.id)}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleCommentSubmit(drop.id);
+                          }}
+                        >
                           send
                         </button>
                       </div>
@@ -870,8 +969,22 @@ export function TownhallFeedScreen({
                         </button>
                       </div>
                       <div className="townhall-share-grid">
-                        <a href={`sms:?body=${encodeURIComponent(shareText)}`}>sms</a>
-                        <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">
+                        <a
+                          href={`sms:?body=${encodeURIComponent(shareText)}`}
+                          onClick={() => {
+                            void recordShare(drop.id, "sms");
+                          }}
+                        >
+                          sms
+                        </a>
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={() => {
+                            void recordShare(drop.id, "whatsapp");
+                          }}
+                        >
                           whatsapp
                         </a>
                         <a
@@ -880,10 +993,18 @@ export function TownhallFeedScreen({
                           )}`}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={() => {
+                            void recordShare(drop.id, "telegram");
+                          }}
                         >
                           telegram
                         </a>
-                        <button type="button" onClick={() => handleCopyForInternalDm(drop.id)}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleCopyForInternalDm(drop.id);
+                          }}
+                        >
                           internal dm
                         </button>
                       </div>

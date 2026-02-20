@@ -10,6 +10,10 @@ import type {
   PurchaseReceipt,
   Session,
   Studio,
+  TownhallComment,
+  TownhallDropSocialSnapshot,
+  TownhallShareChannel,
+  TownhallSocialSnapshot,
   World
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
@@ -23,13 +27,23 @@ import {
   type AccountRecord,
   type BffDatabase,
   type CertificateRecord,
-  type PaymentRecord
+  type PaymentRecord,
+  type TownhallCommentRecord
 } from "@/lib/bff/persistence";
 import { randomUUID } from "node:crypto";
 
 const PROCESSING_FEE_USD = 1.99;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const STRIPE_WEBHOOK_EVENT_LOG_LIMIT = 1000;
+const TOWNHALL_COMMENT_MAX_LENGTH = 600;
+const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
+
+const TOWNHALL_SHARE_CHANNEL_SET = new Set<TownhallShareChannel>([
+  "sms",
+  "internal_dm",
+  "whatsapp",
+  "telegram"
+]);
 
 type CompletePendingPaymentOptions = {
   expectedAccountId?: string;
@@ -39,6 +53,11 @@ type CompletePendingPaymentOptions = {
 type StripeWebhookMutationResult = {
   persist: boolean;
   result: StripeWebhookApplyResult;
+};
+
+type TownhallSocialMutationResult = {
+  persist: boolean;
+  result: TownhallDropSocialSnapshot | null;
 };
 
 function toSession(account: AccountRecord, sessionToken: string): Session {
@@ -235,6 +254,84 @@ function rememberProcessedStripeWebhookEvent(db: BffDatabase, eventId: string): 
   if (db.stripeWebhookEvents.length > STRIPE_WEBHOOK_EVENT_LOG_LIMIT) {
     db.stripeWebhookEvents.length = STRIPE_WEBHOOK_EVENT_LOG_LIMIT;
   }
+}
+
+function isTownhallShareChannel(value: string): value is TownhallShareChannel {
+  return TOWNHALL_SHARE_CHANNEL_SET.has(value as TownhallShareChannel);
+}
+
+function normalizeTownhallCommentBody(value: string): string {
+  return value.trim().slice(0, TOWNHALL_COMMENT_MAX_LENGTH);
+}
+
+function toTownhallComment(
+  record: TownhallCommentRecord,
+  accountHandleById: Map<string, string>
+): TownhallComment {
+  return {
+    id: record.id,
+    dropId: record.dropId,
+    authorHandle: accountHandleById.get(record.accountId) ?? "community",
+    body: record.body,
+    createdAt: record.createdAt
+  };
+}
+
+function buildTownhallDropSocialSnapshot(
+  db: BffDatabase,
+  dropId: string,
+  accountId: string | null
+): TownhallDropSocialSnapshot | null {
+  const drop = findDropById(db, dropId);
+  if (!drop) {
+    return null;
+  }
+
+  const likeCount = db.townhallLikes.filter((entry) => entry.dropId === dropId).length;
+  const comments = db.townhallComments.filter((entry) => entry.dropId === dropId);
+  const shareCount = db.townhallShares.filter((entry) => entry.dropId === dropId).length;
+
+  const accountHandleById = new Map(db.accounts.map((account) => [account.id, account.handle]));
+  const publicComments = comments
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, TOWNHALL_COMMENTS_PREVIEW_LIMIT)
+    .map((entry) => toTownhallComment(entry, accountHandleById));
+
+  const likedByViewer = accountId
+    ? db.townhallLikes.some((entry) => entry.accountId === accountId && entry.dropId === dropId)
+    : false;
+  const savedByViewer = accountId
+    ? db.savedDrops.some((entry) => entry.accountId === accountId && entry.dropId === dropId)
+    : false;
+
+  return {
+    dropId,
+    likeCount,
+    commentCount: comments.length,
+    shareCount,
+    likedByViewer,
+    savedByViewer,
+    comments: publicComments
+  };
+}
+
+function buildTownhallSocialSnapshot(
+  db: BffDatabase,
+  accountId: string | null,
+  dropIds: string[]
+): TownhallSocialSnapshot {
+  const byDropId: Record<string, TownhallDropSocialSnapshot> = {};
+
+  for (const dropId of dropIds) {
+    const snapshot = buildTownhallDropSocialSnapshot(db, dropId, accountId);
+    if (!snapshot) {
+      continue;
+    }
+
+    byDropId[dropId] = snapshot;
+  }
+
+  return { byDropId };
 }
 
 const gatewayMethods: CommerceGateway = {
@@ -904,6 +1001,154 @@ export const commerceBffService = {
     return completePendingPaymentById(paymentId, {
       expectedAccountId: accountId,
       allowedProviders: ["manual"]
+    });
+  },
+
+  async getTownhallSocialSnapshot(
+    accountId: string | null,
+    dropIds: string[]
+  ): Promise<TownhallSocialSnapshot> {
+    return withDatabase<TownhallSocialSnapshot>(async (db) => {
+      const viewerAccount = accountId ? findAccountById(db, accountId) : null;
+      const uniqueDropIds = Array.from(new Set(dropIds.map((dropId) => dropId.trim()).filter(Boolean)));
+
+      return {
+        persist: false,
+        result: buildTownhallSocialSnapshot(db, viewerAccount?.id ?? null, uniqueDropIds)
+      };
+    });
+  },
+
+  async toggleTownhallLike(accountId: string, dropId: string): Promise<TownhallDropSocialSnapshot | null> {
+    return withDatabase<TownhallDropSocialSnapshot | null>(async (db): Promise<TownhallSocialMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const existingIndex = db.townhallLikes.findIndex(
+        (entry) => entry.accountId === account.id && entry.dropId === drop.id
+      );
+      if (existingIndex >= 0) {
+        db.townhallLikes.splice(existingIndex, 1);
+      } else {
+        db.townhallLikes.unshift({
+          accountId: account.id,
+          dropId: drop.id,
+          likedAt: new Date().toISOString()
+        });
+      }
+
+      return {
+        persist: true,
+        result: buildTownhallDropSocialSnapshot(db, drop.id, account.id)
+      };
+    });
+  },
+
+  async toggleTownhallSavedDrop(
+    accountId: string,
+    dropId: string
+  ): Promise<TownhallDropSocialSnapshot | null> {
+    return withDatabase<TownhallDropSocialSnapshot | null>(async (db): Promise<TownhallSocialMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const existingIndex = db.savedDrops.findIndex(
+        (entry) => entry.accountId === account.id && entry.dropId === drop.id
+      );
+      if (existingIndex >= 0) {
+        db.savedDrops.splice(existingIndex, 1);
+      } else {
+        db.savedDrops.unshift({
+          accountId: account.id,
+          dropId: drop.id,
+          savedAt: new Date().toISOString()
+        });
+      }
+
+      return {
+        persist: true,
+        result: buildTownhallDropSocialSnapshot(db, drop.id, account.id)
+      };
+    });
+  },
+
+  async addTownhallComment(
+    accountId: string,
+    dropId: string,
+    body: string
+  ): Promise<TownhallDropSocialSnapshot | null> {
+    return withDatabase<TownhallDropSocialSnapshot | null>(async (db): Promise<TownhallSocialMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const normalizedBody = normalizeTownhallCommentBody(body);
+      if (!normalizedBody) {
+        return {
+          persist: false,
+          result: buildTownhallDropSocialSnapshot(db, drop.id, account.id)
+        };
+      }
+
+      db.townhallComments.unshift({
+        id: `cmt_${randomUUID()}`,
+        accountId: account.id,
+        dropId: drop.id,
+        body: normalizedBody,
+        createdAt: new Date().toISOString()
+      });
+
+      return {
+        persist: true,
+        result: buildTownhallDropSocialSnapshot(db, drop.id, account.id)
+      };
+    });
+  },
+
+  async recordTownhallShare(
+    accountId: string,
+    dropId: string,
+    channel: TownhallShareChannel
+  ): Promise<TownhallDropSocialSnapshot | null> {
+    return withDatabase<TownhallDropSocialSnapshot | null>(async (db): Promise<TownhallSocialMutationResult> => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop || !isTownhallShareChannel(channel)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      db.townhallShares.unshift({
+        id: `shr_${randomUUID()}`,
+        accountId: account.id,
+        dropId: drop.id,
+        channel,
+        sharedAt: new Date().toISOString()
+      });
+
+      return {
+        persist: true,
+        result: buildTownhallDropSocialSnapshot(db, drop.id, account.id)
+      };
     });
   },
 

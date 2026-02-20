@@ -3,6 +3,7 @@ import type {
   Certificate,
   Drop,
   PurchaseReceipt,
+  TownhallShareChannel,
   Studio,
   World
 } from "@/lib/domain/contracts";
@@ -69,6 +70,28 @@ export type StripeWebhookEventRecord = {
   processedAt: string;
 };
 
+export type TownhallLikeRecord = {
+  accountId: string;
+  dropId: string;
+  likedAt: string;
+};
+
+export type TownhallCommentRecord = {
+  id: string;
+  accountId: string;
+  dropId: string;
+  body: string;
+  createdAt: string;
+};
+
+export type TownhallShareRecord = {
+  id: string;
+  accountId: string;
+  dropId: string;
+  channel: TownhallShareChannel;
+  sharedAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -84,6 +107,9 @@ export type BffDatabase = {
   certificates: CertificateRecord[];
   payments: PaymentRecord[];
   stripeWebhookEvents: StripeWebhookEventRecord[];
+  townhallLikes: TownhallLikeRecord[];
+  townhallComments: TownhallCommentRecord[];
+  townhallShares: TownhallShareRecord[];
 };
 
 type MutationResult<T> = {
@@ -391,7 +417,32 @@ function createSeedDatabase(): BffDatabase {
     receipts: [seededReceipt],
     certificates: [seededCertificate],
     payments: [],
-    stripeWebhookEvents: []
+    stripeWebhookEvents: [],
+    townhallLikes: [
+      {
+        accountId,
+        dropId: "stardust",
+        likedAt: new Date(now.valueOf() - DAY_MS / 2).toISOString()
+      }
+    ],
+    townhallComments: [
+      {
+        id: "cmt_seed_stardust_1",
+        accountId,
+        dropId: "stardust",
+        body: "this drop keeps getting better each replay.",
+        createdAt: new Date(now.valueOf() - DAY_MS / 4).toISOString()
+      }
+    ],
+    townhallShares: [
+      {
+        id: "shr_seed_stardust_1",
+        accountId,
+        dropId: "stardust",
+        channel: "internal_dm",
+        sharedAt: new Date(now.valueOf() - DAY_MS / 6).toISOString()
+      }
+    ]
   };
 }
 
@@ -406,7 +457,10 @@ function createCatalogSeedDatabase(): BffDatabase {
     receipts: [],
     certificates: [],
     payments: [],
-    stripeWebhookEvents: []
+    stripeWebhookEvents: [],
+    townhallLikes: [],
+    townhallComments: [],
+    townhallShares: []
   };
 }
 
@@ -425,7 +479,10 @@ function createEmptyDatabase(): BffDatabase {
     receipts: [],
     certificates: [],
     payments: [],
-    stripeWebhookEvents: []
+    stripeWebhookEvents: [],
+    townhallLikes: [],
+    townhallComments: [],
+    townhallShares: []
   };
 }
 
@@ -447,11 +504,17 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.receipts) &&
     Array.isArray(candidate.certificates) &&
     Array.isArray(candidate.payments) &&
-    Array.isArray(candidate.stripeWebhookEvents)
+    Array.isArray(candidate.stripeWebhookEvents) &&
+    Array.isArray(candidate.townhallLikes) &&
+    Array.isArray(candidate.townhallComments) &&
+    Array.isArray(candidate.townhallShares)
   );
 }
 
-function isLegacyDbWithoutWebhookLog(input: unknown): input is Omit<BffDatabase, "stripeWebhookEvents"> {
+function hasLegacyBaseDbShape(input: unknown): input is Omit<
+  BffDatabase,
+  "stripeWebhookEvents" | "townhallLikes" | "townhallComments" | "townhallShares"
+> {
   if (!input || typeof input !== "object") {
     return false;
   }
@@ -468,8 +531,7 @@ function isLegacyDbWithoutWebhookLog(input: unknown): input is Omit<BffDatabase,
     Array.isArray(candidate.savedDrops) &&
     Array.isArray(candidate.receipts) &&
     Array.isArray(candidate.certificates) &&
-    Array.isArray(candidate.payments) &&
-    !Array.isArray((candidate as { stripeWebhookEvents?: unknown[] }).stripeWebhookEvents)
+    Array.isArray(candidate.payments)
   );
 }
 
@@ -478,10 +540,22 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
     return input;
   }
 
-  if (isLegacyDbWithoutWebhookLog(input)) {
+  if (hasLegacyBaseDbShape(input)) {
+    const candidate = input as Record<string, unknown>;
     return {
       ...input,
-      stripeWebhookEvents: []
+      stripeWebhookEvents: Array.isArray(candidate.stripeWebhookEvents)
+        ? (candidate.stripeWebhookEvents as StripeWebhookEventRecord[])
+        : [],
+      townhallLikes: Array.isArray(candidate.townhallLikes)
+        ? (candidate.townhallLikes as TownhallLikeRecord[])
+        : [],
+      townhallComments: Array.isArray(candidate.townhallComments)
+        ? (candidate.townhallComments as TownhallCommentRecord[])
+        : [],
+      townhallShares: Array.isArray(candidate.townhallShares)
+        ? (candidate.townhallShares as TownhallShareRecord[])
+        : []
     };
   }
 
@@ -606,7 +680,10 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     receiptsResult,
     certificatesResult,
     paymentsResult,
-    webhookEventsResult
+    webhookEventsResult,
+    townhallLikesResult,
+    townhallCommentsResult,
+    townhallSharesResult
   ] = await Promise.all([
     client.query<{ key: string; value: string }>("SELECT key, value FROM bff_meta"),
     client.query<{ data: unknown }>("SELECT data FROM bff_catalog_drops ORDER BY id ASC"),
@@ -663,6 +740,15 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ),
     client.query<StripeWebhookEventRecord>(
       'SELECT event_id AS "eventId", processed_at AS "processedAt" FROM bff_stripe_webhook_events ORDER BY processed_at DESC'
+    ),
+    client.query<TownhallLikeRecord>(
+      'SELECT account_id AS "accountId", drop_id AS "dropId", liked_at AS "likedAt" FROM bff_townhall_likes ORDER BY liked_at DESC'
+    ),
+    client.query<TownhallCommentRecord>(
+      'SELECT id, account_id AS "accountId", drop_id AS "dropId", body, created_at AS "createdAt" FROM bff_townhall_comments ORDER BY created_at DESC'
+    ),
+    client.query<TownhallShareRecord>(
+      'SELECT id, account_id AS "accountId", drop_id AS "dropId", channel, shared_at AS "sharedAt" FROM bff_townhall_shares ORDER BY shared_at DESC'
     )
   ]);
 
@@ -678,7 +764,10 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     receiptsResult.rowCount === 0 &&
     certificatesResult.rowCount === 0 &&
     paymentsResult.rowCount === 0 &&
-    webhookEventsResult.rowCount === 0;
+    webhookEventsResult.rowCount === 0 &&
+    townhallLikesResult.rowCount === 0 &&
+    townhallCommentsResult.rowCount === 0 &&
+    townhallSharesResult.rowCount === 0;
 
   if (isEmpty) {
     return null;
@@ -732,13 +821,19 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt
     })),
-    stripeWebhookEvents: webhookEventsResult.rows
+    stripeWebhookEvents: webhookEventsResult.rows,
+    townhallLikes: townhallLikesResult.rows,
+    townhallComments: townhallCommentsResult.rows,
+    townhallShares: townhallSharesResult.rows
   };
 }
 
 async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<void> {
   await client.query(`
     TRUNCATE TABLE
+      bff_townhall_shares,
+      bff_townhall_comments,
+      bff_townhall_likes,
       bff_stripe_webhook_events,
       bff_payments,
       bff_certificates,
@@ -865,6 +960,27 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     await client.query(
       "INSERT INTO bff_stripe_webhook_events (event_id, processed_at) VALUES ($1, $2)",
       [event.eventId, event.processedAt]
+    );
+  }
+
+  for (const like of db.townhallLikes) {
+    await client.query(
+      "INSERT INTO bff_townhall_likes (account_id, drop_id, liked_at) VALUES ($1, $2, $3)",
+      [like.accountId, like.dropId, like.likedAt]
+    );
+  }
+
+  for (const comment of db.townhallComments) {
+    await client.query(
+      "INSERT INTO bff_townhall_comments (id, account_id, drop_id, body, created_at) VALUES ($1, $2, $3, $4, $5)",
+      [comment.id, comment.accountId, comment.dropId, comment.body, comment.createdAt]
+    );
+  }
+
+  for (const share of db.townhallShares) {
+    await client.query(
+      "INSERT INTO bff_townhall_shares (id, account_id, drop_id, channel, shared_at) VALUES ($1, $2, $3, $4, $5)",
+      [share.id, share.accountId, share.dropId, share.channel, share.sharedAt]
     );
   }
 }
