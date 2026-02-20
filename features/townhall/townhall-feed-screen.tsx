@@ -7,6 +7,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
 import {
+  shouldExitImmersiveOnScroll,
+  shouldIgnoreRapidTap,
+  shouldIgnoreSyntheticFollowupClick,
+  type StageTapSource
+} from "./immersive-guards";
+import {
   BookmarkIcon,
   BookIcon,
   CameraIcon,
@@ -47,7 +53,6 @@ type StageTapEvent =
   | React.MouseEvent<HTMLElement>
   | React.PointerEvent<HTMLElement>
   | React.TouchEvent<HTMLElement>;
-type StageTapSource = "pointer" | "click";
 
 type CollectStats = {
   collectors: number;
@@ -337,14 +342,19 @@ export function TownhallFeedScreen({
 
   function handleStageTap(event: StageTapEvent, index: number, source: StageTapSource) {
     const now = Date.now();
-    if (source === "click" && now - lastStagePointerTapMsRef.current < 700) {
-      // Ignore synthetic click that follows a touch/pointer tap.
+    if (
+      shouldIgnoreSyntheticFollowupClick({
+        source,
+        nowMs: now,
+        lastPointerTapMs: lastStagePointerTapMsRef.current
+      })
+    ) {
       return;
     }
     if (source === "pointer") {
       lastStagePointerTapMsRef.current = now;
     }
-    if (now - lastStageTapMsRef.current < 180) {
+    if (shouldIgnoreRapidTap({ nowMs: now, lastTapMs: lastStageTapMsRef.current })) {
       return;
     }
     lastStageTapMsRef.current = now;
@@ -391,10 +401,6 @@ export function TownhallFeedScreen({
   }
 
   function handleFeedScroll() {
-    if (!isImmersive && !showControls) {
-      return;
-    }
-
     const root = viewportRef.current;
     if (!root) {
       return;
@@ -405,17 +411,16 @@ export function TownhallFeedScreen({
     lastScrollTopRef.current = nextScrollTop;
     const now = Date.now();
 
-    if (isImmersive) {
-      const hasExplicitScrollIntent = now <= scrollIntentUntilMsRef.current;
-      // Ignore layout/inertia scroll unless it follows a real wheel/touch gesture.
-      if (!hasExplicitScrollIntent) {
-        return;
-      }
-      // Avoid accidental exit from tiny inertial/jitter scroll events right after entering immersive mode.
-      if (now - lastImmersiveEnterMsRef.current < 900 && delta < 90) {
-        return;
-      }
-    } else if (delta < 14) {
+    if (
+      !shouldExitImmersiveOnScroll({
+        isImmersive,
+        showControls,
+        delta,
+        nowMs: now,
+        lastImmersiveEnterMs: lastImmersiveEnterMsRef.current,
+        hasExplicitIntent: now <= scrollIntentUntilMsRef.current
+      })
+    ) {
       return;
     }
 

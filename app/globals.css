@@ -947,6 +947,13 @@ a {
   grid-template-columns: 36px 1fr auto;
   align-items: center;
   gap: 8px;
+  overflow: hidden;
+  max-height: 120px;
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    transform 220ms ease;
+  will-change: opacity, transform;
 }
 
 .townhall-header-search {
@@ -1065,6 +1072,11 @@ a {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
   touch-action: manipulation;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  transition:
+    border-radius 220ms ease,
+    border-color 220ms ease;
 }
 
 .townhall-preview-video {
@@ -1073,6 +1085,9 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  transition: opacity 180ms ease;
 }
 
 .townhall-backdrop {
@@ -1089,6 +1104,7 @@ a {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.22) 24%, rgba(0, 0, 0, 0.78) 100%);
+  transition: opacity 180ms ease, background 220ms ease;
 }
 
 .townhall-content {
@@ -1099,7 +1115,9 @@ a {
   z-index: 1;
   display: grid;
   gap: 6px;
-  transition: opacity 180ms ease;
+  transition: opacity 180ms ease, transform 220ms ease;
+  will-change: opacity, transform;
+  transform: translateY(0);
 }
 
 .townhall-kicker {
@@ -1197,7 +1215,9 @@ a {
   z-index: 2;
   display: grid;
   gap: 12px;
-  transition: opacity 180ms ease;
+  transition: opacity 180ms ease, transform 220ms ease;
+  will-change: opacity, transform;
+  transform: translateY(0);
 }
 
 .townhall-social-action {
@@ -1209,24 +1229,37 @@ a {
   padding: 0;
   display: grid;
   place-items: center;
-  gap: 2px;
+  gap: 3px;
   cursor: pointer;
+  transition: transform 120ms ease, color 140ms ease, opacity 140ms ease;
 }
 
 .townhall-social-action small {
   font-size: 0.58rem;
   color: #9eb0bd;
+  letter-spacing: 0.02em;
+}
+
+.townhall-social-action:hover {
+  transform: translateY(-1px);
+}
+
+.townhall-social-action:active {
+  transform: scale(0.96);
 }
 
 .townhall-social-icon {
-  width: 22px;
-  height: 22px;
+  width: 21px;
+  height: 21px;
   color: #d5e2eb;
-  transition: color 120ms ease;
+  stroke-width: 1.7;
+  transition: color 120ms ease, filter 180ms ease;
+  filter: drop-shadow(0 0 0.3rem rgba(5, 9, 13, 0.35));
 }
 
 .townhall-social-action.active .townhall-social-icon {
   color: #ffffff;
+  stroke-width: 1.55;
 }
 
 .townhall-social-action.active small {
@@ -1249,7 +1282,9 @@ a {
   background: rgba(14, 23, 30, 0.75);
   font-size: 1rem;
   line-height: 1;
-  transition: opacity 180ms ease;
+  transition: opacity 180ms ease, transform 220ms ease;
+  will-change: opacity, transform;
+  transform: translateX(-50%) translateY(0);
 }
 
 .townhall-open-drop-glyph {
@@ -1267,6 +1302,8 @@ a {
   overscroll-behavior-y: contain;
   scrollbar-width: none;
   min-height: 0;
+  transition: border-radius 220ms ease;
+  will-change: border-radius;
 }
 
 .townhall-feed-viewport::-webkit-scrollbar {
@@ -1279,22 +1316,21 @@ a {
   scroll-snap-align: start;
   scroll-snap-stop: always;
   padding-bottom: 8px;
+  contain: layout paint;
 }
 
 .townhall-phone-shell-feed {
   height: min(88dvh, 790px);
   grid-template-rows: auto minmax(0, 1fr) auto;
+  transition:
+    padding 220ms ease,
+    gap 220ms ease;
 }
 
 .townhall-phone-shell-feed.immersive {
   grid-template-rows: minmax(0, 1fr);
   padding: 0;
   gap: 0;
-}
-
-.townhall-phone-shell-feed.immersive .townhall-header,
-.townhall-phone-shell-feed.immersive .townhall-bottom-nav {
-  display: none;
 }
 
 .townhall-phone-shell-feed.immersive .townhall-feed-viewport {
@@ -1314,11 +1350,18 @@ a {
   border-radius: 34px;
 }
 
+.townhall-phone-shell-feed.immersive .townhall-header {
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
 .townhall-phone-shell-feed.immersive .townhall-overlay {
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.22) 100%);
 }
 
-.townhall-phone-shell-feed.immersive .townhall-header,
 .townhall-phone-shell-feed.immersive .townhall-bottom-nav,
 .townhall-phone-shell-feed.immersive .townhall-content,
 .townhall-phone-shell-feed.immersive .townhall-social-rail,
@@ -1326,6 +1369,11 @@ a {
 .townhall-phone-shell-feed.immersive .townhall-overlay-panel {
   opacity: 0;
   pointer-events: none;
+  transform: translateY(8px);
+}
+
+.townhall-phone-shell-feed.immersive .townhall-open-drop-link {
+  transform: translateX(-50%) translateY(8px);
 }
 
 .townhall-bottom-nav {
@@ -1336,6 +1384,15 @@ a {
   border-radius: 999px;
   background: rgba(5, 8, 11, 0.78);
   padding: 6px;
+  overflow: hidden;
+  max-height: 64px;
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    transform 220ms ease,
+    border-color 180ms ease,
+    padding 220ms ease;
+  will-change: opacity, transform;
 }
 
 .townhall-bottom-nav-icons {
@@ -1351,6 +1408,11 @@ a {
   min-height: 34px;
   display: grid;
   place-items: center;
+  transition: color 140ms ease, transform 120ms ease;
+}
+
+.townhall-bottom-icon:hover {
+  transform: translateY(-1px);
 }
 
 .townhall-bottom-icon.active {
@@ -1360,6 +1422,15 @@ a {
 .townhall-bottom-icon-glyph {
   width: 18px;
   height: 18px;
+  stroke-width: 1.7;
+}
+
+.townhall-phone-shell-feed.immersive .townhall-bottom-nav {
+  max-height: 0;
+  margin: 0;
+  padding: 0;
+  border-color: transparent;
+  transform: translateY(8px);
 }
 
 .townhall-media-controls {
@@ -1413,6 +1484,9 @@ a {
   gap: 8px;
   max-height: 58%;
   overflow: auto;
+  transform: translateY(0);
+  transition: opacity 180ms ease, transform 220ms ease;
+  will-change: opacity, transform;
 }
 
 .townhall-overlay-head {
