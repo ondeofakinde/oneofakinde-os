@@ -983,6 +983,10 @@ a {
   grid-area: search;
 }
 
+.townhall-header-feed .townhall-mode-row {
+  grid-column: 1 / -1;
+}
+
 .townhall-avatar-link {
   width: 34px;
   height: 34px;
