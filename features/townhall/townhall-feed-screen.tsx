@@ -3,6 +3,7 @@
 import { formatUsd } from "@/features/shared/format";
 import type { Drop } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
+import { resolveDropModeForTownhallSurface, type TownhallSurfaceMode } from "@/lib/townhall/feed-mode";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -28,17 +29,14 @@ import {
   SendIcon
 } from "./townhall-icons";
 
-type TownhallMode = "watch" | "listen" | "read" | "gallery" | "live";
-
 type TownhallFeedScreenProps = {
-  mode: TownhallMode;
+  mode: TownhallSurfaceMode;
   viewer: {
     accountId: string;
     handle: string;
   } | null;
   drops: Drop[];
   ownedDropIds?: string[];
-  isTownhallHome?: boolean;
 };
 
 type TownhallComment = {
@@ -67,7 +65,7 @@ type ModeCopy = {
   unlockCta: string;
 };
 
-const MODE_COPY: Record<TownhallMode, ModeCopy> = {
+const MODE_COPY: Record<Exclude<TownhallSurfaceMode, "townhall">, ModeCopy> = {
   watch: {
     kicker: "video community hub",
     unlockCta: "unlock watch"
@@ -90,7 +88,7 @@ const MODE_COPY: Record<TownhallMode, ModeCopy> = {
   }
 };
 
-function modeHref(mode: TownhallMode, dropId: string): ReturnType<typeof routes.dropWatch> {
+function modeHref(mode: Exclude<TownhallSurfaceMode, "townhall">, dropId: string): ReturnType<typeof routes.dropWatch> {
   if (mode === "watch") return routes.dropWatch(dropId);
   if (mode === "listen") return routes.dropListen(dropId);
   if (mode === "read") return routes.dropRead(dropId);
@@ -98,7 +96,7 @@ function modeHref(mode: TownhallMode, dropId: string): ReturnType<typeof routes.
   return routes.dropWatch(dropId);
 }
 
-function modeIcon(mode: TownhallMode) {
+function modeIcon(mode: Exclude<TownhallSurfaceMode, "townhall">) {
   if (mode === "listen") return <HeadphonesIcon className="townhall-open-drop-glyph" />;
   if (mode === "read") return <BookIcon className="townhall-open-drop-glyph" />;
   if (mode === "gallery") return <CameraIcon className="townhall-open-drop-glyph" />;
@@ -106,8 +104,8 @@ function modeIcon(mode: TownhallMode) {
   return <FilmIcon className="townhall-open-drop-glyph" />;
 }
 
-function modeNav(mode: TownhallMode, isTownhallHome: boolean): Parameters<typeof TownhallBottomNav>[0]["activeMode"] {
-  if (isTownhallHome) return "townhall";
+function modeNav(mode: TownhallSurfaceMode): Parameters<typeof TownhallBottomNav>[0]["activeMode"] {
+  if (mode === "townhall") return "townhall";
   if (mode === "watch") return "watch";
   if (mode === "listen") return "listen";
   if (mode === "read") return "read";
@@ -192,8 +190,7 @@ export function TownhallFeedScreen({
   mode,
   viewer,
   drops,
-  ownedDropIds = [],
-  isTownhallHome = false
+  ownedDropIds = []
 }: TownhallFeedScreenProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isImmersive, setIsImmersive] = useState(false);
@@ -231,7 +228,6 @@ export function TownhallFeedScreen({
   const ownedSet = useMemo(() => new Set(ownedDropIds), [ownedDropIds]);
 
   const activeDrop = drops[activeIndex] ?? drops[0] ?? null;
-  const copy = MODE_COPY[mode];
 
   useEffect(() => {
     setCommentsByDrop((current) => upsertCommentMap(current, drops));
@@ -513,6 +509,28 @@ export function TownhallFeedScreen({
               aria-label="search users, worlds, and drops"
             />
           </form>
+          {mode === "townhall" ? (
+            <nav className="townhall-mode-row" aria-label="townhall mode shortcuts" data-no-immersive-toggle="true">
+              <Link href={routes.townhall()} className="townhall-mode-link active">
+                all
+              </Link>
+              <Link href={routes.townhallWatch()} className="townhall-mode-link">
+                watch
+              </Link>
+              <Link href={routes.townhallListen()} className="townhall-mode-link">
+                listen
+              </Link>
+              <Link href={routes.townhallRead()} className="townhall-mode-link">
+                read
+              </Link>
+              <Link href={routes.townhallGallery()} className="townhall-mode-link">
+                gallery
+              </Link>
+              <Link href={routes.townhallLive()} className="townhall-mode-link">
+                live
+              </Link>
+            </nav>
+          ) : null}
         </header>
 
         <div
@@ -534,12 +552,14 @@ export function TownhallFeedScreen({
             const isSaved = savedSet.has(drop.id);
             const dropHeading = drop.seasonLabel.trim();
             const dropSubtitle = drop.episodeLabel.trim();
-            const mediaTarget = modeHref(mode, drop.id);
+            const dropSurfaceMode = resolveDropModeForTownhallSurface(drop, index, mode);
+            const dropCopy = MODE_COPY[dropSurfaceMode];
+            const mediaTarget = modeHref(dropSurfaceMode, drop.id);
             const mediaHref = viewer ? mediaTarget : routes.signIn(mediaTarget);
             const paywallHref = viewer ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
             const shareUrl = activeShareUrl(drop.id);
             const shareText = `${drop.title} on oneofakinde ${shareUrl}`;
-            const resolvedPreview = resolveDropPreview(drop, mode, {
+            const resolvedPreview = resolveDropPreview(drop, dropSurfaceMode, {
               failedAssetKeys: failedPreviewAssetKeySet
             });
             const previewAsset = resolvedPreview.asset;
@@ -637,7 +657,7 @@ export function TownhallFeedScreen({
                   <div className="townhall-overlay" />
 
                   <div className="townhall-content">
-                    <p className="townhall-kicker">{copy.kicker}</p>
+                    <p className="townhall-kicker">{dropCopy.kicker}</p>
                     <p className="townhall-meta">
                       @{drop.studioHandle} · {formatUsd(drop.priceUsd)}
                     </p>
@@ -650,7 +670,7 @@ export function TownhallFeedScreen({
                     {isPaywalled ? (
                       <div className="townhall-cta-row">
                         <Link href={paywallHref} className="townhall-primary-cta">
-                          {copy.unlockCta}
+                          {dropCopy.unlockCta}
                         </Link>
                       </div>
                     ) : null}
@@ -873,7 +893,7 @@ export function TownhallFeedScreen({
 
                   {isActive && !isPaywalled ? (
                     <Link href={mediaHref} className="townhall-open-drop-link" data-no-immersive-toggle="true">
-                      {modeIcon(mode)}
+                      {modeIcon(dropSurfaceMode)}
                     </Link>
                   ) : null}
                 </section>
@@ -882,7 +902,7 @@ export function TownhallFeedScreen({
           })}
         </div>
 
-        <TownhallBottomNav activeMode={modeNav(mode, isTownhallHome)} noImmersiveToggle />
+        <TownhallBottomNav activeMode={modeNav(mode)} noImmersiveToggle />
       </section>
 
       <aside className="townhall-side-notes" aria-label="townhall concept notes">
