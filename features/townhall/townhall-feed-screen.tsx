@@ -3,6 +3,7 @@
 import { formatUsd } from "@/features/shared/format";
 import type { Drop } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
+import { resolveDropPreview } from "@/lib/townhall/preview-media";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
@@ -65,8 +66,6 @@ type ModeCopy = {
   kicker: string;
   unlockCta: string;
 };
-
-const DEFAULT_PREVIEW_URL = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
 
 const MODE_COPY: Record<TownhallMode, ModeCopy> = {
   watch: {
@@ -209,14 +208,14 @@ export function TownhallFeedScreen({
   const [commentDraft, setCommentDraft] = useState("");
   const [shareNotice, setShareNotice] = useState("");
   const [shareOrigin, setShareOrigin] = useState("https://oneofakinde-os.vercel.app");
-  const [failedVideoDropIds, setFailedVideoDropIds] = useState<string[]>([]);
+  const [failedPreviewAssetKeys, setFailedPreviewAssetKeys] = useState<string[]>([]);
   const [commentsByDrop, setCommentsByDrop] = useState<Record<string, TownhallComment[]>>(
     () => createInitialComments(drops)
   );
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
-  const videoRefs = useRef<Array<HTMLVideoElement | null>>([]);
+  const mediaRefs = useRef<Array<HTMLMediaElement | null>>([]);
   const lastScrollTopRef = useRef(0);
   const lastImmersiveEnterMsRef = useRef(0);
   const lastStageTapMsRef = useRef(0);
@@ -225,7 +224,10 @@ export function TownhallFeedScreen({
 
   const likedSet = useMemo(() => new Set(likedDropIds), [likedDropIds]);
   const savedSet = useMemo(() => new Set(savedDropIds), [savedDropIds]);
-  const failedVideoSet = useMemo(() => new Set(failedVideoDropIds), [failedVideoDropIds]);
+  const failedPreviewAssetKeySet = useMemo(
+    () => new Set(failedPreviewAssetKeys),
+    [failedPreviewAssetKeys]
+  );
   const ownedSet = useMemo(() => new Set(ownedDropIds), [ownedDropIds]);
 
   const activeDrop = drops[activeIndex] ?? drops[0] ?? null;
@@ -299,18 +301,18 @@ export function TownhallFeedScreen({
   }, [activeIndex]);
 
   useEffect(() => {
-    for (const [index, video] of videoRefs.current.entries()) {
-      if (!video) continue;
+    for (const [index, media] of mediaRefs.current.entries()) {
+      if (!media) continue;
 
-      video.muted = isMuted;
-      video.volume = isMuted ? 0 : volume;
+      media.muted = isMuted;
+      media.volume = isMuted ? 0 : volume;
 
       if (index === activeIndex && isPlaying) {
-        void video.play().catch(() => undefined);
+        void media.play().catch(() => undefined);
         continue;
       }
 
-      video.pause();
+      media.pause();
     }
   }, [activeIndex, isMuted, volume, isPlaying]);
 
@@ -468,6 +470,16 @@ export function TownhallFeedScreen({
     setShareNotice("saved for internal dm delivery (mock).");
   }
 
+  function markPreviewAssetFailure(assetKey: string) {
+    setFailedPreviewAssetKeys((current) => {
+      if (current.includes(assetKey)) {
+        return current;
+      }
+
+      return [...current, assetKey];
+    });
+  }
+
   return (
     <main className="townhall-page">
       <section className={`townhall-phone-shell townhall-phone-shell-feed ${isImmersive ? "immersive" : ""}`} aria-label="townhall feed shell">
@@ -527,6 +539,16 @@ export function TownhallFeedScreen({
             const paywallHref = viewer ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
             const shareUrl = activeShareUrl(drop.id);
             const shareText = `${drop.title} on oneofakinde ${shareUrl}`;
+            const resolvedPreview = resolveDropPreview(drop, mode, {
+              failedAssetKeys: failedPreviewAssetKeySet
+            });
+            const previewAsset = resolvedPreview.asset;
+            const canControlMedia =
+              previewAsset.type === "video" || previewAsset.type === "audio";
+
+            if (!canControlMedia) {
+              mediaRefs.current[index] = null;
+            }
 
             return (
               <article
@@ -543,25 +565,73 @@ export function TownhallFeedScreen({
                   onPointerUpCapture={(event) => handleStageTap(event, index, "pointer")}
                   onClickCapture={(event) => handleStageTap(event, index, "click")}
                 >
-                  {failedVideoSet.has(drop.id) ? (
-                    <div className="townhall-backdrop" />
-                  ) : (
+                  {previewAsset.type === "video" ? (
                     <video
                       ref={(element) => {
-                        videoRefs.current[index] = element;
+                        mediaRefs.current[index] = element;
                       }}
                       className="townhall-preview-video"
-                      src={DEFAULT_PREVIEW_URL}
+                      src={previewAsset.src}
+                      poster={previewAsset.posterSrc}
                       preload="metadata"
                       loop
                       playsInline
                       muted
                       onError={() => {
-                        setFailedVideoDropIds((current) =>
-                          current.includes(drop.id) ? current : [...current, drop.id]
-                        );
+                        markPreviewAssetFailure(resolvedPreview.assetKey);
                       }}
                     />
+                  ) : null}
+
+                  {previewAsset.type === "audio" ? (
+                    <>
+                      {previewAsset.posterSrc ? (
+                        <div
+                          className="townhall-audio-poster"
+                          style={{ backgroundImage: `url(${previewAsset.posterSrc})` }}
+                          aria-label={previewAsset.alt}
+                        />
+                      ) : (
+                        <div className="townhall-backdrop" />
+                      )}
+                      <audio
+                        ref={(element) => {
+                          mediaRefs.current[index] = element;
+                        }}
+                        className="townhall-preview-audio"
+                        src={previewAsset.src}
+                        preload="metadata"
+                        loop
+                        muted
+                        onError={() => {
+                          markPreviewAssetFailure(resolvedPreview.assetKey);
+                        }}
+                      />
+                    </>
+                  ) : null}
+
+                  {previewAsset.type === "image" ? (
+                    <img
+                      className="townhall-preview-image"
+                      src={previewAsset.src}
+                      alt={previewAsset.alt}
+                      loading={isActive ? "eager" : "lazy"}
+                      onError={() => {
+                        markPreviewAssetFailure(resolvedPreview.assetKey);
+                      }}
+                    />
+                  ) : null}
+
+                  {previewAsset.type === "text" ? (
+                    <div className="townhall-text-preview" aria-label={previewAsset.alt}>
+                      <div className="townhall-text-preview-body">
+                        <p>{previewAsset.text}</p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {previewAsset.type === "video" && !previewAsset.posterSrc && (
+                    <div className="townhall-backdrop" />
                   )}
 
                   <div className="townhall-overlay" />
@@ -642,7 +712,7 @@ export function TownhallFeedScreen({
                     </button>
                   </aside>
 
-                  {isActive && showControls ? (
+                  {isActive && showControls && canControlMedia ? (
                     <section className="townhall-media-controls" aria-label="media controls" data-no-immersive-toggle="true">
                       <button
                         type="button"
@@ -662,9 +732,9 @@ export function TownhallFeedScreen({
                         type="button"
                         className="townhall-control-button"
                         onClick={() => {
-                          const video = videoRefs.current[activeIndex];
-                          if (!video) return;
-                          video.currentTime = Math.max(0, video.currentTime - 10);
+                          const media = mediaRefs.current[activeIndex];
+                          if (!media) return;
+                          media.currentTime = Math.max(0, media.currentTime - 10);
                         }}
                       >
                         -10s
@@ -673,10 +743,10 @@ export function TownhallFeedScreen({
                         type="button"
                         className="townhall-control-button"
                         onClick={() => {
-                          const video = videoRefs.current[activeIndex];
-                          if (!video) return;
-                          const duration = Number.isFinite(video.duration) ? video.duration : video.currentTime + 10;
-                          video.currentTime = Math.min(duration, video.currentTime + 10);
+                          const media = mediaRefs.current[activeIndex];
+                          if (!media) return;
+                          const duration = Number.isFinite(media.duration) ? media.duration : media.currentTime + 10;
+                          media.currentTime = Math.min(duration, media.currentTime + 10);
                         }}
                       >
                         +10s

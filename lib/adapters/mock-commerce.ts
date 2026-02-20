@@ -15,6 +15,7 @@ import type {
   World
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
+import { seedPreviewMediaForDrop } from "@/lib/townhall/seed-preview-media";
 import { randomUUID } from "node:crypto";
 
 type AccountRecord = {
@@ -117,7 +118,8 @@ function createInitialStore(): MockStore {
         worldLabel: "dark matter",
         synopsis: "through the dark, stardust traces identity in motion.",
         releaseDate: "2026-02-16",
-        priceUsd: 1.99
+        priceUsd: 1.99,
+        previewMedia: seedPreviewMediaForDrop("stardust")
       }
     ],
     [
@@ -132,7 +134,8 @@ function createInitialStore(): MockStore {
         worldLabel: "dark matter",
         synopsis: "an ambient chapter where memory and water share a horizon.",
         releaseDate: "2026-02-10",
-        priceUsd: 3.49
+        priceUsd: 3.49,
+        previewMedia: seedPreviewMediaForDrop("twilight-whispers")
       }
     ],
     [
@@ -147,7 +150,8 @@ function createInitialStore(): MockStore {
         worldLabel: "dark matter",
         synopsis: "a lone signal crosses worlds and leaves a live trail.",
         releaseDate: "2026-02-12",
-        priceUsd: 9.99
+        priceUsd: 9.99,
+        previewMedia: seedPreviewMediaForDrop("voidrunner")
       }
     ],
     [
@@ -162,7 +166,8 @@ function createInitialStore(): MockStore {
         worldLabel: "through the lens",
         synopsis: "a quiet table becomes a live scene with layered stories.",
         releaseDate: "2026-02-14",
-        priceUsd: 12
+        priceUsd: 12,
+        previewMedia: seedPreviewMediaForDrop("through-the-lens")
       }
     ]
   ]);
