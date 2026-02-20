@@ -1,0 +1,58 @@
+name: release-candidate-dry-run
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Deployed environment URL (for example https://oneofakinde-os.vercel.app)"
+        required: true
+        default: "https://oneofakinde-os.vercel.app"
+
+permissions:
+  contents: read
+
+jobs:
+  release-candidate-dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: run release candidate dry run
+        env:
+          OOK_RC_BASE_URL: ${{ github.event.inputs.base_url }}
+        run: npm run rc:dry-run
+
+      - name: append summary
+        if: always()
+        run: |
+          echo "## Release Candidate Dry Run" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Base URL: ${{ github.event.inputs.base_url }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f artifacts/release-candidate-dry-run.latest.json ]; then
+            TOTAL=$(jq -r '.summary.total // 0' artifacts/release-candidate-dry-run.latest.json)
+            PASSED=$(jq -r '.summary.passed // 0' artifacts/release-candidate-dry-run.latest.json)
+            FAILED=$(jq -r '.summary.failed // 0' artifacts/release-candidate-dry-run.latest.json)
+            echo "- Checks: ${PASSED}/${TOTAL} pass, ${FAILED} fail" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Report JSON not found in artifacts/." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: upload dry run report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate-dry-run-report
+          path: artifacts/release-candidate-dry-run.latest.json
+          if-no-files-found: warn
