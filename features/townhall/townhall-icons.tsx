@@ -10,9 +10,10 @@ function BaseIcon({ children, filled = false, ...props }: TownhallIconProps) {
       viewBox="0 0 24 24"
       fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
-      strokeWidth={1.8}
+      strokeWidth={1.7}
       strokeLinecap="round"
       strokeLinejoin="round"
+      vectorEffect="non-scaling-stroke"
       aria-hidden="true"
       focusable="false"
       {...props}
