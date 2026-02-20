@@ -1,4 +1,4 @@
-import type { Drop } from "@/lib/domain/contracts";
+import type { Drop, TownhallTelemetrySignals } from "@/lib/domain/contracts";
 
 export type TownhallEngagementSignals = {
   watched: number;
@@ -12,6 +12,7 @@ export type TownhallEngagementSignals = {
 type TownhallRankingOptions = {
   now?: Date;
   signalsByDropId?: Record<string, Partial<TownhallEngagementSignals>>;
+  telemetryByDropId?: Record<string, Partial<TownhallTelemetrySignals>>;
 };
 
 const DAY_MS = 86_400_000;
@@ -121,6 +122,24 @@ function recencyScore(nowMs: number, releaseMs: number): number {
   return Math.exp(-ageDays / 18);
 }
 
+function mergeTelemetrySignals(
+  override?: Partial<TownhallTelemetrySignals>
+): TownhallTelemetrySignals {
+  return {
+    watchTimeSeconds: override?.watchTimeSeconds ?? 0,
+    completions: override?.completions ?? 0,
+    collectIntents: override?.collectIntents ?? 0
+  };
+}
+
+function telemetryRawScore(signals: TownhallTelemetrySignals): number {
+  return (
+    signals.watchTimeSeconds * 0.75 +
+    signals.completions * 600 +
+    signals.collectIntents * 800
+  );
+}
+
 export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOptions = {}): Drop[] {
   const now = options.now ?? new Date();
   const nowMs = now.getTime();
@@ -128,20 +147,27 @@ export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOpti
   const scored = drops.map((drop) => {
     const releaseMs = parseReleaseDate(drop.releaseDate);
     const signals = mergeSignals(mockSignalsForDrop(drop), options.signalsByDropId?.[drop.id]);
+    const telemetrySignals = mergeTelemetrySignals(options.telemetryByDropId?.[drop.id]);
     return {
       drop,
       releaseMs,
       recency: recencyScore(nowMs, releaseMs),
-      engagement: engagementRawScore(signals)
+      engagement: engagementRawScore(signals),
+      telemetry: telemetryRawScore(telemetrySignals)
     };
   });
 
   const maxEngagement = scored.reduce((best, entry) => Math.max(best, entry.engagement), 0);
+  const maxTelemetry = scored.reduce((best, entry) => Math.max(best, entry.telemetry), 0);
 
   return scored
     .map((entry) => {
       const engagementScore = maxEngagement > 0 ? entry.engagement / maxEngagement : 0;
-      const blendedScore = engagementScore * 0.58 + entry.recency * 0.42;
+      const telemetryScore = maxTelemetry > 0 ? entry.telemetry / maxTelemetry : 0;
+      const blendedScore =
+        engagementScore * 0.5 +
+        entry.recency * 0.32 +
+        telemetryScore * 0.18;
       return {
         ...entry,
         blendedScore

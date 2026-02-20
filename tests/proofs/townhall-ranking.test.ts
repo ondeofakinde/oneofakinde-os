@@ -107,3 +107,41 @@ test("townhall ranking falls back to newest when engagement ties", () => {
   assert.equal(ranked[0]?.id, "newer");
   assert.equal(ranked[1]?.id, "older");
 });
+
+test("townhall ranking applies persisted telemetry boost", () => {
+  const drops = [
+    makeDrop("alpha", "2026-02-19"),
+    makeDrop("beta", "2026-02-18")
+  ];
+
+  const equalSignals = {
+    watched: 22_000,
+    collected: 1_800,
+    liked: 8_000,
+    shared: 900,
+    commented: 700,
+    saved: 2_200
+  };
+
+  const ranked = rankDropsForTownhall(drops, {
+    now: new Date("2026-02-20T00:00:00.000Z"),
+    signalsByDropId: {
+      alpha: equalSignals,
+      beta: equalSignals
+    },
+    telemetryByDropId: {
+      alpha: {
+        watchTimeSeconds: 30,
+        completions: 0,
+        collectIntents: 0
+      },
+      beta: {
+        watchTimeSeconds: 890,
+        completions: 14,
+        collectIntents: 11
+      }
+    }
+  });
+
+  assert.equal(ranked[0]?.id, "beta");
+});

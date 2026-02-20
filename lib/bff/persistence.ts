@@ -4,6 +4,7 @@ import type {
   Drop,
   PurchaseReceipt,
   TownhallShareChannel,
+  TownhallTelemetryEventType,
   Studio,
   World
 } from "@/lib/domain/contracts";
@@ -92,6 +93,16 @@ export type TownhallShareRecord = {
   sharedAt: string;
 };
 
+export type TownhallTelemetryEventRecord = {
+  id: string;
+  accountId: string | null;
+  dropId: string;
+  eventType: TownhallTelemetryEventType;
+  watchTimeSeconds: number;
+  completionPercent: number;
+  occurredAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -110,6 +121,7 @@ export type BffDatabase = {
   townhallLikes: TownhallLikeRecord[];
   townhallComments: TownhallCommentRecord[];
   townhallShares: TownhallShareRecord[];
+  townhallTelemetryEvents: TownhallTelemetryEventRecord[];
 };
 
 type MutationResult<T> = {
@@ -442,6 +454,35 @@ function createSeedDatabase(): BffDatabase {
         channel: "internal_dm",
         sharedAt: new Date(now.valueOf() - DAY_MS / 6).toISOString()
       }
+    ],
+    townhallTelemetryEvents: [
+      {
+        id: "tel_seed_stardust_watch_1",
+        accountId,
+        dropId: "stardust",
+        eventType: "watch_time",
+        watchTimeSeconds: 248,
+        completionPercent: 0,
+        occurredAt: new Date(now.valueOf() - DAY_MS / 8).toISOString()
+      },
+      {
+        id: "tel_seed_stardust_complete_1",
+        accountId,
+        dropId: "stardust",
+        eventType: "completion",
+        watchTimeSeconds: 0,
+        completionPercent: 100,
+        occurredAt: new Date(now.valueOf() - DAY_MS / 9).toISOString()
+      },
+      {
+        id: "tel_seed_stardust_collect_1",
+        accountId,
+        dropId: "stardust",
+        eventType: "collect_intent",
+        watchTimeSeconds: 0,
+        completionPercent: 0,
+        occurredAt: new Date(now.valueOf() - DAY_MS / 10).toISOString()
+      }
     ]
   };
 }
@@ -460,7 +501,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     stripeWebhookEvents: [],
     townhallLikes: [],
     townhallComments: [],
-    townhallShares: []
+    townhallShares: [],
+    townhallTelemetryEvents: []
   };
 }
 
@@ -482,7 +524,8 @@ function createEmptyDatabase(): BffDatabase {
     stripeWebhookEvents: [],
     townhallLikes: [],
     townhallComments: [],
-    townhallShares: []
+    townhallShares: [],
+    townhallTelemetryEvents: []
   };
 }
 
@@ -507,13 +550,14 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.stripeWebhookEvents) &&
     Array.isArray(candidate.townhallLikes) &&
     Array.isArray(candidate.townhallComments) &&
-    Array.isArray(candidate.townhallShares)
+    Array.isArray(candidate.townhallShares) &&
+    Array.isArray(candidate.townhallTelemetryEvents)
   );
 }
 
 function hasLegacyBaseDbShape(input: unknown): input is Omit<
   BffDatabase,
-  "stripeWebhookEvents" | "townhallLikes" | "townhallComments" | "townhallShares"
+  "stripeWebhookEvents" | "townhallLikes" | "townhallComments" | "townhallShares" | "townhallTelemetryEvents"
 > {
   if (!input || typeof input !== "object") {
     return false;
@@ -555,6 +599,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       townhallShares: Array.isArray(candidate.townhallShares)
         ? (candidate.townhallShares as TownhallShareRecord[])
+        : [],
+      townhallTelemetryEvents: Array.isArray(candidate.townhallTelemetryEvents)
+        ? (candidate.townhallTelemetryEvents as TownhallTelemetryEventRecord[])
         : []
     };
   }
@@ -683,7 +730,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     webhookEventsResult,
     townhallLikesResult,
     townhallCommentsResult,
-    townhallSharesResult
+    townhallSharesResult,
+    townhallTelemetryEventsResult
   ] = await Promise.all([
     client.query<{ key: string; value: string }>("SELECT key, value FROM bff_meta"),
     client.query<{ data: unknown }>("SELECT data FROM bff_catalog_drops ORDER BY id ASC"),
@@ -749,6 +797,17 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ),
     client.query<TownhallShareRecord>(
       'SELECT id, account_id AS "accountId", drop_id AS "dropId", channel, shared_at AS "sharedAt" FROM bff_townhall_shares ORDER BY shared_at DESC'
+    ),
+    client.query<{
+      id: string;
+      accountId: string | null;
+      dropId: string;
+      eventType: TownhallTelemetryEventType;
+      watchTimeSeconds: string | number;
+      completionPercent: string | number;
+      occurredAt: string;
+    }>(
+      'SELECT id, account_id AS "accountId", drop_id AS "dropId", event_type AS "eventType", watch_time_seconds AS "watchTimeSeconds", completion_percent AS "completionPercent", occurred_at AS "occurredAt" FROM bff_townhall_telemetry_events ORDER BY occurred_at DESC'
     )
   ]);
 
@@ -767,7 +826,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     webhookEventsResult.rowCount === 0 &&
     townhallLikesResult.rowCount === 0 &&
     townhallCommentsResult.rowCount === 0 &&
-    townhallSharesResult.rowCount === 0;
+    townhallSharesResult.rowCount === 0 &&
+    townhallTelemetryEventsResult.rowCount === 0;
 
   if (isEmpty) {
     return null;
@@ -824,13 +884,23 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     stripeWebhookEvents: webhookEventsResult.rows,
     townhallLikes: townhallLikesResult.rows,
     townhallComments: townhallCommentsResult.rows,
-    townhallShares: townhallSharesResult.rows
+    townhallShares: townhallSharesResult.rows,
+    townhallTelemetryEvents: townhallTelemetryEventsResult.rows.map((row) => ({
+      id: row.id,
+      accountId: row.accountId,
+      dropId: row.dropId,
+      eventType: row.eventType,
+      watchTimeSeconds: Number(row.watchTimeSeconds),
+      completionPercent: Number(row.completionPercent),
+      occurredAt: row.occurredAt
+    }))
   };
 }
 
 async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<void> {
   await client.query(`
     TRUNCATE TABLE
+      bff_townhall_telemetry_events,
       bff_townhall_shares,
       bff_townhall_comments,
       bff_townhall_likes,
@@ -981,6 +1051,21 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     await client.query(
       "INSERT INTO bff_townhall_shares (id, account_id, drop_id, channel, shared_at) VALUES ($1, $2, $3, $4, $5)",
       [share.id, share.accountId, share.dropId, share.channel, share.sharedAt]
+    );
+  }
+
+  for (const event of db.townhallTelemetryEvents) {
+    await client.query(
+      "INSERT INTO bff_townhall_telemetry_events (id, account_id, drop_id, event_type, watch_time_seconds, completion_percent, occurred_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [
+        event.id,
+        event.accountId,
+        event.dropId,
+        event.eventType,
+        event.watchTimeSeconds,
+        event.completionPercent,
+        event.occurredAt
+      ]
     );
   }
 }
