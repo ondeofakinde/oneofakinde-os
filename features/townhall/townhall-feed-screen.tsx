@@ -64,6 +64,14 @@ type ModeCopy = {
   unlockCta: string;
 };
 
+type StageBackgroundStyle = {
+  backgroundColor: string;
+  backgroundImage?: string;
+  backgroundPosition?: string;
+  backgroundRepeat?: string;
+  backgroundSize?: string;
+};
+
 const MODE_COPY: Record<Exclude<TownhallSurfaceMode, "townhall">, ModeCopy> = {
   watch: {
     kicker: "video community hub",
@@ -749,6 +757,33 @@ export function TownhallFeedScreen({
               failedAssetKeys: failedPreviewAssetKeySet
             });
             const previewAsset = resolvedPreview.asset;
+            const stageBackgroundStyle: StageBackgroundStyle = {
+              backgroundColor: "#04070a",
+              ...(previewAsset.type === "video" && previewAsset.posterSrc
+                ? {
+                    backgroundImage: `url(${previewAsset.posterSrc})`,
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: "cover"
+                  }
+                : {}),
+              ...(previewAsset.type === "audio" && previewAsset.posterSrc
+                ? {
+                    backgroundImage: `url(${previewAsset.posterSrc})`,
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: "cover"
+                  }
+                : {}),
+              ...(previewAsset.type === "image"
+                ? {
+                    backgroundImage: `url(${previewAsset.src})`,
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: "cover"
+                  }
+                : {})
+            };
             const canControlMedia =
               previewAsset.type === "video" || previewAsset.type === "audio";
             const showVideoPoster =
@@ -772,6 +807,7 @@ export function TownhallFeedScreen({
                 <section
                   className="townhall-stage"
                   aria-label={`${drop.title} preview`}
+                  style={stageBackgroundStyle}
                   onPointerUpCapture={(event) => handleStageTap(event, index, "pointer")}
                   onClickCapture={(event) => handleStageTap(event, index, "click")}
                 >
