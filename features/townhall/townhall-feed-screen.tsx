@@ -220,6 +220,7 @@ export function TownhallFeedScreen({
   const [shareNotice, setShareNotice] = useState("");
   const [shareOrigin, setShareOrigin] = useState("https://oneofakinde-os.vercel.app");
   const [failedPreviewAssetKeys, setFailedPreviewAssetKeys] = useState<string[]>([]);
+  const [revealedVideoDropIds, setRevealedVideoDropIds] = useState<string[]>([]);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
@@ -492,11 +493,20 @@ export function TownhallFeedScreen({
     setShowControls(false);
     setOpenPanel(null);
     setPanelDropId(null);
+    const enteringDrop = drops[index];
+    if (enteringDrop) {
+      resetVideoReveal(enteringDrop.id);
+    }
     lastImmersiveEnterMsRef.current = Date.now();
     scrollIntentUntilMsRef.current = 0;
     const root = viewportRef.current;
     if (root) {
       lastScrollTopRef.current = root.scrollTop;
+    }
+
+    const media = mediaRefs.current[index];
+    if (media) {
+      void media.play().catch(() => undefined);
     }
   }
 
@@ -666,6 +676,20 @@ export function TownhallFeedScreen({
     });
   }
 
+  function revealVideoDrop(dropId: string) {
+    setRevealedVideoDropIds((current) => {
+      if (current.includes(dropId)) {
+        return current;
+      }
+
+      return [...current, dropId];
+    });
+  }
+
+  function resetVideoReveal(dropId: string) {
+    setRevealedVideoDropIds((current) => current.filter((entry) => entry !== dropId));
+  }
+
   return (
     <main className="townhall-page">
       <section className={`townhall-phone-shell townhall-phone-shell-feed ${isImmersive ? "immersive" : ""}`} aria-label="townhall feed shell">
@@ -735,6 +759,10 @@ export function TownhallFeedScreen({
             const previewAsset = resolvedPreview.asset;
             const canControlMedia =
               previewAsset.type === "video" || previewAsset.type === "audio";
+            const showVideoPoster =
+              previewAsset.type === "video" &&
+              Boolean(previewAsset.posterSrc) &&
+              !revealedVideoDropIds.includes(drop.id);
 
             if (!canControlMedia) {
               mediaRefs.current[index] = null;
@@ -758,24 +786,39 @@ export function TownhallFeedScreen({
                   <div className="townhall-backdrop" />
 
                   {previewAsset.type === "video" ? (
-                    <video
-                      ref={(element) => {
-                        mediaRefs.current[index] = element;
-                      }}
-                      className="townhall-preview-video"
-                      src={previewAsset.src}
-                      poster={previewAsset.posterSrc}
-                      preload="metadata"
-                      loop
-                      playsInline
-                      muted
-                      onError={() => {
-                        markPreviewAssetFailure(resolvedPreview.assetKey);
-                      }}
-                      onTimeUpdate={(event) => {
-                        recordCompletionTelemetry(drop.id, event.currentTarget);
-                      }}
-                    />
+                    <>
+                      {previewAsset.posterSrc ? (
+                        <img
+                          className={`townhall-preview-video-poster ${showVideoPoster ? "" : "hidden"}`}
+                          src={previewAsset.posterSrc}
+                          alt={previewAsset.alt}
+                          loading={isActive ? "eager" : "lazy"}
+                        />
+                      ) : null}
+                      <video
+                        ref={(element) => {
+                          mediaRefs.current[index] = element;
+                        }}
+                        className="townhall-preview-video"
+                        src={previewAsset.src}
+                        poster={previewAsset.posterSrc}
+                        preload="metadata"
+                        autoPlay
+                        loop
+                        playsInline
+                        muted
+                        onError={() => {
+                          markPreviewAssetFailure(resolvedPreview.assetKey);
+                        }}
+                        onTimeUpdate={(event) => {
+                          const media = event.currentTarget;
+                          if (media.currentTime >= 0.35) {
+                            revealVideoDrop(drop.id);
+                          }
+                          recordCompletionTelemetry(drop.id, media);
+                        }}
+                      />
+                    </>
                   ) : null}
 
                   {previewAsset.type === "audio" ? (
