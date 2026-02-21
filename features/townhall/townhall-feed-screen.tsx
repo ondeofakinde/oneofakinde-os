@@ -945,12 +945,12 @@ export function TownhallFeedScreen({
 
                     <button
                       type="button"
-                      className={`townhall-social-action ${openCurrentPanel === "collect" ? "active" : ""} ${isLocked ? "locked" : ""}`}
+                      className={`townhall-social-action ${openCurrentPanel === "collect" ? "active" : ""}`}
                       onClick={() => togglePanel("collect", drop.id)}
-                      aria-label={isLocked ? "collect locked drop details" : "collect drop details"}
+                      aria-label="collect drop details"
                     >
                       <DiamondIcon className="townhall-social-icon" filled={openCurrentPanel === "collect"} />
-                      <small>{isLocked ? "locked" : collectStats.collectors}</small>
+                      <small>{collectStats.collectors.toLocaleString("en-US")}</small>
                     </button>
 
                     <button
