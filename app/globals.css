@@ -932,14 +932,40 @@ a {
 }
 
 .townhall-phone-shell {
+  --townhall-shell-radius: 34px;
   width: 100%;
   background: linear-gradient(180deg, #040507 0%, #06090c 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 34px;
+  border-radius: var(--townhall-shell-radius);
   padding: 12px;
   box-shadow: 0 28px 58px rgba(0, 0, 0, 0.45);
   display: grid;
   gap: 8px;
+}
+
+.townhall-phone-shell-feed {
+  position: relative;
+  display: block;
+  height: min(88dvh, 790px);
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.townhall-phone-shell-feed .townhall-header {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: 12px;
+  right: 12px;
+  z-index: 7;
+}
+
+.townhall-phone-shell-feed .townhall-bottom-nav {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 7;
 }
 
 .townhall-header {
@@ -1072,7 +1098,7 @@ a {
   position: relative;
   height: 100%;
   min-height: 100%;
-  border-radius: 26px;
+  border-radius: var(--townhall-shell-radius);
   overflow: hidden;
   border: 0;
   box-shadow: none;
@@ -1173,25 +1199,22 @@ a {
 .townhall-backdrop {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(45% 55% at 48% 35%, rgba(80, 140, 134, 0.52), transparent 70%),
-    radial-gradient(38% 62% at 50% 55%, rgba(23, 41, 51, 0.6), transparent 78%),
-    linear-gradient(180deg, rgba(6, 9, 13, 0.54) 0%, rgba(4, 6, 7, 0.72) 100%);
-  filter: saturate(0.9) contrast(1.08);
+  background: none;
+  filter: none;
 }
 
 .townhall-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 18%, rgba(0, 0, 0, 0.52) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 20%, rgba(0, 0, 0, 0.48) 100%);
   transition: opacity 180ms ease, background 220ms ease;
 }
 
 .townhall-content {
   position: absolute;
-  left: 14px;
-  right: 80px;
-  bottom: 18px;
+  left: 18px;
+  right: 84px;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   z-index: 1;
   display: grid;
   gap: 6px;
@@ -1290,8 +1313,8 @@ a {
 
 .townhall-social-rail {
   position: absolute;
-  right: 10px;
-  bottom: 84px;
+  right: 12px;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   z-index: 2;
   display: grid;
   gap: 12px;
@@ -1349,7 +1372,7 @@ a {
 .townhall-open-drop-link {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 3;
   border: 1px solid #4f6472;
@@ -1375,13 +1398,16 @@ a {
 }
 
 .townhall-feed-viewport {
-  border-radius: 26px;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   overflow-y: auto;
   scroll-behavior: smooth;
   scroll-snap-type: y mandatory;
   overscroll-behavior-y: contain;
   scrollbar-width: none;
-  min-height: 0;
+  min-height: 100%;
+  height: 100%;
   transition: border-radius 220ms ease;
   will-change: border-radius;
 }
@@ -1391,6 +1417,7 @@ a {
 }
 
 .townhall-feed-item {
+  position: relative;
   min-height: 100%;
   height: 100%;
   scroll-snap-align: start;
@@ -1399,22 +1426,13 @@ a {
   contain: layout;
 }
 
-.townhall-phone-shell-feed {
-  height: min(88dvh, 790px);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  transition:
-    padding 220ms ease,
-    gap 220ms ease;
-}
-
 .townhall-phone-shell-feed.immersive {
-  grid-template-rows: minmax(0, 1fr);
   padding: 0;
   gap: 0;
 }
 
 .townhall-phone-shell-feed.immersive .townhall-feed-viewport {
-  border-radius: 34px;
+  border-radius: inherit;
   min-height: 100%;
   height: 100%;
 }
@@ -1427,7 +1445,7 @@ a {
 
 .townhall-phone-shell-feed.immersive .townhall-stage {
   border: 0;
-  border-radius: 26px;
+  border-radius: var(--townhall-shell-radius);
 }
 
 .townhall-phone-shell-feed.immersive .townhall-header {
@@ -1554,7 +1572,7 @@ a {
   position: absolute;
   left: 10px;
   right: 10px;
-  bottom: 72px;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
   z-index: 4;
   border: 1px solid rgba(118, 142, 159, 0.42);
   border-radius: 14px;
@@ -1873,20 +1891,22 @@ a {
   }
 
   .townhall-phone-shell {
-    border-radius: 26px;
+    --townhall-shell-radius: 26px;
+    border-radius: var(--townhall-shell-radius);
     padding: 8px;
   }
 
   .townhall-phone-shell-feed {
+    padding: 0;
     height: calc(100dvh - 20px);
   }
 
   .townhall-phone-shell-feed.immersive {
-    border-radius: 26px;
+    border-radius: var(--townhall-shell-radius);
   }
 
   .townhall-stage {
-    border-radius: 24px;
+    border-radius: var(--townhall-shell-radius);
   }
 
   .townhall-title {
