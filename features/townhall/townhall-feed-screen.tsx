@@ -140,6 +140,7 @@ function defaultDropSocialSnapshot(dropId: string): TownhallDropSocialSnapshot {
     likeCount: 0,
     commentCount: 0,
     shareCount: 0,
+    saveCount: 0,
     likedByViewer: false,
     savedByViewer: false,
     comments: []
@@ -744,6 +745,7 @@ export function TownhallFeedScreen({
             const collectStats = buildCollectStats(drop, index);
             const likeCount = social.likeCount;
             const shareCount = social.shareCount;
+            const saveCount = social.saveCount;
             const isLiked = social.likedByViewer;
             const isSaved = social.savedByViewer;
             const isLocked = isPaywalled;
@@ -970,7 +972,7 @@ export function TownhallFeedScreen({
                       aria-label="save drop to private library"
                     >
                       <BookmarkIcon className="townhall-social-icon" filled={isSaved} />
-                      <small>{isSaved ? "saved" : "save"}</small>
+                      <small>{saveCount.toLocaleString("en-US")}</small>
                     </button>
                   </aside>
 

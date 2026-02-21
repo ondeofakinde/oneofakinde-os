@@ -136,6 +136,7 @@ export type TownhallDropSocialSnapshot = {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  saveCount: number;
   likedByViewer: boolean;
   savedByViewer: boolean;
   comments: TownhallComment[];
