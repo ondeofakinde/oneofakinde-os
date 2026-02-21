@@ -325,6 +325,7 @@ function buildTownhallDropSocialSnapshot(
   const likeCount = db.townhallLikes.filter((entry) => entry.dropId === dropId).length;
   const comments = db.townhallComments.filter((entry) => entry.dropId === dropId);
   const shareCount = db.townhallShares.filter((entry) => entry.dropId === dropId).length;
+  const saveCount = db.savedDrops.filter((entry) => entry.dropId === dropId).length;
 
   const accountHandleById = new Map(db.accounts.map((account) => [account.id, account.handle]));
   const publicComments = comments
@@ -344,6 +345,7 @@ function buildTownhallDropSocialSnapshot(
     likeCount,
     commentCount: comments.length,
     shareCount,
+    saveCount,
     likedByViewer,
     savedByViewer,
     comments: publicComments
