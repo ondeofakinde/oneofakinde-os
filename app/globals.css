@@ -1089,9 +1089,24 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  background: transparent;
   transform: translateZ(0);
   backface-visibility: hidden;
   transition: opacity 180ms ease;
+}
+
+.townhall-preview-video-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.townhall-preview-video-poster.hidden {
+  opacity: 0;
 }
 
 .townhall-preview-image {
