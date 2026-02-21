@@ -21,15 +21,10 @@ import {
 } from "./immersive-guards";
 import {
   BookmarkIcon,
-  BookIcon,
-  CameraIcon,
   CommentIcon,
   DiamondIcon,
-  FilmIcon,
-  HeadphonesIcon,
   HeartIcon,
   PlusIcon,
-  RadioIcon,
   SearchIcon,
   SendIcon
 } from "./townhall-icons";
@@ -52,6 +47,10 @@ type StageTapEvent =
   | React.PointerEvent<HTMLElement>
   | React.TouchEvent<HTMLElement>;
 
+type StagePointerEvent = React.PointerEvent<HTMLElement>;
+
+type StageTouchEvent = React.TouchEvent<HTMLElement>;
+
 type CollectStats = {
   collectors: number;
   royaltyPercent: number | null;
@@ -71,6 +70,18 @@ type StageBackgroundStyle = {
   backgroundRepeat?: string;
   backgroundSize?: string;
 };
+
+type TouchPoint = {
+  x: number;
+  y: number;
+  startedAtMs: number;
+};
+
+const LONG_PRESS_CONTROLS_MS = 420;
+const SWIPE_EXIT_DELTA_PX = 82;
+const SWIPE_EXIT_MAX_DURATION_MS = 920;
+const SWIPE_VERTICAL_BIAS = 1.15;
+const LONG_PRESS_SUPPRESS_TAP_MS = 700;
 
 const MODE_COPY: Record<Exclude<TownhallSurfaceMode, "townhall">, ModeCopy> = {
   watch: {
@@ -94,22 +105,6 @@ const MODE_COPY: Record<Exclude<TownhallSurfaceMode, "townhall">, ModeCopy> = {
     unlockCta: "unlock live"
   }
 };
-
-function modeHref(mode: Exclude<TownhallSurfaceMode, "townhall">, dropId: string): ReturnType<typeof routes.dropWatch> {
-  if (mode === "watch") return routes.dropWatch(dropId);
-  if (mode === "listen") return routes.dropListen(dropId);
-  if (mode === "read") return routes.dropRead(dropId);
-  if (mode === "gallery") return routes.dropPhotos(dropId);
-  return routes.dropWatch(dropId);
-}
-
-function modeIcon(mode: Exclude<TownhallSurfaceMode, "townhall">) {
-  if (mode === "listen") return <HeadphonesIcon className="townhall-open-drop-glyph" />;
-  if (mode === "read") return <BookIcon className="townhall-open-drop-glyph" />;
-  if (mode === "gallery") return <CameraIcon className="townhall-open-drop-glyph" />;
-  if (mode === "live") return <RadioIcon className="townhall-open-drop-glyph" />;
-  return <FilmIcon className="townhall-open-drop-glyph" />;
-}
 
 function modeNav(mode: TownhallSurfaceMode): Parameters<typeof TownhallBottomNav>[0]["activeMode"] {
   if (mode === "townhall") return "townhall";
@@ -241,6 +236,9 @@ export function TownhallFeedScreen({
   const watchTimeDropIdRef = useRef<string | null>(null);
   const watchTimeStartedAtMsRef = useRef(0);
   const completionRecordedDropIdsRef = useRef<Set<string>>(new Set());
+  const showControlsLongPressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressStageTapUntilMsRef = useRef(0);
+  const touchStartPointRef = useRef<TouchPoint | null>(null);
 
   const failedPreviewAssetKeySet = useMemo(
     () => new Set(failedPreviewAssetKeys),
@@ -331,6 +329,10 @@ export function TownhallFeedScreen({
   useEffect(() => {
     return () => {
       flushWatchTimeTelemetry(Date.now());
+      if (showControlsLongPressTimeoutRef.current) {
+        clearTimeout(showControlsLongPressTimeoutRef.current);
+        showControlsLongPressTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -444,6 +446,10 @@ export function TownhallFeedScreen({
   }
 
   function handleStageTap(event: StageTapEvent, index: number, source: StageTapSource) {
+    if (source === "pointer") {
+      clearLongPressControlsTimer();
+    }
+
     const now = Date.now();
     if (source === "pointer") {
       lastStagePointerTapMsRef.current = now;
@@ -460,6 +466,10 @@ export function TownhallFeedScreen({
 
     const target = event.target as HTMLElement | null;
     if (!target) {
+      return;
+    }
+
+    if (Date.now() <= suppressStageTapUntilMsRef.current) {
       return;
     }
 
@@ -512,6 +522,95 @@ export function TownhallFeedScreen({
     if (media) {
       void media.play().catch(() => undefined);
     }
+  }
+
+  function clearLongPressControlsTimer() {
+    if (showControlsLongPressTimeoutRef.current) {
+      clearTimeout(showControlsLongPressTimeoutRef.current);
+      showControlsLongPressTimeoutRef.current = null;
+    }
+  }
+
+  function handleStagePointerDown(event: StagePointerEvent, index: number) {
+    if (!isImmersive || index !== activeIndex) {
+      return;
+    }
+
+    const target = event.target as HTMLElement | null;
+    if (!target || target.closest("[data-no-immersive-toggle='true']")) {
+      return;
+    }
+
+    clearLongPressControlsTimer();
+    showControlsLongPressTimeoutRef.current = setTimeout(() => {
+      setShowControls(true);
+      suppressStageTapUntilMsRef.current = Date.now() + LONG_PRESS_SUPPRESS_TAP_MS;
+    }, LONG_PRESS_CONTROLS_MS);
+  }
+
+  function handleStagePointerCancelOrUp() {
+    clearLongPressControlsTimer();
+  }
+
+  function handleStageTouchStart(event: StageTouchEvent, index: number) {
+    if (!isImmersive || index !== activeIndex) {
+      touchStartPointRef.current = null;
+      return;
+    }
+
+    const target = event.target as HTMLElement | null;
+    if (!target || target.closest("[data-no-immersive-toggle='true']")) {
+      touchStartPointRef.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch) {
+      touchStartPointRef.current = null;
+      return;
+    }
+
+    touchStartPointRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      startedAtMs: Date.now()
+    };
+  }
+
+  function handleStageTouchEnd(event: StageTouchEvent, index: number) {
+    clearLongPressControlsTimer();
+
+    if (!isImmersive || index !== activeIndex) {
+      touchStartPointRef.current = null;
+      return;
+    }
+
+    const startPoint = touchStartPointRef.current;
+    touchStartPointRef.current = null;
+    if (!startPoint) {
+      return;
+    }
+
+    const touch = event.changedTouches[0];
+    if (!touch) {
+      return;
+    }
+
+    const elapsedMs = Date.now() - startPoint.startedAtMs;
+    if (elapsedMs > SWIPE_EXIT_MAX_DURATION_MS) {
+      return;
+    }
+
+    const deltaY = touch.clientY - startPoint.y;
+    const deltaX = Math.abs(touch.clientX - startPoint.x);
+    const isVerticalSwipe = deltaY > SWIPE_EXIT_DELTA_PX && deltaY > deltaX * SWIPE_VERTICAL_BIAS;
+    if (!isVerticalSwipe) {
+      return;
+    }
+
+    setIsImmersive(false);
+    setShowControls(false);
+    suppressStageTapUntilMsRef.current = Date.now() + LONG_PRESS_SUPPRESS_TAP_MS;
   }
 
   function handleFeedScroll() {
@@ -748,8 +847,6 @@ export function TownhallFeedScreen({
             const dropSubtitle = drop.episodeLabel.trim();
             const dropSurfaceMode = resolveDropModeForTownhallSurface(drop, index, mode);
             const dropCopy = MODE_COPY[dropSurfaceMode];
-            const mediaTarget = modeHref(dropSurfaceMode, drop.id);
-            const mediaHref = viewer ? mediaTarget : routes.signIn(mediaTarget);
             const paywallHref = viewer ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
             const shareUrl = activeShareUrl(drop.id);
             const shareText = `${drop.title} on oneofakinde ${shareUrl}`;
@@ -808,7 +905,11 @@ export function TownhallFeedScreen({
                   className="townhall-stage"
                   aria-label={`${drop.title} preview`}
                   style={stageBackgroundStyle}
+                  onPointerDownCapture={(event) => handleStagePointerDown(event, index)}
+                  onPointerCancelCapture={handleStagePointerCancelOrUp}
                   onPointerUpCapture={(event) => handleStageTap(event, index, "pointer")}
+                  onTouchStartCapture={(event) => handleStageTouchStart(event, index)}
+                  onTouchEndCapture={(event) => handleStageTouchEnd(event, index)}
                   onClickCapture={(event) => handleStageTap(event, index, "click")}
                 >
                   <div className="townhall-backdrop" />
@@ -1163,11 +1264,6 @@ export function TownhallFeedScreen({
                     </section>
                   ) : null}
 
-                  {isActive && !isPaywalled ? (
-                    <Link href={mediaHref} className="townhall-open-drop-link" data-no-immersive-toggle="true">
-                      {modeIcon(dropSurfaceMode)}
-                    </Link>
-                  ) : null}
                 </section>
               </article>
             );
