@@ -799,7 +799,7 @@ export function TownhallFeedScreen({
                         ref={(element) => {
                           mediaRefs.current[index] = element;
                         }}
-                        className="townhall-preview-video"
+                        className={`townhall-preview-video ${showVideoPoster ? "hidden" : ""}`}
                         src={previewAsset.src}
                         poster={previewAsset.posterSrc}
                         preload="metadata"
@@ -809,6 +809,9 @@ export function TownhallFeedScreen({
                         muted
                         onError={() => {
                           markPreviewAssetFailure(resolvedPreview.assetKey);
+                        }}
+                        onPlaying={() => {
+                          revealVideoDrop(drop.id);
                         }}
                         onTimeUpdate={(event) => {
                           const media = event.currentTarget;
