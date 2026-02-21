@@ -493,10 +493,6 @@ export function TownhallFeedScreen({
     setShowControls(false);
     setOpenPanel(null);
     setPanelDropId(null);
-    const enteringDrop = drops[index];
-    if (enteringDrop) {
-      resetVideoReveal(enteringDrop.id);
-    }
     lastImmersiveEnterMsRef.current = Date.now();
     scrollIntentUntilMsRef.current = 0;
     const root = viewportRef.current;
@@ -686,10 +682,6 @@ export function TownhallFeedScreen({
     });
   }
 
-  function resetVideoReveal(dropId: string) {
-    setRevealedVideoDropIds((current) => current.filter((entry) => entry !== dropId));
-  }
-
   return (
     <main className="townhall-page">
       <section className={`townhall-phone-shell townhall-phone-shell-feed ${isImmersive ? "immersive" : ""}`} aria-label="townhall feed shell">
@@ -793,6 +785,9 @@ export function TownhallFeedScreen({
                           src={previewAsset.posterSrc}
                           alt={previewAsset.alt}
                           loading={isActive ? "eager" : "lazy"}
+                          onError={() => {
+                            revealVideoDrop(drop.id);
+                          }}
                         />
                       ) : null}
                       <video
