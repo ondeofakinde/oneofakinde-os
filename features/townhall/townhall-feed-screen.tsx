@@ -14,12 +14,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
 import {
-  shouldExitImmersiveOnScroll,
-  shouldIgnoreRapidTap,
-  shouldIgnoreSyntheticFollowupClick,
-  type StageTapSource
-} from "./immersive-guards";
-import {
   BookmarkIcon,
   CommentIcon,
   DiamondIcon,
@@ -46,6 +40,8 @@ type StageTapEvent =
   | React.MouseEvent<HTMLElement>
   | React.PointerEvent<HTMLElement>
   | React.TouchEvent<HTMLElement>;
+
+type StageTapSource = "pointer" | "click";
 
 type StagePointerEvent = React.PointerEvent<HTMLElement>;
 
@@ -446,81 +442,11 @@ export function TownhallFeedScreen({
   }
 
   function handleStageTap(event: StageTapEvent, index: number, source: StageTapSource) {
-    if (source === "pointer") {
-      clearLongPressControlsTimer();
-    }
-
-    const now = Date.now();
-    if (source === "pointer") {
-      lastStagePointerTapMsRef.current = now;
-    }
-    if (
-      shouldIgnoreSyntheticFollowupClick({
-        source,
-        nowMs: now,
-        lastPointerTapMs: lastStagePointerTapMsRef.current
-      })
-    ) {
-      return;
-    }
-
-    const target = event.target as HTMLElement | null;
-    if (!target) {
-      return;
-    }
-
-    if (Date.now() <= suppressStageTapUntilMsRef.current) {
-      return;
-    }
-
+    if (source === "pointer") clearLongPressControlsTimer();
+    void event;
+    void source;
     if (index !== activeIndex) {
       itemRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-
-    if (isImmersive) {
-      if (target.closest("[data-no-immersive-toggle='true']")) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      setIsImmersive(false);
-      setShowControls(false);
-      lastStageTapMsRef.current = now;
-      return;
-    }
-    if (shouldIgnoreRapidTap({ nowMs: now, lastTapMs: lastStageTapMsRef.current })) {
-      return;
-    }
-    lastStageTapMsRef.current = now;
-
-    // Keep explicit no-toggle controls interactive (social rail, overlay panels, etc).
-    if (target.closest("[data-no-immersive-toggle='true']")) {
-      return;
-    }
-
-    const isActionTarget = Boolean(target.closest("a,button,input,textarea,label,select"));
-    // First tap should always enter immersive preview, even if it lands on CTA chrome.
-    if (isActionTarget) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-
-    setIsImmersive(true);
-    setShowControls(false);
-    setOpenPanel(null);
-    setPanelDropId(null);
-    lastImmersiveEnterMsRef.current = Date.now();
-    scrollIntentUntilMsRef.current = 0;
-    const root = viewportRef.current;
-    if (root) {
-      lastScrollTopRef.current = root.scrollTop;
-    }
-
-    const media = mediaRefs.current[index];
-    if (media) {
-      void media.play().catch(() => undefined);
     }
   }
 
@@ -615,34 +541,11 @@ export function TownhallFeedScreen({
 
   function handleFeedScroll() {
     const root = viewportRef.current;
-    if (!root) {
-      return;
-    }
-
-    const nextScrollTop = root.scrollTop;
-    const delta = Math.abs(nextScrollTop - lastScrollTopRef.current);
-    lastScrollTopRef.current = nextScrollTop;
-    const now = Date.now();
-
-    if (
-      !shouldExitImmersiveOnScroll({
-        isImmersive,
-        showControls,
-        delta,
-        nowMs: now,
-        lastImmersiveEnterMs: lastImmersiveEnterMsRef.current,
-        hasExplicitIntent: now <= scrollIntentUntilMsRef.current
-      })
-    ) {
-      return;
-    }
-
-    setIsImmersive(false);
-    setShowControls(false);
+    if (root) lastScrollTopRef.current = root.scrollTop;
   }
 
   function markScrollIntent() {
-    scrollIntentUntilMsRef.current = Date.now() + 650;
+    // Baseline release keeps townhall scrolling independent from fullscreen state.
   }
 
   function activeShareUrl(dropId: string): string {
@@ -843,6 +746,7 @@ export function TownhallFeedScreen({
             const shareCount = social.shareCount;
             const isLiked = social.likedByViewer;
             const isSaved = social.savedByViewer;
+            const isLocked = isPaywalled;
             const dropHeading = drop.seasonLabel.trim();
             const dropSubtitle = drop.episodeLabel.trim();
             const dropSurfaceMode = resolveDropModeForTownhallSurface(drop, index, mode);
@@ -1012,14 +916,6 @@ export function TownhallFeedScreen({
                     {dropSubtitle ? <p className="townhall-subtitle secondary">{dropSubtitle}</p> : null}
                     {drop.synopsis.trim() ? <p className="townhall-synopsis">{drop.synopsis}</p> : null}
                     <p className="townhall-meta">{formatPublishedDate(drop.releaseDate)}</p>
-
-                    {isPaywalled ? (
-                      <div className="townhall-cta-row">
-                        <Link href={paywallHref} className="townhall-primary-cta">
-                          {dropCopy.unlockCta}
-                        </Link>
-                      </div>
-                    ) : null}
                   </div>
 
                   <aside className="townhall-social-rail" aria-label="social interactions" data-no-immersive-toggle="true">
@@ -1047,12 +943,12 @@ export function TownhallFeedScreen({
 
                     <button
                       type="button"
-                      className={`townhall-social-action ${openCurrentPanel === "collect" ? "active" : ""}`}
+                      className={`townhall-social-action ${openCurrentPanel === "collect" ? "active" : ""} ${isLocked ? "locked" : ""}`}
                       onClick={() => togglePanel("collect", drop.id)}
-                      aria-label="collect drop details"
+                      aria-label={isLocked ? "collect locked drop details" : "collect drop details"}
                     >
                       <DiamondIcon className="townhall-social-icon" filled={openCurrentPanel === "collect"} />
-                      <small>{collectStats.collectors}</small>
+                      <small>{isLocked ? "locked" : collectStats.collectors}</small>
                     </button>
 
                     <button
