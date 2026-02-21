@@ -1175,7 +1175,7 @@ a {
   background:
     radial-gradient(45% 55% at 48% 35%, rgba(80, 140, 134, 0.52), transparent 70%),
     radial-gradient(38% 62% at 50% 55%, rgba(23, 41, 51, 0.6), transparent 78%),
-    linear-gradient(180deg, #06090d 0%, #040607 100%);
+    linear-gradient(180deg, rgba(6, 9, 13, 0.54) 0%, rgba(4, 6, 7, 0.72) 100%);
   filter: saturate(0.9) contrast(1.08);
 }
 
