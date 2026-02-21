@@ -1072,7 +1072,7 @@ a {
   position: relative;
   height: 100%;
   min-height: 100%;
-  border-radius: 0;
+  border-radius: 26px;
   overflow: hidden;
   border: 0;
   box-shadow: none;
@@ -1183,7 +1183,7 @@ a {
 .townhall-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22) 24%, rgba(0, 0, 0, 0.78) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 18%, rgba(0, 0, 0, 0.52) 100%);
   transition: opacity 180ms ease, background 220ms ease;
 }
 
@@ -1427,7 +1427,7 @@ a {
 
 .townhall-phone-shell-feed.immersive .townhall-stage {
   border: 0;
-  border-radius: 0;
+  border-radius: 26px;
 }
 
 .townhall-phone-shell-feed.immersive .townhall-header {
@@ -1886,7 +1886,7 @@ a {
   }
 
   .townhall-stage {
-    border-radius: 0;
+    border-radius: 24px;
   }
 
   .townhall-title {
