@@ -28,7 +28,7 @@ export default async function SignUpPage({ searchParams }: SignUpPageProps) {
         <header className="identity-head">
           <p className="identity-brand">oneofakinde</p>
           <h1 className="identity-title">create account</h1>
-          <p className="identity-copy">start with email, then continue through wallet and profile setup.</p>
+          <p className="identity-copy">start with email, then continue through wallet and identity setup.</p>
         </header>
 
         <form action={signUpAction} className="identity-form">

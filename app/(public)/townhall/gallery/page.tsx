@@ -1,15 +1,5 @@
-import { TownhallFeedScreen } from "@/features/townhall/townhall-feed-screen";
-import { loadTownhallFeedContext } from "../load-feed-context";
+import { redirect } from 'next/navigation';
 
-export default async function TownhallGalleryPage() {
-  const { viewer, drops, ownedDropIds, socialByDropId } = await loadTownhallFeedContext();
-  return (
-    <TownhallFeedScreen
-      mode="gallery"
-      viewer={viewer}
-      drops={drops}
-      ownedDropIds={ownedDropIds}
-      initialSocialByDropId={socialByDropId}
-    />
-  );
+export default function TownhallGalleryLegacyRedirectPage() {
+  redirect('/townhall/photos');
 }

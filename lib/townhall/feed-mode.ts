@@ -2,8 +2,8 @@ import type { Drop, DropPreviewMode } from "@/lib/domain/contracts";
 
 export type TownhallSurfaceMode = "townhall" | DropPreviewMode;
 
-const MODE_ORDER: DropPreviewMode[] = ["watch", "listen", "read", "gallery", "live"];
-const TOWNHALL_PRIMARY_ORDER: DropPreviewMode[] = ["watch", "gallery", "live", "listen", "read"];
+const MODE_ORDER: DropPreviewMode[] = ["watch", "listen", "read", "photos", "live"];
+const TOWNHALL_PRIMARY_ORDER: DropPreviewMode[] = ["watch", "photos", "live", "listen", "read"];
 
 function availableDropModes(drop: Drop): DropPreviewMode[] {
   return MODE_ORDER.filter((mode) => Boolean(drop.previewMedia?.[mode]));

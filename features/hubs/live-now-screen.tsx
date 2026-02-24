@@ -36,7 +36,7 @@ export function LiveNowScreen({ session, drops }: LiveNowScreenProps) {
         </div>
 
         <p className="slice-copy">
-          track what is airing across worlds now, then continue into watch, listen, read, or gallery.
+          track what is airing across worlds now, then continue into watch, listen, read, or photos.
         </p>
 
         <div className="slice-nav-grid" aria-label="live navigation">
@@ -49,8 +49,8 @@ export function LiveNowScreen({ session, drops }: LiveNowScreenProps) {
           <Link href={routes.readHub()} className="slice-link">
             read
           </Link>
-          <Link href={routes.galleryHub()} className="slice-link">
-            gallery
+          <Link href={routes.photosHub()} className="slice-link">
+            photos
           </Link>
           <Link href={routes.liveHub()} className="slice-link active">
             live

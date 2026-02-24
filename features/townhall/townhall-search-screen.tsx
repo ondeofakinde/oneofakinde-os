@@ -216,7 +216,9 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
             ) : (
               <ul className="townhall-search-grid">
                 {dropsToRender.map((drop) => {
-                  const buyHref = session ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
+                  const collectHref = session
+                    ? routes.collectDrop(drop.id)
+                    : routes.signIn(routes.collectDrop(drop.id));
 
                   return (
                     <li key={drop.id} className="townhall-search-card">
@@ -229,8 +231,8 @@ export function TownhallSearchScreen({ query, session, drops, worlds, studios }:
                         <Link href={routes.drop(drop.id)} className="townhall-search-card-link">
                           open drop
                         </Link>
-                        <Link href={buyHref} className="townhall-search-card-link ghost">
-                          buy {formatUsd(drop.priceUsd)}
+                        <Link href={collectHref} className="townhall-search-card-link ghost">
+                          collect {formatUsd(drop.priceUsd)}
                         </Link>
                       </div>
                     </li>

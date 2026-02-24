@@ -92,9 +92,9 @@ const MODE_COPY: Record<Exclude<TownhallSurfaceMode, "townhall">, ModeCopy> = {
     kicker: "text community hub",
     unlockCta: "unlock read"
   },
-  gallery: {
+  photos: {
     kicker: "still-image community hub",
-    unlockCta: "unlock gallery"
+    unlockCta: "unlock photos"
   },
   live: {
     kicker: "live community hub",
@@ -107,7 +107,7 @@ function modeNav(mode: TownhallSurfaceMode): Parameters<typeof TownhallBottomNav
   if (mode === "watch") return "watch";
   if (mode === "listen") return "listen";
   if (mode === "read") return "read";
-  if (mode === "gallery") return "gallery";
+  if (mode === "photos") return "photos";
   return "live";
 }
 
@@ -558,7 +558,7 @@ export function TownhallFeedScreen({
     if (mode === "watch") return routes.townhallWatch();
     if (mode === "listen") return routes.townhallListen();
     if (mode === "read") return routes.townhallRead();
-    if (mode === "gallery") return routes.townhallGallery();
+    if (mode === "photos") return routes.townhallGallery();
     return routes.townhallLive();
   }
 
@@ -753,7 +753,7 @@ export function TownhallFeedScreen({
             const dropSubtitle = drop.episodeLabel.trim();
             const dropSurfaceMode = resolveDropModeForTownhallSurface(drop, index, mode);
             const dropCopy = MODE_COPY[dropSurfaceMode];
-            const paywallHref = viewer ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
+            const paywallHref = viewer ? routes.collectDrop(drop.id) : routes.signIn(routes.collectDrop(drop.id));
             const shareUrl = activeShareUrl(drop.id);
             const shareText = `${drop.title} on oneofakinde ${shareUrl}`;
             const resolvedPreview = resolveDropPreview(drop, dropSurfaceMode, {

@@ -9,7 +9,7 @@ export type Session = {
   sessionToken: string;
 };
 
-export type DropPreviewMode = "watch" | "listen" | "read" | "gallery" | "live";
+export type DropPreviewMode = "watch" | "listen" | "read" | "photos" | "live";
 
 export type DropPreviewAssetType = "video" | "audio" | "image" | "text";
 

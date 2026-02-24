@@ -41,7 +41,7 @@ const SURFACE_CONTENT: Record<DropSurfaceKey, DropSurfaceContent> = {
   offers: {
     title: "offers",
     subtitle: "active offers and intent",
-    bullets: ["open offers from collectors", "latest accepted price", "purchase routing"]
+    bullets: ["open offers from collectors", "latest accepted price", "collect routing"]
   },
   activity: {
     title: "activity",
@@ -51,12 +51,12 @@ const SURFACE_CONTENT: Record<DropSurfaceKey, DropSurfaceContent> = {
   preview: {
     title: "preview",
     subtitle: "public-safe preview content",
-    bullets: ["watermarked sample media", "teaser synopsis", "buy and watch routing"]
+    bullets: ["watermarked sample media", "teaser synopsis", "collect and watch routing"]
   },
   photos_preview: {
-    title: "gallery preview",
+    title: "photos preview",
     subtitle: "public-safe still-image preview",
-    bullets: ["curated still-image slices", "teaser card for gallery mode", "buy and access routing"]
+    bullets: ["curated still-image slices", "teaser card for photos mode", "collect and access routing"]
   }
 };
 
@@ -67,7 +67,9 @@ function navClass(isActive: boolean): string {
 export function DropSurfaceScreen({ drop, session, surface }: DropSurfaceScreenProps) {
   const content = SURFACE_CONTENT[surface];
   const watchHref = session ? routes.dropWatch(drop.id) : routes.signIn(routes.dropWatch(drop.id));
-  const buyHref = session ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
+  const collectHref = session
+    ? routes.collectDrop(drop.id)
+    : routes.signIn(routes.collectDrop(drop.id));
 
   const links = [
     { key: "details", label: "details", href: routes.dropDetails(drop.id) },
@@ -75,7 +77,7 @@ export function DropSurfaceScreen({ drop, session, surface }: DropSurfaceScreenP
     { key: "offers", label: "offers", href: routes.dropOffers(drop.id) },
     { key: "activity", label: "activity", href: routes.dropActivity(drop.id) },
     { key: "preview", label: "preview", href: routes.dropPreview(drop.id) },
-    { key: "photos_preview", label: "gallery preview", href: routes.dropPreviewPhotos(drop.id) }
+    { key: "photos_preview", label: "photos preview", href: routes.dropPreviewPhotos(drop.id) }
   ] as const;
 
   return (
@@ -124,8 +126,8 @@ export function DropSurfaceScreen({ drop, session, surface }: DropSurfaceScreenP
           </ul>
 
           <div className="dropflow-cta-row">
-            <Link href={buyHref} className="dropflow-primary-cta">
-              buy now
+            <Link href={collectHref} className="dropflow-primary-cta">
+              collect
             </Link>
             <Link href={watchHref} className="dropflow-secondary-cta">
               watch

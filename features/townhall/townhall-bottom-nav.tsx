@@ -10,7 +10,7 @@ import {
   TownhallIcon
 } from "./townhall-icons";
 
-export type TownhallNavMode = "townhall" | "listen" | "read" | "watch" | "gallery" | "collect" | "live";
+export type TownhallNavMode = "townhall" | "listen" | "read" | "watch" | "photos" | "collect" | "live";
 
 function navLinkClass(active: boolean): string {
   return `townhall-bottom-icon ${active ? "active" : ""}`;
@@ -43,7 +43,7 @@ export function TownhallBottomNav({
       <Link href={routes.townhallWatch()} className={navLinkClass(activeMode === "watch")} aria-label="watch mode">
         <FilmIcon className="townhall-bottom-icon-glyph" />
       </Link>
-      <Link href={routes.townhallGallery()} className={navLinkClass(activeMode === "gallery")} aria-label="gallery mode">
+      <Link href={routes.townhallGallery()} className={navLinkClass(activeMode === "photos")} aria-label="photos mode">
         <CameraIcon className="townhall-bottom-icon-glyph" />
       </Link>
       <Link href={routes.collect()} className={navLinkClass(activeMode === "collect")} aria-label="collect marketplace">

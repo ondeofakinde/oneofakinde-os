@@ -48,7 +48,7 @@ test("system flow: public steps stay public and protected steps enforce session"
   const protectedSteps = [
     routes.walletLink(),
     routes.profileSetup(),
-    routes.buyDrop(FLOW_DROP_ID),
+    routes.collectDrop(FLOW_DROP_ID),
     routes.myCollection(),
     routes.dropWatch(FLOW_DROP_ID),
     routes.dropListen(FLOW_DROP_ID),
@@ -86,7 +86,7 @@ test("system flow: townhall, certificate, and media steps expose canonical surfa
     { pathname: routes.dropWatch(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_watch" },
     { pathname: routes.dropListen(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_listen" },
     { pathname: routes.dropRead(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_read" },
-    { pathname: routes.dropPhotos(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_gallery" }
+    { pathname: routes.dropPhotos(FLOW_DROP_ID), expectedSurfaceKey: "drop_full_photos" }
   ];
 
   for (const check of checks) {

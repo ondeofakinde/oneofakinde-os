@@ -40,8 +40,8 @@ export function WorldDropsScreen({ world, drops, session }: WorldDropsScreenProp
                   <Link href={routes.drop(drop.id)} className="slice-button ghost">
                     open drop
                   </Link>
-                  <Link href={routes.buyDrop(drop.id)} className="slice-button alt">
-                    buy
+                  <Link href={routes.collectDrop(drop.id)} className="slice-button alt">
+                    collect
                   </Link>
                 </div>
               </li>

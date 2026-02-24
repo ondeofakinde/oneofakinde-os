@@ -18,10 +18,10 @@ const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, DropPreviewMap> = {
       type: "text",
       text: "episode one opens with stardust drifting through memory and identity."
     },
-    gallery: {
+    photos: {
       type: "image",
-      src: "https://picsum.photos/seed/ook-stardust-gallery/1200/2000",
-      alt: "stardust gallery preview"
+      src: "https://picsum.photos/seed/ook-stardust-photos/1200/2000",
+      alt: "stardust photos preview"
     },
     live: {
       type: "video",
@@ -47,10 +47,10 @@ const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, DropPreviewMap> = {
       type: "text",
       text: "lights in the night traces water, memory, and a late-hour horizon."
     },
-    gallery: {
+    photos: {
       type: "image",
-      src: "https://picsum.photos/seed/ook-twilight-gallery/1200/2000",
-      alt: "twilight whispers gallery preview"
+      src: "https://picsum.photos/seed/ook-twilight-photos/1200/2000",
+      alt: "twilight whispers photos preview"
     },
     live: {
       type: "video",
@@ -76,10 +76,10 @@ const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, DropPreviewMap> = {
       type: "text",
       text: "a lone signal crosses worlds and leaves a trace in the feed."
     },
-    gallery: {
+    photos: {
       type: "image",
-      src: "https://picsum.photos/seed/ook-voidrunner-gallery/1200/2000",
-      alt: "voidrunner gallery preview"
+      src: "https://picsum.photos/seed/ook-voidrunner-photos/1200/2000",
+      alt: "voidrunner photos preview"
     },
     live: {
       type: "video",
@@ -105,10 +105,10 @@ const SEED_PREVIEW_MEDIA_BY_DROP_ID: Record<string, DropPreviewMap> = {
       type: "text",
       text: "coffee table captures layered city voices from one shared moment."
     },
-    gallery: {
+    photos: {
       type: "image",
-      src: "https://picsum.photos/seed/ook-through-lens-gallery/1200/2000",
-      alt: "through the lens gallery preview"
+      src: "https://picsum.photos/seed/ook-through-lens-photos/1200/2000",
+      alt: "through the lens photos preview"
     },
     live: {
       type: "video",

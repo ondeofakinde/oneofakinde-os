@@ -26,7 +26,7 @@ function withPreviewMedia(previewMedia: DropPreviewMap): Drop {
 test("resolveDropPreview selects mode-specific asset when present", () => {
   const drop = withPreviewMedia({
     watch: { type: "video", src: "https://cdn.example/watch.mp4" },
-    gallery: { type: "image", src: "https://cdn.example/gallery.jpg" }
+    photos: { type: "image", src: "https://cdn.example/photos.jpg" }
   });
 
   const resolved = resolveDropPreview(drop, "watch");
@@ -38,12 +38,12 @@ test("resolveDropPreview selects mode-specific asset when present", () => {
 
 test("resolveDropPreview falls back by mode order when requested mode is missing", () => {
   const drop = withPreviewMedia({
-    gallery: { type: "image", src: "https://cdn.example/gallery.jpg" },
+    photos: { type: "image", src: "https://cdn.example/photos.jpg" },
     read: { type: "text", text: "fallback chapter" }
   });
 
   const resolved = resolveDropPreview(drop, "watch");
-  assert.equal(resolved.mode, "gallery");
+  assert.equal(resolved.mode, "photos");
   assert.equal(resolved.asset.type, "image");
   assert.equal(resolved.fallbackDepth, 1);
 });
@@ -51,7 +51,7 @@ test("resolveDropPreview falls back by mode order when requested mode is missing
 test("resolveDropPreview skips failed assets and promotes the next candidate", () => {
   const drop = withPreviewMedia({
     watch: { type: "video", src: "https://cdn.example/watch.mp4" },
-    gallery: { type: "image", src: "https://cdn.example/gallery.jpg" }
+    photos: { type: "image", src: "https://cdn.example/photos.jpg" }
   });
 
   const failedWatchKey = buildDropPreviewAssetKey(drop.id, "watch", {
@@ -63,9 +63,9 @@ test("resolveDropPreview skips failed assets and promotes the next candidate", (
     failedAssetKeys: new Set([failedWatchKey])
   });
 
-  assert.equal(resolved.mode, "gallery");
+  assert.equal(resolved.mode, "photos");
   assert.equal(resolved.asset.type, "image");
-  assert.equal(resolved.asset.src, "https://cdn.example/gallery.jpg");
+  assert.equal(resolved.asset.src, "https://cdn.example/photos.jpg");
 });
 
 test("resolveDropPreview returns image fallback for non-read modes when no valid assets are available", () => {

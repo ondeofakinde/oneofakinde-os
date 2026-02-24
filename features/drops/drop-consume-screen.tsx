@@ -3,7 +3,7 @@ import type { Certificate, Drop, PurchaseReceipt, Session } from "@/lib/domain/c
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
-type ConsumeMode = "watch" | "listen" | "read" | "gallery";
+type ConsumeMode = "watch" | "listen" | "read" | "photos";
 
 type DropConsumeScreenProps = {
   mode: ConsumeMode;
@@ -30,10 +30,10 @@ const MODE_COPY: Record<ConsumeMode, { title: string; intro: string; active: str
     intro: "read mode is unlocked for this drop.",
     active: "now reading"
   },
-  gallery: {
-    title: "gallery",
-    intro: "gallery mode is unlocked for this drop.",
-    active: "now viewing gallery for"
+  photos: {
+    title: "photos",
+    intro: "photos mode is unlocked for this drop.",
+    active: "now viewing photos for"
   }
 };
 
@@ -57,7 +57,7 @@ export function DropConsumeScreen({
   certificate
 }: DropConsumeScreenProps) {
   const copy = MODE_COPY[mode];
-  const buyHref = routes.buyDrop(drop.id);
+  const collectHref = routes.collectDrop(drop.id);
 
   return (
     <main className="dropmedia-page">
@@ -75,13 +75,13 @@ export function DropConsumeScreen({
         {!hasEntitlement ? (
           <section className="dropmedia-paywall" aria-label="entitlement required">
             <p className="dropmedia-paywall-label">access required</p>
-            <h1 className="dropmedia-paywall-title">buy this drop to unlock {copy.title}</h1>
+            <h1 className="dropmedia-paywall-title">collect this drop to unlock {copy.title}</h1>
             <p className="dropmedia-paywall-copy">
-              complete purchase once and this mode opens with receipt + certificate coverage.
+              collect once and this mode opens with receipt + certificate coverage.
             </p>
             <div className="dropmedia-paywall-actions">
-              <Link href={buyHref} className="dropmedia-primary-cta">
-                buy {formatUsd(drop.priceUsd)}
+              <Link href={collectHref} className="dropmedia-primary-cta">
+                collect {formatUsd(drop.priceUsd)}
               </Link>
               <Link href={routes.drop(drop.id)} className="dropmedia-secondary-cta">
                 open drop
@@ -130,8 +130,8 @@ export function DropConsumeScreen({
                   <Link href={modeHref("read", drop.id)} className={modeClass(mode === "read")}>
                     read
                   </Link>
-                  <Link href={modeHref("gallery", drop.id)} className={modeClass(mode === "gallery")}>
-                    gallery
+                  <Link href={modeHref("photos", drop.id)} className={modeClass(mode === "photos")}>
+                    photos
                   </Link>
                 </div>
 

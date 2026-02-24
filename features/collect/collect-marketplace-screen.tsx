@@ -2,14 +2,17 @@ import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import type { Drop, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
+import type { Route } from "next";
 import Link from "next/link";
 
 type CollectMarketplaceScreenProps = {
   session: Session;
   drops: Drop[];
+  initialLane?: MarketLane;
 };
 
 type MarketListingType = "sale" | "auction" | "resale";
+type MarketLane = "all" | MarketListingType;
 
 type MarketplaceListing = {
   drop: Drop;
@@ -26,16 +29,23 @@ const LISTING_COPY: Record<
 > = {
   sale: {
     label: "for sale",
-    ctaLabel: "buy now"
+    ctaLabel: "collect"
   },
   auction: {
     label: "auction",
-    ctaLabel: "open auction"
+    ctaLabel: "collect"
   },
   resale: {
     label: "resale",
-    ctaLabel: "open resale"
+    ctaLabel: "collect"
   }
+};
+
+const LANE_LABELS: Record<MarketLane, string> = {
+  all: "all",
+  sale: "sale",
+  auction: "auction",
+  resale: "resale"
 };
 
 function resolveListingType(index: number): MarketListingType {
@@ -49,13 +59,43 @@ function resolveMarketPrice(drop: Drop, type: MarketListingType): number {
   return drop.priceUsd;
 }
 
-function resolvePrimaryHref(type: MarketListingType, dropId: string): ReturnType<typeof routes.drop> {
-  if (type === "auction") return routes.auctions();
-  if (type === "resale") return routes.dropOffers(dropId);
-  return routes.buyDrop(dropId);
+function resolvePrimaryHref(type: MarketListingType, dropId: string): Route {
+  if (type === "auction") {
+    return (`${routes.collect()}?lane=auction&drop=${encodeURIComponent(dropId)}` as Route);
+  }
+
+  if (type === "resale") {
+    return (`${routes.collect()}?lane=resale&drop=${encodeURIComponent(dropId)}` as Route);
+  }
+
+  return routes.collectDrop(dropId);
 }
 
-export function CollectMarketplaceScreen({ session, drops }: CollectMarketplaceScreenProps) {
+function laneHref(lane: MarketLane): Route {
+  if (lane === "all") {
+    return routes.collect();
+  }
+
+  return (`${routes.collect()}?lane=${encodeURIComponent(lane)}` as Route);
+}
+
+function sectionTitle(type: MarketListingType): string {
+  if (type === "sale") return "for sale";
+  if (type === "auction") return "auctions";
+  return "resale";
+}
+
+function sectionPriceLabel(type: MarketListingType, priceUsd: number): string {
+  if (type === "auction") return `current bid ${formatUsd(priceUsd)}`;
+  if (type === "resale") return `ask ${formatUsd(priceUsd)}`;
+  return formatUsd(priceUsd);
+}
+
+export function CollectMarketplaceScreen({
+  session,
+  drops,
+  initialLane = "all"
+}: CollectMarketplaceScreenProps) {
   const listings: MarketplaceListing[] = drops.slice(0, 18).map((drop, index) => {
     const type = resolveListingType(index);
     return {
@@ -68,6 +108,15 @@ export function CollectMarketplaceScreen({ session, drops }: CollectMarketplaceS
   const sales = listings.filter((listing) => listing.type === "sale");
   const auctions = listings.filter((listing) => listing.type === "auction");
   const resales = listings.filter((listing) => listing.type === "resale");
+
+  const sections: Array<{ key: MarketListingType; items: MarketplaceListing[] }> = [
+    { key: "sale", items: sales },
+    { key: "auction", items: auctions },
+    { key: "resale", items: resales }
+  ];
+
+  const visibleSections =
+    initialLane === "all" ? sections : sections.filter((section) => section.key === initialLane);
 
   return (
     <AppShell
@@ -88,73 +137,44 @@ export function CollectMarketplaceScreen({ session, drops }: CollectMarketplaceS
             my collection
           </Link>
         </div>
+
+        <div className="slice-nav-grid" aria-label="collect lane filters">
+          {(Object.keys(LANE_LABELS) as MarketLane[]).map((lane) => (
+            <Link
+              key={lane}
+              href={laneHref(lane)}
+              className={`slice-link ${initialLane === lane ? "active" : ""}`}
+              aria-label={`${LANE_LABELS[lane]} lane`}
+            >
+              {LANE_LABELS[lane]}
+            </Link>
+          ))}
+        </div>
       </section>
 
-      <section className="slice-panel">
-        <p className="slice-label">for sale</p>
-        <ul className="slice-grid" aria-label="sale listings">
-          {sales.map((listing) => (
-            <li key={`sale-${listing.drop.id}`} className="slice-drop-card">
-              <p className="slice-label">{listing.drop.worldLabel}</p>
-              <h2 className="slice-title">{listing.drop.title}</h2>
-              <p className="slice-copy">{LISTING_COPY[listing.type].label}</p>
-              <p className="slice-meta">{formatUsd(listing.priceUsd)}</p>
-              <div className="slice-button-row">
-                <Link href={routes.drop(listing.drop.id)} className="slice-button ghost">
-                  open drop
-                </Link>
-                <Link href={resolvePrimaryHref(listing.type, listing.drop.id)} className="slice-button alt">
-                  {LISTING_COPY[listing.type].ctaLabel}
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="slice-panel">
-        <p className="slice-label">auctions</p>
-        <ul className="slice-grid" aria-label="auction listings">
-          {auctions.map((listing) => (
-            <li key={`auction-${listing.drop.id}`} className="slice-drop-card">
-              <p className="slice-label">{listing.drop.worldLabel}</p>
-              <h2 className="slice-title">{listing.drop.title}</h2>
-              <p className="slice-copy">{LISTING_COPY[listing.type].label}</p>
-              <p className="slice-meta">current bid {formatUsd(listing.priceUsd)}</p>
-              <div className="slice-button-row">
-                <Link href={routes.drop(listing.drop.id)} className="slice-button ghost">
-                  open drop
-                </Link>
-                <Link href={resolvePrimaryHref(listing.type, listing.drop.id)} className="slice-button alt">
-                  {LISTING_COPY[listing.type].ctaLabel}
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="slice-panel">
-        <p className="slice-label">resale</p>
-        <ul className="slice-grid" aria-label="resale listings">
-          {resales.map((listing) => (
-            <li key={`resale-${listing.drop.id}`} className="slice-drop-card">
-              <p className="slice-label">{listing.drop.worldLabel}</p>
-              <h2 className="slice-title">{listing.drop.title}</h2>
-              <p className="slice-copy">{LISTING_COPY[listing.type].label}</p>
-              <p className="slice-meta">ask {formatUsd(listing.priceUsd)}</p>
-              <div className="slice-button-row">
-                <Link href={routes.drop(listing.drop.id)} className="slice-button ghost">
-                  open drop
-                </Link>
-                <Link href={resolvePrimaryHref(listing.type, listing.drop.id)} className="slice-button alt">
-                  {LISTING_COPY[listing.type].ctaLabel}
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {visibleSections.map((section) => (
+        <section key={section.key} className="slice-panel">
+          <p className="slice-label">{sectionTitle(section.key)}</p>
+          <ul className="slice-grid" aria-label={`${section.key} listings`}>
+            {section.items.map((listing) => (
+              <li key={`${section.key}-${listing.drop.id}`} className="slice-drop-card">
+                <p className="slice-label">{listing.drop.worldLabel}</p>
+                <h2 className="slice-title">{listing.drop.title}</h2>
+                <p className="slice-copy">{LISTING_COPY[listing.type].label}</p>
+                <p className="slice-meta">{sectionPriceLabel(listing.type, listing.priceUsd)}</p>
+                <div className="slice-button-row">
+                  <Link href={routes.drop(listing.drop.id)} className="slice-button ghost">
+                    open drop
+                  </Link>
+                  <Link href={resolvePrimaryHref(listing.type, listing.drop.id)} className="slice-button alt">
+                    {LISTING_COPY[listing.type].ctaLabel}
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </AppShell>
   );
 }

@@ -57,10 +57,10 @@ export function EntryScreen({ session }: EntryScreenProps) {
             <li>profile setup</li>
             <li>townhall</li>
             <li>drop</li>
-            <li>buy</li>
+            <li>collect</li>
             <li>my collection</li>
             <li>certificate</li>
-            <li>watch/listen/read/gallery</li>
+            <li>watch/listen/read/photos</li>
           </ol>
         </section>
       </section>

@@ -4,28 +4,24 @@ import { evaluateRoutePolicy } from "../../lib/route-policy";
 
 const redirectCases = [
   {
-    "sourcePathname": "/photos",
-    "targetPathname": "/gallery"
+    "sourcePathname": "/collections",
+    "targetPathname": "/worlds"
   },
   {
-    "sourcePathname": "/live-now",
-    "targetPathname": "/live"
+    "sourcePathname": "/live",
+    "targetPathname": "/live-now"
   },
   {
-    "sourcePathname": "/space-setup",
-    "targetPathname": "/onboarding/profile-setup"
-  },
-  {
-    "sourcePathname": "/studios/handle-sample",
-    "targetPathname": "/studio/handle-sample"
+    "sourcePathname": "/network-setup",
+    "targetPathname": "/space-setup"
   },
   {
     "sourcePathname": "/creators/handle-sample",
-    "targetPathname": "/studio/handle-sample"
+    "targetPathname": "/studios/handle-sample"
   },
   {
-    "sourcePathname": "/collections",
-    "targetPathname": "/worlds"
+    "sourcePathname": "/studio/handle-sample",
+    "targetPathname": "/studios/handle-sample"
   },
   {
     "sourcePathname": "/collections/id-sample",
@@ -60,12 +56,12 @@ const redirectCases = [
     "targetPathname": "/drops/id-sample/preview"
   },
   {
-    "sourcePathname": "/drops/id-sample/preview/photos",
-    "targetPathname": "/drops/id-sample/preview/gallery"
+    "sourcePathname": "/assets/id-sample/preview/gallery",
+    "targetPathname": "/drops/id-sample/preview/photos"
   },
   {
-    "sourcePathname": "/assets/id-sample/preview/photos",
-    "targetPathname": "/drops/id-sample/preview/gallery"
+    "sourcePathname": "/drops/id-sample/preview/gallery",
+    "targetPathname": "/drops/id-sample/preview/photos"
   },
   {
     "sourcePathname": "/assets/id-sample/watch",
@@ -80,16 +76,12 @@ const redirectCases = [
     "targetPathname": "/drops/id-sample/read"
   },
   {
-    "sourcePathname": "/drops/id-sample/photos",
-    "targetPathname": "/drops/id-sample/gallery"
-  },
-  {
-    "sourcePathname": "/assets/id-sample/photos",
-    "targetPathname": "/drops/id-sample/gallery"
-  },
-  {
     "sourcePathname": "/assets/id-sample/view",
-    "targetPathname": "/drops/id-sample/gallery"
+    "targetPathname": "/drops/id-sample/photos"
+  },
+  {
+    "sourcePathname": "/drops/id-sample/gallery",
+    "targetPathname": "/drops/id-sample/photos"
   },
   {
     "sourcePathname": "/my-assets",
@@ -104,32 +96,24 @@ const redirectCases = [
     "targetPathname": "/my-collection"
   },
   {
-    "sourcePathname": "/library",
-    "targetPathname": "/favorites"
-  },
-  {
     "sourcePathname": "/saved",
-    "targetPathname": "/favorites"
+    "targetPathname": "/library"
   },
   {
     "sourcePathname": "/bookmarks",
-    "targetPathname": "/favorites"
+    "targetPathname": "/library"
   },
   {
     "sourcePathname": "/studio",
     "targetPathname": "/workshop"
   },
   {
-    "sourcePathname": "/workshop/analytics",
-    "targetPathname": "/dashboard"
+    "sourcePathname": "/gallery",
+    "targetPathname": "/photos"
   },
   {
-    "sourcePathname": "/workshop/campaigns",
-    "targetPathname": "/my-campaigns"
-  },
-  {
-    "sourcePathname": "/workshop/payouts",
-    "targetPathname": "/payouts"
+    "sourcePathname": "/townhall/gallery",
+    "targetPathname": "/townhall/photos"
   }
 ] as const;
 const metadataCases = [
@@ -148,50 +132,8 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/townhall",
-    "surfaceKey": "townhall",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/townhall/search",
-    "surfaceKey": "townhall_search",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/townhall/watch",
-    "surfaceKey": "townhall_watch",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/townhall/listen",
-    "surfaceKey": "townhall_listen",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/townhall/read",
-    "surfaceKey": "townhall_read",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/townhall/gallery",
-    "surfaceKey": "townhall_gallery",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/townhall/live",
-    "surfaceKey": "townhall_live",
+    "pathname": "/worlds",
+    "surfaceKey": "world_index",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -218,31 +160,8 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/gallery",
-    "surfaceKey": "gallery_hub",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/live",
-    "surfaceKey": "live_hub",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/collect",
-    "surfaceKey": "collect_entry",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "collector"
-    ]
-  },
-  {
-    "pathname": "/auctions",
-    "surfaceKey": "auctions",
+    "pathname": "/live-now",
+    "surfaceKey": "live_now_hub",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -262,31 +181,6 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/auth/wallet-connect",
-    "surfaceKey": "wallet_connect",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
-  },
-  {
-    "pathname": "/auth/wallet-link",
-    "surfaceKey": "wallet_link",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "collector"
-    ]
-  },
-  {
-    "pathname": "/onboarding/profile-setup",
-    "surfaceKey": "profile_setup",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "collector"
-    ]
-  },
-  {
     "pathname": "/logout",
     "surfaceKey": "logout",
     "publicSafe": "false",
@@ -296,15 +190,17 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/studio/handle-sample",
-    "surfaceKey": "studio_public",
-    "publicSafe": "true",
-    "hasSession": false,
-    "sessionRoles": []
+    "pathname": "/space-setup",
+    "surfaceKey": "first_run_space_setup",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
   },
   {
-    "pathname": "/worlds",
-    "surfaceKey": "world_index",
+    "pathname": "/studios/handle-sample",
+    "surfaceKey": "studio_public",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -366,8 +262,8 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/drops/id-sample/preview/gallery",
-    "surfaceKey": "drop_preview_gallery",
+    "pathname": "/drops/id-sample/preview/photos",
+    "surfaceKey": "drop_preview_photos",
     "publicSafe": "true",
     "hasSession": false,
     "sessionRoles": []
@@ -400,8 +296,8 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/drops/id-sample/gallery",
-    "surfaceKey": "drop_full_gallery",
+    "pathname": "/drops/id-sample/photos",
+    "surfaceKey": "drop_full_photos",
     "publicSafe": "false",
     "hasSession": true,
     "sessionRoles": [
@@ -427,8 +323,8 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/favorites",
-    "surfaceKey": "favorites_saved",
+    "pathname": "/library",
+    "surfaceKey": "library_saved",
     "publicSafe": "false",
     "hasSession": true,
     "sessionRoles": [
@@ -443,24 +339,6 @@ const metadataCases = [
     "sessionRoles": []
   },
   {
-    "pathname": "/invest",
-    "surfaceKey": "invest",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "collector"
-    ]
-  },
-  {
-    "pathname": "/create",
-    "surfaceKey": "create",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "creator"
-    ]
-  },
-  {
     "pathname": "/workshop",
     "surfaceKey": "workshop_root",
     "publicSafe": "false",
@@ -470,35 +348,15 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/dashboard",
-    "surfaceKey": "dashboard_analytics",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "creator"
-    ]
+    "pathname": "/auth/wallet-connect",
+    "surfaceKey": "auth_wallet_connect",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
   },
   {
-    "pathname": "/my-campaigns",
-    "surfaceKey": "my_campaigns",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "creator"
-    ]
-  },
-  {
-    "pathname": "/payouts",
-    "surfaceKey": "payouts",
-    "publicSafe": "false",
-    "hasSession": true,
-    "sessionRoles": [
-      "creator"
-    ]
-  },
-  {
-    "pathname": "/settings/account",
-    "surfaceKey": "settings_account",
+    "pathname": "/auth/wallet-link",
+    "surfaceKey": "auth_wallet_link",
     "publicSafe": "false",
     "hasSession": true,
     "sessionRoles": [
@@ -506,8 +364,60 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/settings/security",
-    "surfaceKey": "settings_security",
+    "pathname": "/onboarding/profile-setup",
+    "surfaceKey": "identity_setup",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/collect",
+    "surfaceKey": "collect_market",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/auctions",
+    "surfaceKey": "collect_auctions",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/favorites",
+    "surfaceKey": "favorites",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/following",
+    "surfaceKey": "following",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/invest",
+    "surfaceKey": "invest",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "collector"
+    ]
+  },
+  {
+    "pathname": "/settings/account",
+    "surfaceKey": "settings_account",
     "publicSafe": "false",
     "hasSession": true,
     "sessionRoles": [
@@ -533,27 +443,113 @@ const metadataCases = [
     ]
   },
   {
-    "pathname": "/following",
-    "surfaceKey": "following",
+    "pathname": "/settings/security",
+    "surfaceKey": "settings_security",
     "publicSafe": "false",
     "hasSession": true,
     "sessionRoles": [
       "collector"
     ]
+  },
+  {
+    "pathname": "/create",
+    "surfaceKey": "create",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/dashboard",
+    "surfaceKey": "dashboard",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/my-campaigns",
+    "surfaceKey": "my_campaigns",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/payouts",
+    "surfaceKey": "payouts",
+    "publicSafe": "false",
+    "hasSession": true,
+    "sessionRoles": [
+      "creator"
+    ]
+  },
+  {
+    "pathname": "/photos",
+    "surfaceKey": "photos_hub",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall",
+    "surfaceKey": "townhall",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/watch",
+    "surfaceKey": "townhall_watch",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/listen",
+    "surfaceKey": "townhall_listen",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/read",
+    "surfaceKey": "townhall_read",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/photos",
+    "surfaceKey": "townhall_photos",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/live",
+    "surfaceKey": "townhall_live",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
+  },
+  {
+    "pathname": "/townhall/search",
+    "surfaceKey": "townhall_search",
+    "publicSafe": "true",
+    "hasSession": false,
+    "sessionRoles": []
   }
 ] as const;
 const sessionCases = [
   {
-    "pathname": "/collect"
-  },
-  {
-    "pathname": "/auth/wallet-link"
-  },
-  {
-    "pathname": "/onboarding/profile-setup"
-  },
-  {
     "pathname": "/logout"
+  },
+  {
+    "pathname": "/space-setup"
   },
   {
     "pathname": "/drops/id-sample/watch"
@@ -565,7 +561,7 @@ const sessionCases = [
     "pathname": "/drops/id-sample/read"
   },
   {
-    "pathname": "/drops/id-sample/gallery"
+    "pathname": "/drops/id-sample/photos"
   },
   {
     "pathname": "/pay/buy/drop_id-sample"
@@ -574,16 +570,43 @@ const sessionCases = [
     "pathname": "/my-collection"
   },
   {
+    "pathname": "/library"
+  },
+  {
+    "pathname": "/workshop"
+  },
+  {
+    "pathname": "/auth/wallet-link"
+  },
+  {
+    "pathname": "/onboarding/profile-setup"
+  },
+  {
+    "pathname": "/collect"
+  },
+  {
     "pathname": "/favorites"
+  },
+  {
+    "pathname": "/following"
   },
   {
     "pathname": "/invest"
   },
   {
-    "pathname": "/create"
+    "pathname": "/settings/account"
   },
   {
-    "pathname": "/workshop"
+    "pathname": "/settings/apps"
+  },
+  {
+    "pathname": "/settings/notifications"
+  },
+  {
+    "pathname": "/settings/security"
+  },
+  {
+    "pathname": "/create"
   },
   {
     "pathname": "/dashboard"
@@ -593,50 +616,19 @@ const sessionCases = [
   },
   {
     "pathname": "/payouts"
-  },
-  {
-    "pathname": "/settings/account"
-  },
-  {
-    "pathname": "/settings/security"
-  },
-  {
-    "pathname": "/settings/apps"
-  },
-  {
-    "pathname": "/settings/notifications"
-  },
-  {
-    "pathname": "/following"
   }
 ] as const;
 const roleRequiredCases = [
   {
-    "pathname": "/collect",
-    "allowedRoles": [
-      "collector",
-      "creator"
-    ],
-    "disallowedRole": null
-  },
-  {
-    "pathname": "/auth/wallet-link",
-    "allowedRoles": [
-      "collector",
-      "creator"
-    ],
-    "disallowedRole": null
-  },
-  {
-    "pathname": "/onboarding/profile-setup",
-    "allowedRoles": [
-      "collector",
-      "creator"
-    ],
-    "disallowedRole": null
-  },
-  {
     "pathname": "/logout",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/space-setup",
     "allowedRoles": [
       "collector",
       "creator"
@@ -668,7 +660,7 @@ const roleRequiredCases = [
     "disallowedRole": null
   },
   {
-    "pathname": "/drops/id-sample/gallery",
+    "pathname": "/drops/id-sample/photos",
     "allowedRoles": [
       "collector",
       "creator"
@@ -692,7 +684,54 @@ const roleRequiredCases = [
     "disallowedRole": null
   },
   {
+    "pathname": "/library",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/workshop",
+    "allowedRoles": [
+      "creator"
+    ],
+    "disallowedRole": "collector"
+  },
+  {
+    "pathname": "/auth/wallet-link",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/onboarding/profile-setup",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/collect",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
     "pathname": "/favorites",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/following",
     "allowedRoles": [
       "collector",
       "creator"
@@ -708,14 +747,39 @@ const roleRequiredCases = [
     "disallowedRole": null
   },
   {
-    "pathname": "/create",
+    "pathname": "/settings/account",
     "allowedRoles": [
+      "collector",
       "creator"
     ],
-    "disallowedRole": "collector"
+    "disallowedRole": null
   },
   {
-    "pathname": "/workshop",
+    "pathname": "/settings/apps",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/settings/notifications",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/settings/security",
+    "allowedRoles": [
+      "collector",
+      "creator"
+    ],
+    "disallowedRole": null
+  },
+  {
+    "pathname": "/create",
     "allowedRoles": [
       "creator"
     ],
@@ -741,60 +805,14 @@ const roleRequiredCases = [
       "creator"
     ],
     "disallowedRole": "collector"
-  },
-  {
-    "pathname": "/settings/account",
-    "allowedRoles": [
-      "collector",
-      "creator"
-    ],
-    "disallowedRole": null
-  },
-  {
-    "pathname": "/settings/security",
-    "allowedRoles": [
-      "collector",
-      "creator"
-    ],
-    "disallowedRole": null
-  },
-  {
-    "pathname": "/settings/apps",
-    "allowedRoles": [
-      "collector",
-      "creator"
-    ],
-    "disallowedRole": null
-  },
-  {
-    "pathname": "/settings/notifications",
-    "allowedRoles": [
-      "collector",
-      "creator"
-    ],
-    "disallowedRole": null
-  },
-  {
-    "pathname": "/following",
-    "allowedRoles": [
-      "collector",
-      "creator"
-    ],
-    "disallowedRole": null
   }
 ] as const;
 const proofSessionCases = [
   {
-    "pathname": "/collect"
-  },
-  {
-    "pathname": "/auth/wallet-link"
-  },
-  {
-    "pathname": "/onboarding/profile-setup"
-  },
-  {
     "pathname": "/logout"
+  },
+  {
+    "pathname": "/space-setup"
   },
   {
     "pathname": "/drops/id-sample/watch"
@@ -806,7 +824,7 @@ const proofSessionCases = [
     "pathname": "/drops/id-sample/read"
   },
   {
-    "pathname": "/drops/id-sample/gallery"
+    "pathname": "/drops/id-sample/photos"
   },
   {
     "pathname": "/pay/buy/drop_id-sample"
@@ -815,16 +833,43 @@ const proofSessionCases = [
     "pathname": "/my-collection"
   },
   {
+    "pathname": "/library"
+  },
+  {
+    "pathname": "/workshop"
+  },
+  {
+    "pathname": "/auth/wallet-link"
+  },
+  {
+    "pathname": "/onboarding/profile-setup"
+  },
+  {
+    "pathname": "/collect"
+  },
+  {
     "pathname": "/favorites"
+  },
+  {
+    "pathname": "/following"
   },
   {
     "pathname": "/invest"
   },
   {
-    "pathname": "/create"
+    "pathname": "/settings/account"
   },
   {
-    "pathname": "/workshop"
+    "pathname": "/settings/apps"
+  },
+  {
+    "pathname": "/settings/notifications"
+  },
+  {
+    "pathname": "/settings/security"
+  },
+  {
+    "pathname": "/create"
   },
   {
     "pathname": "/dashboard"
@@ -834,21 +879,6 @@ const proofSessionCases = [
   },
   {
     "pathname": "/payouts"
-  },
-  {
-    "pathname": "/settings/account"
-  },
-  {
-    "pathname": "/settings/security"
-  },
-  {
-    "pathname": "/settings/apps"
-  },
-  {
-    "pathname": "/settings/notifications"
-  },
-  {
-    "pathname": "/following"
   }
 ] as const;
 const proofPublicSafeCases = [
@@ -868,10 +898,13 @@ const proofPublicSafeCases = [
     "pathname": "/drops/id-sample/preview"
   },
   {
-    "pathname": "/drops/id-sample/preview/gallery"
+    "pathname": "/drops/id-sample/preview/photos"
   },
   {
     "pathname": "/certificates/cert_id-sample"
+  },
+  {
+    "pathname": "/townhall"
   }
 ] as const;
 
