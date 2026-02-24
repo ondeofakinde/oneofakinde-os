@@ -84,7 +84,7 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
             read
           </Link>
           <Link href={routes.dropPhotos(drop.id)} className="slice-button alt">
-            gallery
+            photos
           </Link>
         </div>
       </section>

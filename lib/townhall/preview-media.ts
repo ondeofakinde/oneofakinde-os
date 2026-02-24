@@ -12,11 +12,11 @@ type ResolveDropPreviewOptions = {
 };
 
 const MODE_FALLBACK_ORDER: Record<DropPreviewMode, DropPreviewMode[]> = {
-  watch: ["watch", "gallery", "live", "listen", "read"],
-  listen: ["listen", "watch", "gallery", "live", "read"],
-  read: ["read", "gallery", "watch", "listen", "live"],
-  gallery: ["gallery", "watch", "live", "listen", "read"],
-  live: ["live", "watch", "gallery", "listen", "read"]
+  watch: ["watch", "photos", "live", "listen", "read"],
+  listen: ["listen", "watch", "photos", "live", "read"],
+  read: ["read", "photos", "watch", "listen", "live"],
+  photos: ["photos", "watch", "live", "listen", "read"],
+  live: ["live", "watch", "photos", "listen", "read"]
 };
 
 const FALLBACK_PALETTE = [

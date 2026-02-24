@@ -1,8 +1,5 @@
-import { MediaHubScreen } from "@/features/hubs/media-hub-screen";
-import { gateway } from "@/lib/gateway";
-import { getOptionalSession } from "@/lib/server/session";
+import { redirect } from "next/navigation";
 
-export default async function GalleryHubPage() {
-  const [session, drops] = await Promise.all([getOptionalSession(), gateway.listDrops()]);
-  return <MediaHubScreen mode="gallery" session={session} drops={drops} />;
+export default function GalleryHubRedirectPage() {
+  redirect("/photos");
 }

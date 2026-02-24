@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-02-19T17:20:01.476Z",
+  "generated_at": "2026-02-24T22:16:03.057Z",
   "source_path": "config/surface-map.source.txt",
   "source_metadata": {
     "format": "lintable_txt_v1",
-    "last_updated": "2026-02-18",
+    "last_updated": "2026-02-23",
     "notes": "this file is machine-lintable; no free-text notes. everything is structured."
   },
   "locked_glossary": {
@@ -11,15 +11,15 @@
       "drop": "sellable/collectible unit (formerly asset)",
       "world": "public place/container that groups drops (formerly collection when meaning a place)",
       "my_collection": "user’s acquired/owned drops (ownership inventory)",
-      "favorites": "saved/curation bucket (pinterest-style saves)",
+      "library": "saved/curation bucket (pinterest-style saves)",
       "studio": "public-facing creator presence (creator identity surface)",
       "workshop": "creator back-office (making suite; formerly studio when meaning the suite)",
-      "townhall": "community hub / social feed surface",
+      "townhall": "showroom + collect surface (community + marketplace)",
       "watch": "video consumable mode",
       "listen": "audio consumable mode",
       "read": "text consumable mode",
-      "gallery": "still-image consumable mode",
-      "live": "live streaming consumable mode"
+      "live": "happening now consumable mode",
+      "photos": "still-image consumable mode (canon; ui must say photos)"
     },
     "banned_ui_nouns": {
       "asset": {
@@ -38,6 +38,9 @@
         "meaning": "places",
         "replace_with": "worlds"
       },
+      "gallery": {
+        "replace_with": "photos"
+      },
       "profile": {
         "replace_with": "studio"
       },
@@ -49,7 +52,7 @@
     },
     "allowed_ui_phrases": [
       "my collection",
-      "favorites",
+      "library",
       "purchase"
     ]
   },
@@ -79,52 +82,87 @@
           "profile",
           "profiles"
         ]
+      },
+      {
+        "base": "gallery",
+        "variants": [
+          "gallery",
+          "galleries"
+        ]
+      },
+      {
+        "base": "photo",
+        "variants": [
+          "photo",
+          "photos",
+          "photography"
+        ]
       }
     ],
     "include_ui_phrases": [
       "my assets",
       "owned assets",
+      "your assets",
       "my collections",
+      "owned collections",
       "my profile",
       "edit profile"
     ]
   },
   "exceptions": {
     "by_route": {
-      "/auth/sign-up": {
-        "allow_terms": [
-          "profile"
-        ]
-      },
-      "/onboarding/profile-setup": {
-        "allow_terms": [
-          "profile",
-          "profile setup"
-        ]
-      },
-      "/settings/account": {
-        "allow_terms": [
-          "profile",
-          "contact"
-        ]
-      },
-      "/payouts": {
+      "/settings/billing": {
         "allow_terms": [
           "purchase",
+          "purchases",
           "receipt",
+          "receipts",
+          "invoice",
+          "invoices",
           "refund",
-          "invoice"
+          "refunds"
         ]
       },
-      "/pay/buy/:drop_id": {
+      "/legal/terms": {
         "allow_terms": [
           "purchase",
-          "receipt",
-          "refund"
+          "purchases",
+          "refund",
+          "chargeback",
+          "billing"
+        ]
+      },
+      "/legal/privacy": {
+        "allow_terms": [
+          "purchase",
+          "billing"
+        ]
+      },
+      "/checkout/stripe/return": {
+        "allow_terms": [
+          "purchase",
+          "processing",
+          "receipt"
+        ]
+      },
+      "/checkout/stripe/cancel": {
+        "allow_terms": [
+          "purchase",
+          "canceled",
+          "receipt"
         ]
       }
     },
     "by_context": {
+      "upload_image": {
+        "allow_terms": [
+          "image",
+          "images",
+          "upload image",
+          "upload images"
+        ],
+        "forbid_as_consumable_noun": true
+      },
       "billing_context": {
         "allow_terms": [
           "purchase",
@@ -168,7 +206,16 @@
         "p_public_safe_render",
         "p_no_leaks_ci"
       ],
-      "rules": []
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "landing",
+            "homepage"
+          ],
+          "replace_with": "home"
+        }
+      ]
     },
     {
       "route": "/explore",
@@ -200,20 +247,29 @@
       "proof_ids": [
         "p_no_leaks_ci"
       ],
-      "rules": []
+      "rules": [
+        {
+          "kind": "require_terms",
+          "terms": [
+            "drops"
+          ]
+        }
+      ]
     },
     {
-      "route": "/townhall",
-      "legacy_routes": [],
-      "surface_key": "townhall",
-      "ui_title": "townhall",
+      "route": "/worlds",
+      "legacy_routes": [
+        "/collections"
+      ],
+      "surface_key": "world_index",
+      "ui_title": "worlds",
       "ui_nouns": [
-        "townhall",
-        "drop"
+        "world"
       ],
       "lint_targets": [
         "nav",
         "h1",
+        "empty_state",
         "metadata_labels"
       ],
       "roles": [
@@ -223,203 +279,24 @@
       ],
       "public_safe": true,
       "contract_deps": [
-        "openapi_v1.catalog",
+        "openapi_v1.collections",
         "openapi_v1.search",
-        "schema_v1.catalog",
+        "schema_v1.collections",
         "canon_no_leaks_scan"
       ],
       "proof_ids": [
         "p_no_leaks_ci"
       ],
-      "rules": []
-    },
-    {
-      "route": "/townhall/search",
-      "legacy_routes": [],
-      "surface_key": "townhall_search",
-      "ui_title": "townhall search",
-      "ui_nouns": [
-        "townhall",
-        "studio",
-        "world",
-        "drop"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "openapi_v1.search",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/townhall/watch",
-      "legacy_routes": [],
-      "surface_key": "townhall_watch",
-      "ui_title": "townhall watch",
-      "ui_nouns": [
-        "townhall",
-        "watch",
-        "drop"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/townhall/listen",
-      "legacy_routes": [],
-      "surface_key": "townhall_listen",
-      "ui_title": "townhall listen",
-      "ui_nouns": [
-        "townhall",
-        "listen",
-        "drop"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/townhall/read",
-      "legacy_routes": [],
-      "surface_key": "townhall_read",
-      "ui_title": "townhall read",
-      "ui_nouns": [
-        "townhall",
-        "read",
-        "drop"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/townhall/gallery",
-      "legacy_routes": [],
-      "surface_key": "townhall_gallery",
-      "ui_title": "townhall gallery",
-      "ui_nouns": [
-        "townhall",
-        "gallery",
-        "drop"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/townhall/live",
-      "legacy_routes": [],
-      "surface_key": "townhall_live",
-      "ui_title": "townhall live",
-      "ui_nouns": [
-        "townhall",
-        "live",
-        "drop"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "collections",
+            "collection (place)"
+          ],
+          "replace_with": "worlds"
+        }
+      ]
     },
     {
       "route": "/watch",
@@ -443,6 +320,7 @@
       "public_safe": true,
       "contract_deps": [
         "openapi_v1.catalog",
+        "openapi_v1.search",
         "schema_v1.catalog",
         "canon_no_leaks_scan"
       ],
@@ -473,6 +351,7 @@
       "public_safe": true,
       "contract_deps": [
         "openapi_v1.catalog",
+        "openapi_v1.search",
         "schema_v1.catalog",
         "canon_no_leaks_scan"
       ],
@@ -503,6 +382,7 @@
       "public_safe": true,
       "contract_deps": [
         "openapi_v1.catalog",
+        "openapi_v1.search",
         "schema_v1.catalog",
         "canon_no_leaks_scan"
       ],
@@ -512,44 +392,12 @@
       "rules": []
     },
     {
-      "route": "/gallery",
+      "route": "/live-now",
       "legacy_routes": [
-        "/photos"
+        "/live"
       ],
-      "surface_key": "gallery_hub",
-      "ui_title": "gallery",
-      "ui_nouns": [
-        "gallery",
-        "drop"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/live",
-      "legacy_routes": [
-        "/live-now"
-      ],
-      "surface_key": "live_hub",
-      "ui_title": "live",
+      "surface_key": "live_now_hub",
+      "ui_title": "live now",
       "ui_nouns": [
         "live",
         "drop"
@@ -566,61 +414,9 @@
       ],
       "public_safe": true,
       "contract_deps": [
+        "canon_feature_flags",
         "openapi_v1.catalog",
-        "schema_v1.catalog",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/collect",
-      "legacy_routes": [],
-      "surface_key": "collect_entry",
-      "ui_title": "collect",
-      "ui_nouns": [
-        "my_collection"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "cta"
-      ],
-      "roles": [
-        "collector",
-        "creator"
-      ],
-      "public_safe": false,
-      "contract_deps": [
-        "openapi_v1.session"
-      ],
-      "proof_ids": [
-        "p_session_required"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/auctions",
-      "legacy_routes": [],
-      "surface_key": "auctions",
-      "ui_title": "auctions",
-      "ui_nouns": [
-        "drop"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
+        "openapi_v1.search",
         "schema_v1.catalog",
         "canon_no_leaks_scan"
       ],
@@ -684,88 +480,6 @@
       "rules": []
     },
     {
-      "route": "/auth/wallet-connect",
-      "legacy_routes": [],
-      "surface_key": "wallet_connect",
-      "ui_title": "connect wallet",
-      "ui_nouns": [],
-      "lint_targets": [
-        "h1",
-        "cta",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.wallet",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/auth/wallet-link",
-      "legacy_routes": [],
-      "surface_key": "wallet_link",
-      "ui_title": "link wallet",
-      "ui_nouns": [],
-      "lint_targets": [
-        "h1",
-        "cta",
-        "metadata_labels"
-      ],
-      "roles": [
-        "collector",
-        "creator"
-      ],
-      "public_safe": false,
-      "contract_deps": [
-        "openapi_v1.wallet",
-        "openapi_v1.session"
-      ],
-      "proof_ids": [
-        "p_session_required"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/onboarding/profile-setup",
-      "legacy_routes": [
-        "/space-setup"
-      ],
-      "surface_key": "profile_setup",
-      "ui_title": "profile setup",
-      "ui_nouns": [
-        "studio"
-      ],
-      "lint_targets": [
-        "h1",
-        "cta",
-        "metadata_labels"
-      ],
-      "roles": [
-        "collector",
-        "creator"
-      ],
-      "public_safe": false,
-      "contract_deps": [
-        "openapi_v1.session",
-        "openapi_v1.profile",
-        "schema_v1.profiles"
-      ],
-      "proof_ids": [
-        "p_first_run_destination",
-        "p_session_required"
-      ],
-      "rules": []
-    },
-    {
       "route": "/logout",
       "legacy_routes": [],
       "surface_key": "logout",
@@ -789,10 +503,42 @@
       "rules": []
     },
     {
-      "route": "/studio/:handle",
+      "route": "/space-setup",
       "legacy_routes": [
-        "/studios/:handle",
-        "/creators/:handle"
+        "/network-setup"
+      ],
+      "surface_key": "first_run_space_setup",
+      "ui_title": "space setup",
+      "ui_nouns": [],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.session",
+        "openapi_v1.settings",
+        "openapi_v1.collections",
+        "openapi_v1.notifications",
+        "schema_v1.spaces",
+        "schema_v1.collections"
+      ],
+      "proof_ids": [
+        "p_first_run_destination",
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/studios/:handle",
+      "legacy_routes": [
+        "/creators/:handle",
+        "/studio/:handle"
       ],
       "surface_key": "studio_public",
       "ui_title": "studio",
@@ -822,40 +568,16 @@
       "proof_ids": [
         "p_no_leaks_ci"
       ],
-      "rules": []
-    },
-    {
-      "route": "/worlds",
-      "legacy_routes": [
-        "/collections"
-      ],
-      "surface_key": "world_index",
-      "ui_title": "worlds",
-      "ui_nouns": [
-        "world"
-      ],
-      "lint_targets": [
-        "nav",
-        "h1",
-        "empty_state",
-        "metadata_labels"
-      ],
-      "roles": [
-        "public",
-        "collector",
-        "creator"
-      ],
-      "public_safe": true,
-      "contract_deps": [
-        "openapi_v1.collections",
-        "openapi_v1.search",
-        "schema_v1.collections",
-        "canon_no_leaks_scan"
-      ],
-      "proof_ids": [
-        "p_no_leaks_ci"
-      ],
-      "rules": []
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "profile",
+            "creator profile"
+          ],
+          "replace_with": "studio"
+        }
+      ]
     },
     {
       "route": "/worlds/:id",
@@ -883,6 +605,7 @@
       "contract_deps": [
         "openapi_v1.collections",
         "openapi_v1.catalog",
+        "openapi_v1.search",
         "schema_v1.collections",
         "schema_v1.catalog",
         "canon_no_leaks_scan"
@@ -916,6 +639,7 @@
       "contract_deps": [
         "openapi_v1.collections",
         "openapi_v1.catalog",
+        "openapi_v1.search",
         "schema_v1.collections",
         "schema_v1.catalog",
         "canon_no_leaks_scan"
@@ -950,7 +674,9 @@
       ],
       "public_safe": true,
       "contract_deps": [
+        "openapi_v1.assets",
         "openapi_v1.catalog",
+        "schema_v1.assets",
         "schema_v1.catalog",
         "canon_no_leaks_scan"
       ],
@@ -958,7 +684,19 @@
         "p_preview_safe_only",
         "p_no_leaks_ci"
       ],
-      "rules": []
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "asset",
+            "assets",
+            "collectible asset",
+            "owned assets",
+            "my assets"
+          ],
+          "replace_with": "drop(s)"
+        }
+      ]
     },
     {
       "route": "/drops/:id/details",
@@ -981,8 +719,8 @@
       ],
       "public_safe": true,
       "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
+        "openapi_v1.assets",
+        "schema_v1.assets",
         "canon_no_leaks_scan"
       ],
       "proof_ids": [
@@ -1012,8 +750,8 @@
       ],
       "public_safe": true,
       "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
+        "openapi_v1.assets",
+        "schema_v1.assets",
         "canon_no_leaks_scan"
       ],
       "proof_ids": [
@@ -1106,8 +844,8 @@
       ],
       "public_safe": true,
       "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
+        "openapi_v1.assets",
+        "schema_v1.assets",
         "canon_no_leaks_scan"
       ],
       "proof_ids": [
@@ -1117,15 +855,15 @@
       "rules": []
     },
     {
-      "route": "/drops/:id/preview/gallery",
+      "route": "/drops/:id/preview/photos",
       "legacy_routes": [
-        "/drops/:id/preview/photos",
-        "/assets/:id/preview/photos"
+        "/assets/:id/preview/gallery",
+        "/drops/:id/preview/gallery"
       ],
-      "surface_key": "drop_preview_gallery",
-      "ui_title": "gallery preview",
+      "surface_key": "drop_preview_photos",
+      "ui_title": "photos preview",
       "ui_nouns": [
-        "gallery",
+        "photos",
         "drop"
       ],
       "lint_targets": [
@@ -1139,15 +877,24 @@
       ],
       "public_safe": true,
       "contract_deps": [
-        "openapi_v1.catalog",
-        "schema_v1.catalog",
+        "openapi_v1.assets",
+        "schema_v1.assets",
         "canon_no_leaks_scan"
       ],
       "proof_ids": [
         "p_preview_safe_only",
         "p_no_leaks_ci"
       ],
-      "rules": []
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "gallery",
+            "galleries"
+          ],
+          "replace_with": "photos"
+        }
+      ]
     },
     {
       "route": "/drops/:id/watch",
@@ -1252,16 +999,15 @@
       "rules": []
     },
     {
-      "route": "/drops/:id/gallery",
+      "route": "/drops/:id/photos",
       "legacy_routes": [
-        "/drops/:id/photos",
-        "/assets/:id/photos",
-        "/assets/:id/view"
+        "/assets/:id/view",
+        "/drops/:id/gallery"
       ],
-      "surface_key": "drop_full_gallery",
-      "ui_title": "gallery",
+      "surface_key": "drop_full_photos",
+      "ui_title": "photos",
       "ui_nouns": [
-        "gallery",
+        "photos",
         "drop"
       ],
       "lint_targets": [
@@ -1293,7 +1039,7 @@
         "/pay/buy/:asset_id"
       ],
       "surface_key": "pay_buy_drop",
-      "ui_title": "buy",
+      "ui_title": "collect",
       "ui_nouns": [
         "drop"
       ],
@@ -1316,7 +1062,17 @@
         "p_stripe_checkout_redirect",
         "p_session_required"
       ],
-      "rules": []
+      "rules": [
+        {
+          "kind": "context_allow",
+          "context": "billing_context",
+          "terms": [
+            "purchase",
+            "receipt",
+            "refund"
+          ]
+        }
+      ]
     },
     {
       "route": "/my-collection",
@@ -1344,27 +1100,40 @@
       "public_safe": false,
       "contract_deps": [
         "openapi_v1.session",
-        "openapi_v1.collection",
-        "schema_v1.collection",
+        "openapi_v1.library",
+        "schema_v1.library",
         "canon_certificates"
       ],
       "proof_ids": [
         "p_session_required",
         "p_library_contains_certificate"
       ],
-      "rules": []
+      "rules": [
+        {
+          "kind": "require_terms",
+          "terms": [
+            "my collection"
+          ]
+        },
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "library"
+          ],
+          "replace_with": "my collection"
+        }
+      ]
     },
     {
-      "route": "/favorites",
+      "route": "/library",
       "legacy_routes": [
-        "/library",
         "/saved",
         "/bookmarks"
       ],
-      "surface_key": "favorites_saved",
-      "ui_title": "favorites",
+      "surface_key": "library_saved",
+      "ui_title": "library",
       "ui_nouns": [
-        "favorites",
+        "library",
         "drop",
         "world",
         "studio"
@@ -1388,7 +1157,15 @@
       "proof_ids": [
         "p_session_required"
       ],
-      "rules": []
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "my collection"
+          ],
+          "replace_with": "library"
+        }
+      ]
     },
     {
       "route": "/certificates/:cert_id",
@@ -1422,59 +1199,6 @@
       "rules": []
     },
     {
-      "route": "/invest",
-      "legacy_routes": [],
-      "surface_key": "invest",
-      "ui_title": "invest",
-      "ui_nouns": [
-        "drop"
-      ],
-      "lint_targets": [
-        "h1",
-        "metadata_labels",
-        "cta"
-      ],
-      "roles": [
-        "collector",
-        "creator"
-      ],
-      "public_safe": false,
-      "contract_deps": [
-        "openapi_v1.session"
-      ],
-      "proof_ids": [
-        "p_session_required"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/create",
-      "legacy_routes": [],
-      "surface_key": "create",
-      "ui_title": "create",
-      "ui_nouns": [
-        "drop",
-        "world"
-      ],
-      "lint_targets": [
-        "h1",
-        "metadata_labels",
-        "cta"
-      ],
-      "roles": [
-        "creator"
-      ],
-      "public_safe": false,
-      "contract_deps": [
-        "openapi_v1.session",
-        "schema_v1.accounts"
-      ],
-      "proof_ids": [
-        "p_session_required"
-      ],
-      "rules": []
-    },
-    {
       "route": "/workshop",
       "legacy_routes": [
         "/studio"
@@ -1500,30 +1224,63 @@
       "proof_ids": [
         "p_session_required"
       ],
+      "rules": [
+        {
+          "kind": "ban_terms",
+          "terms": [
+            "studio"
+          ],
+          "replace_with": "workshop"
+        }
+      ]
+    },
+    {
+      "route": "/auth/wallet-connect",
+      "legacy_routes": [],
+      "surface_key": "auth_wallet_connect",
+      "ui_title": "wallet connect",
+      "ui_nouns": [],
+      "lint_targets": [
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.auth",
+        "openapi_v1.session",
+        "schema_v1.accounts",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_auth_session_primary",
+        "p_no_leaks_ci"
+      ],
       "rules": []
     },
     {
-      "route": "/dashboard",
-      "legacy_routes": [
-        "/workshop/analytics"
-      ],
-      "surface_key": "dashboard_analytics",
-      "ui_title": "dashboard",
-      "ui_nouns": [
-        "workshop"
-      ],
+      "route": "/auth/wallet-link",
+      "legacy_routes": [],
+      "surface_key": "auth_wallet_link",
+      "ui_title": "wallet link",
+      "ui_nouns": [],
       "lint_targets": [
         "h1",
-        "metadata_labels",
-        "cta"
+        "cta",
+        "metadata_labels"
       ],
       "roles": [
+        "collector",
         "creator"
       ],
       "public_safe": false,
       "contract_deps": [
-        "openapi_v1.analytics",
-        "openapi_v1.session"
+        "openapi_v1.auth",
+        "openapi_v1.session",
+        "schema_v1.accounts"
       ],
       "proof_ids": [
         "p_session_required"
@@ -1531,27 +1288,59 @@
       "rules": []
     },
     {
-      "route": "/my-campaigns",
-      "legacy_routes": [
-        "/workshop/campaigns"
-      ],
-      "surface_key": "my_campaigns",
-      "ui_title": "my campaigns",
+      "route": "/onboarding/profile-setup",
+      "legacy_routes": [],
+      "surface_key": "identity_setup",
+      "ui_title": "identity setup",
       "ui_nouns": [
-        "workshop"
+        "studio"
       ],
       "lint_targets": [
         "h1",
-        "metadata_labels",
-        "cta"
+        "cta",
+        "metadata_labels"
       ],
       "roles": [
+        "collector",
         "creator"
       ],
       "public_safe": false,
       "contract_deps": [
-        "openapi_v1.campaigns",
-        "openapi_v1.session"
+        "openapi_v1.auth",
+        "openapi_v1.session",
+        "schema_v1.accounts"
+      ],
+      "proof_ids": [
+        "p_first_run_destination",
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/collect",
+      "legacy_routes": [],
+      "surface_key": "collect_market",
+      "ui_title": "collect",
+      "ui_nouns": [
+        "collect",
+        "drop",
+        "world"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "openapi_v1.payments",
+        "schema_v1.catalog"
       ],
       "proof_ids": [
         "p_session_required"
@@ -1559,27 +1348,113 @@
       "rules": []
     },
     {
-      "route": "/payouts",
-      "legacy_routes": [
-        "/workshop/payouts"
-      ],
-      "surface_key": "payouts",
-      "ui_title": "payouts",
+      "route": "/auctions",
+      "legacy_routes": [],
+      "surface_key": "collect_auctions",
+      "ui_title": "collect auctions",
       "ui_nouns": [
-        "workshop"
+        "collect",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/favorites",
+      "legacy_routes": [],
+      "surface_key": "favorites",
+      "ui_title": "favorites",
+      "ui_nouns": [
+        "library",
+        "drop"
       ],
       "lint_targets": [
         "h1",
         "metadata_labels",
-        "cta"
+        "empty_state"
       ],
       "roles": [
+        "collector",
         "creator"
       ],
       "public_safe": false,
       "contract_deps": [
-        "openapi_v1.payouts",
-        "openapi_v1.session"
+        "openapi_v1.library",
+        "schema_v1.library"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/following",
+      "legacy_routes": [],
+      "surface_key": "following",
+      "ui_title": "following",
+      "ui_nouns": [
+        "studio",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.social",
+        "schema_v1.social"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/invest",
+      "legacy_routes": [],
+      "surface_key": "invest",
+      "ui_title": "invest",
+      "ui_nouns": [
+        "collect",
+        "drop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "collector",
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog"
       ],
       "proof_ids": [
         "p_session_required"
@@ -1590,12 +1465,11 @@
       "route": "/settings/account",
       "legacy_routes": [],
       "surface_key": "settings_account",
-      "ui_title": "account details",
+      "ui_title": "account",
       "ui_nouns": [],
       "lint_targets": [
         "h1",
-        "metadata_labels",
-        "cta"
+        "metadata_labels"
       ],
       "roles": [
         "collector",
@@ -1604,32 +1478,7 @@
       "public_safe": false,
       "contract_deps": [
         "openapi_v1.settings",
-        "openapi_v1.session"
-      ],
-      "proof_ids": [
-        "p_session_required"
-      ],
-      "rules": []
-    },
-    {
-      "route": "/settings/security",
-      "legacy_routes": [],
-      "surface_key": "settings_security",
-      "ui_title": "security",
-      "ui_nouns": [],
-      "lint_targets": [
-        "h1",
-        "metadata_labels",
-        "cta"
-      ],
-      "roles": [
-        "collector",
-        "creator"
-      ],
-      "public_safe": false,
-      "contract_deps": [
-        "openapi_v1.settings",
-        "openapi_v1.session"
+        "schema_v1.accounts"
       ],
       "proof_ids": [
         "p_session_required"
@@ -1644,8 +1493,7 @@
       "ui_nouns": [],
       "lint_targets": [
         "h1",
-        "metadata_labels",
-        "cta"
+        "metadata_labels"
       ],
       "roles": [
         "collector",
@@ -1654,7 +1502,7 @@
       "public_safe": false,
       "contract_deps": [
         "openapi_v1.settings",
-        "openapi_v1.session"
+        "schema_v1.accounts"
       ],
       "proof_ids": [
         "p_session_required"
@@ -1669,8 +1517,7 @@
       "ui_nouns": [],
       "lint_targets": [
         "h1",
-        "metadata_labels",
-        "cta"
+        "metadata_labels"
       ],
       "roles": [
         "collector",
@@ -1679,7 +1526,7 @@
       "public_safe": false,
       "contract_deps": [
         "openapi_v1.settings",
-        "openapi_v1.session"
+        "schema_v1.accounts"
       ],
       "proof_ids": [
         "p_session_required"
@@ -1687,18 +1534,14 @@
       "rules": []
     },
     {
-      "route": "/following",
+      "route": "/settings/security",
       "legacy_routes": [],
-      "surface_key": "following",
-      "ui_title": "following",
-      "ui_nouns": [
-        "favorites",
-        "studio"
-      ],
+      "surface_key": "settings_security",
+      "ui_title": "security",
+      "ui_nouns": [],
       "lint_targets": [
         "h1",
-        "metadata_labels",
-        "cta"
+        "metadata_labels"
       ],
       "roles": [
         "collector",
@@ -1706,11 +1549,367 @@
       ],
       "public_safe": false,
       "contract_deps": [
-        "openapi_v1.social",
-        "openapi_v1.session"
+        "openapi_v1.settings",
+        "schema_v1.accounts"
       ],
       "proof_ids": [
         "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/create",
+      "legacy_routes": [],
+      "surface_key": "create",
+      "ui_title": "create",
+      "ui_nouns": [
+        "workshop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "cta"
+      ],
+      "roles": [
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.workshop",
+        "schema_v1.workshop"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/dashboard",
+      "legacy_routes": [],
+      "surface_key": "dashboard",
+      "ui_title": "dashboard",
+      "ui_nouns": [
+        "workshop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.workshop",
+        "schema_v1.workshop"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/my-campaigns",
+      "legacy_routes": [],
+      "surface_key": "my_campaigns",
+      "ui_title": "my campaigns",
+      "ui_nouns": [
+        "workshop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.workshop",
+        "schema_v1.workshop"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/payouts",
+      "legacy_routes": [],
+      "surface_key": "payouts",
+      "ui_title": "payouts",
+      "ui_nouns": [
+        "workshop"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "creator"
+      ],
+      "public_safe": false,
+      "contract_deps": [
+        "openapi_v1.workshop",
+        "schema_v1.workshop"
+      ],
+      "proof_ids": [
+        "p_session_required"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/photos",
+      "legacy_routes": [
+        "/gallery"
+      ],
+      "surface_key": "photos_hub",
+      "ui_title": "photos",
+      "ui_nouns": [
+        "photos",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall",
+      "legacy_routes": [],
+      "surface_key": "townhall",
+      "ui_title": "townhall",
+      "ui_nouns": [
+        "townhall",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "cta",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_public_safe_render",
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/watch",
+      "legacy_routes": [],
+      "surface_key": "townhall_watch",
+      "ui_title": "townhall watch",
+      "ui_nouns": [
+        "townhall",
+        "watch",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/listen",
+      "legacy_routes": [],
+      "surface_key": "townhall_listen",
+      "ui_title": "townhall listen",
+      "ui_nouns": [
+        "townhall",
+        "listen",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/read",
+      "legacy_routes": [],
+      "surface_key": "townhall_read",
+      "ui_title": "townhall read",
+      "ui_nouns": [
+        "townhall",
+        "read",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/photos",
+      "legacy_routes": [
+        "/townhall/gallery"
+      ],
+      "surface_key": "townhall_photos",
+      "ui_title": "townhall photos",
+      "ui_nouns": [
+        "townhall",
+        "photos",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/live",
+      "legacy_routes": [],
+      "surface_key": "townhall_live",
+      "ui_title": "townhall live",
+      "ui_nouns": [
+        "townhall",
+        "live",
+        "drop"
+      ],
+      "lint_targets": [
+        "nav",
+        "h1",
+        "metadata_labels"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.catalog",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
+      ],
+      "rules": []
+    },
+    {
+      "route": "/townhall/search",
+      "legacy_routes": [],
+      "surface_key": "townhall_search",
+      "ui_title": "townhall search",
+      "ui_nouns": [
+        "townhall",
+        "drop",
+        "world",
+        "studio"
+      ],
+      "lint_targets": [
+        "h1",
+        "metadata_labels",
+        "empty_state"
+      ],
+      "roles": [
+        "public",
+        "collector",
+        "creator"
+      ],
+      "public_safe": true,
+      "contract_deps": [
+        "openapi_v1.search",
+        "schema_v1.catalog",
+        "canon_no_leaks_scan"
+      ],
+      "proof_ids": [
+        "p_no_leaks_ci"
       ],
       "rules": []
     }
@@ -1719,22 +1918,25 @@
     "designers": [
       "ui_title must be used exactly as written for the surface key",
       "ui_nouns must only contain locked glossary nouns",
-      "do not introduce banned synonyms in any lint target"
+      "do not introduce synonyms (asset/collection/profile/gallery) in any lint target"
     ],
     "engineers": [
       "scan lint_targets only (nav, h1, cta, empty_state, metadata_labels)",
       "apply matching rules: case-insensitive + whole-word + variants + ui phrases",
       "honor exceptions.by_route and exceptions.by_context",
-      "no free-text notes; add any new logic as structured rules"
+      "no free-text notes; add any new logic as structured rules",
+      "collector_public",
+      "respect_visibility",
+      "/workshop/worlds/:world_id/schedule",
+      "/worlds/:world_id/upgrade"
     ]
   },
   "legacy_redirects": {
-    "/photos": "/gallery",
-    "/live-now": "/live",
-    "/space-setup": "/onboarding/profile-setup",
-    "/studios/:handle": "/studio/:handle",
-    "/creators/:handle": "/studio/:handle",
     "/collections": "/worlds",
+    "/live": "/live-now",
+    "/network-setup": "/space-setup",
+    "/creators/:handle": "/studios/:handle",
+    "/studio/:handle": "/studios/:handle",
     "/collections/:id": "/worlds/:id",
     "/collections/:id/titles": "/worlds/:id/drops",
     "/assets/:id": "/drops/:id",
@@ -1743,71 +1945,60 @@
     "/assets/:id/offers": "/drops/:id/offers",
     "/assets/:id/activity": "/drops/:id/activity",
     "/assets/:id/preview": "/drops/:id/preview",
-    "/drops/:id/preview/photos": "/drops/:id/preview/gallery",
-    "/assets/:id/preview/photos": "/drops/:id/preview/gallery",
+    "/assets/:id/preview/gallery": "/drops/:id/preview/photos",
+    "/drops/:id/preview/gallery": "/drops/:id/preview/photos",
     "/assets/:id/watch": "/drops/:id/watch",
     "/assets/:id/listen": "/drops/:id/listen",
     "/assets/:id/read": "/drops/:id/read",
-    "/drops/:id/photos": "/drops/:id/gallery",
-    "/assets/:id/photos": "/drops/:id/gallery",
-    "/assets/:id/view": "/drops/:id/gallery",
+    "/assets/:id/view": "/drops/:id/photos",
+    "/drops/:id/gallery": "/drops/:id/photos",
     "/pay/buy/:asset_id": "/pay/buy/:drop_id",
     "/my-assets": "/my-collection",
     "/owned-assets": "/my-collection",
     "/owned": "/my-collection",
-    "/library": "/favorites",
-    "/saved": "/favorites",
-    "/bookmarks": "/favorites",
+    "/saved": "/library",
+    "/bookmarks": "/library",
     "/studio": "/workshop",
-    "/workshop/analytics": "/dashboard",
-    "/workshop/campaigns": "/my-campaigns",
-    "/workshop/payouts": "/payouts"
+    "/gallery": "/photos",
+    "/townhall/gallery": "/townhall/photos"
   },
   "session_required_route_patterns": [
-    "/collect",
-    "/auth/wallet-link",
-    "/onboarding/profile-setup",
     "/logout",
+    "/space-setup",
     "/drops/:id/watch",
     "/drops/:id/listen",
     "/drops/:id/read",
-    "/drops/:id/gallery",
+    "/drops/:id/photos",
     "/pay/buy/:drop_id",
     "/my-collection",
-    "/favorites",
-    "/invest",
-    "/create",
+    "/library",
     "/workshop",
-    "/dashboard",
-    "/my-campaigns",
-    "/payouts",
+    "/auth/wallet-link",
+    "/onboarding/profile-setup",
+    "/collect",
+    "/favorites",
+    "/following",
+    "/invest",
     "/settings/account",
-    "/settings/security",
     "/settings/apps",
     "/settings/notifications",
-    "/following"
+    "/settings/security",
+    "/create",
+    "/dashboard",
+    "/my-campaigns",
+    "/payouts"
   ],
   "public_safe_route_patterns": [
     "/",
     "/explore",
-    "/townhall",
-    "/townhall/search",
-    "/townhall/watch",
-    "/townhall/listen",
-    "/townhall/read",
-    "/townhall/gallery",
-    "/townhall/live",
+    "/worlds",
     "/watch",
     "/listen",
     "/read",
-    "/gallery",
-    "/live",
-    "/auctions",
+    "/live-now",
     "/auth/sign-in",
     "/auth/sign-up",
-    "/auth/wallet-connect",
-    "/studio/:handle",
-    "/worlds",
+    "/studios/:handle",
     "/worlds/:id",
     "/worlds/:id/drops",
     "/drops/:id",
@@ -1816,19 +2007,30 @@
     "/drops/:id/offers",
     "/drops/:id/activity",
     "/drops/:id/preview",
-    "/drops/:id/preview/gallery",
-    "/certificates/:cert_id"
+    "/drops/:id/preview/photos",
+    "/certificates/:cert_id",
+    "/auth/wallet-connect",
+    "/auctions",
+    "/photos",
+    "/townhall",
+    "/townhall/watch",
+    "/townhall/listen",
+    "/townhall/read",
+    "/townhall/photos",
+    "/townhall/live",
+    "/townhall/search"
   ],
   "canon_dependencies": [
     "canon_certificates",
+    "canon_feature_flags",
     "canon_media_gate",
     "canon_no_leaks_scan",
     "canon_payments_stripe"
   ],
   "stats": {
-    "route_count": 52,
+    "route_count": 54,
     "public_safe_count": 30,
-    "session_required_count": 22,
-    "legacy_redirect_count": 33
+    "session_required_count": 24,
+    "legacy_redirect_count": 29
   }
 }

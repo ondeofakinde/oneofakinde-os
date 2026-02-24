@@ -6,7 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { purchaseDropAction } from "./actions";
 
-type BuyDropPageProps = {
+type CollectDropPageProps = {
   params: Promise<{ drop_id: string }>;
   searchParams: Promise<{ status?: string | string[] }>;
 };
@@ -23,7 +23,7 @@ function formatUsd(amount: number): string {
   }).format(amount);
 }
 
-export default async function BuyDropPage({ params, searchParams }: BuyDropPageProps) {
+export default async function CollectDropPage({ params, searchParams }: CollectDropPageProps) {
   const { drop_id: dropId } = await params;
   const resolvedParams = await searchParams;
   const status = firstParam(resolvedParams.status);
@@ -38,8 +38,8 @@ export default async function BuyDropPage({ params, searchParams }: BuyDropPageP
 
   return (
     <SliceFrame
-      title="buy"
-      subtitle="checkout handoff with purchase, receipt, and refund context"
+      title="collect"
+      subtitle="checkout handoff with collect, receipt, and refund context"
       session={session}
     >
       {status ? (
@@ -55,7 +55,7 @@ export default async function BuyDropPage({ params, searchParams }: BuyDropPageP
       ) : null}
 
       <article className="slice-panel">
-        <p className="slice-label">step 6 of 9 · buy</p>
+        <p className="slice-label">step 6 of 9 · collect</p>
         <h2 className="slice-title">{checkout.drop.title}</h2>
 
         <dl className="slice-list">

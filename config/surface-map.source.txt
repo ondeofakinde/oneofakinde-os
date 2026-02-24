@@ -1,6 +1,17 @@
+version: v2.1
+date: 2026-02-24
+
+- surface map: naming + routes + glossary + linter authority
+- public surfaces + economic rails: build contract authority
+- coherent system: doctrine authority
+- daily language handoff: onboarding authority
+- build order index: execution map authority
+- definition of done: release gate authority
+- engineer alignment checklist: code drift correction authority
+
 oneofakinde os — 2026 surface map (source of truth)
 format: lintable_txt_v1
-last_updated: 2026-02-18
+last_updated: 2026-02-23
 notes: this file is machine-lintable; no free-text notes. everything is structured.
 
 # =====================================================================
@@ -11,26 +22,27 @@ locked_glossary:
     drop: "sellable/collectible unit (formerly asset)"
     world: "public place/container that groups drops (formerly collection when meaning a place)"
     my_collection: "user’s acquired/owned drops (ownership inventory)"
-    favorites: "saved/curation bucket (pinterest-style saves)"
+    library: "saved/curation bucket (pinterest-style saves)"
     studio: "public-facing creator presence (creator identity surface)"
     workshop: "creator back-office (making suite; formerly studio when meaning the suite)"
-    townhall: "community hub / social feed surface"
-    watch: "video consumable mode"
+    townhall: "showroom + collect surface (community + marketplace)"
+  watch: "video consumable mode"
     listen: "audio consumable mode"
     read: "text consumable mode"
-    gallery: "still-image consumable mode"
-    live: "live streaming consumable mode"
+    live: "happening now consumable mode"
+    photos: "still-image consumable mode (canon; ui must say photos)"
   banned_ui_nouns:
     asset: { replace_with: "drop" }
     assets: { replace_with: "drops" }
     collection_place: { term: "collection", meaning: "place", replace_with: "world" }
     collections_place: { term: "collections", meaning: "places", replace_with: "worlds" }
-    profile: { replace_with: "studio" }
+    gallery: { replace_with: "photos" }
+    profile: { replace_with: "studio" } # when meaning public creator presence
     studio_making_suite: { term: "studio", meaning: "creator back-office", replace_with: "workshop" }
   allowed_ui_phrases:
-    - "my collection"
-    - "favorites"
-    - "purchase"
+    - "my collection"   # ownership inventory (required when meaning owned)
+    - "library"         # curation bucket (required when meaning saved)
+    - "purchase"        # allowed only in billing/receipts/legal contexts (enforced below)
 
 # =====================================================================
 # a) deterministic matching rules (for linter)
@@ -42,10 +54,14 @@ linter_matching:
     - { base: "asset", variants: ["asset", "assets", "asset’s", "assets’"] }
     - { base: "collection", variants: ["collection", "collections"] }
     - { base: "profile", variants: ["profile", "profiles"] }
+    - { base: "gallery", variants: ["gallery", "galleries"] }
+    - { base: "photo", variants: ["photo", "photos", "photography"] }
   include_ui_phrases:
     - "my assets"
     - "owned assets"
+    - "your assets"
     - "my collections"
+    - "owned collections"
     - "my profile"
     - "edit profile"
 
@@ -54,28 +70,31 @@ linter_matching:
 # =====================================================================
 exceptions:
   by_route:
-    "/auth/sign-up":
-      allow_terms: ["profile"]
-    "/onboarding/profile-setup":
-      allow_terms: ["profile", "profile setup"]
-    "/settings/account":
-      allow_terms: ["profile", "contact"]
-    "/payouts":
-      allow_terms: ["purchase", "receipt", "refund", "invoice"]
-    "/pay/buy/:drop_id":
-      allow_terms: ["purchase", "receipt", "refund"]
+    "/settings/billing":
+      allow_terms: ["purchase", "purchases", "receipt", "receipts", "invoice", "invoices", "refund", "refunds"]
+    "/legal/terms":
+      allow_terms: ["purchase", "purchases", "refund", "chargeback", "billing"]
+    "/legal/privacy":
+      allow_terms: ["purchase", "billing"]
+    "/checkout/stripe/return":
+      allow_terms: ["purchase", "processing", "receipt"]
+    "/checkout/stripe/cancel":
+      allow_terms: ["purchase", "canceled", "receipt"]
   by_context:
+    upload_image:
+      allow_terms: ["image", "images", "upload image", "upload images"]
+      forbid_as_consumable_noun: true  # you may say “upload image”, but cannot label a consumable mode “image”
     billing_context:
       allow_terms: ["purchase", "receipt", "invoice", "refund", "chargeback"]
     technical_api_context:
-      allow_terms: ["asset_id", "collection_id"]
+      allow_terms: ["asset_id", "collection_id"]  # for code/metadata only; never user-facing ui
 
 # =====================================================================
 # c) normalized surfaces (lintable objects only)
 # =====================================================================
 surfaces:
   # -------------------------------------------------------------------
-  # 1) shell + primary navigation
+  # 1) os chrome + primary navigation
   # -------------------------------------------------------------------
   - route: "/"
     legacy_routes: []
@@ -87,6 +106,10 @@ surfaces:
     public_safe: true
     contract_deps: ["schema_v1.public_pages", "canon_no_leaks_scan"]
     proof_ids: ["p_public_safe_render", "p_no_leaks_ci"]
+    rules:
+      - kind: "ban_terms"
+        terms: ["landing", "homepage"]
+        replace_with: "home"
 
   - route: "/explore"
     legacy_routes: []
@@ -98,83 +121,24 @@ surfaces:
     public_safe: true
     contract_deps: ["openapi_v1.catalog", "openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
+    rules:
+      - kind: "require_terms"
+        terms: ["drops"]
 
-  - route: "/townhall"
-    legacy_routes: []
-    surface_key: "townhall"
-    ui_title: "townhall"
-    ui_nouns: ["townhall", "drop"]
-    lint_targets: ["nav", "h1", "metadata_labels"]
+  - route: "/worlds"
+    legacy_routes: ["/collections"]
+    surface_key: "world_index"
+    ui_title: "worlds"
+    ui_nouns: ["world"]
+    lint_targets: ["nav", "h1", "empty_state", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.collections", "openapi_v1.search", "schema_v1.collections", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
-
-  - route: "/townhall/search"
-    legacy_routes: []
-    surface_key: "townhall_search"
-    ui_title: "townhall search"
-    ui_nouns: ["townhall", "studio", "world", "drop"]
-    lint_targets: ["nav", "h1", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.catalog", "openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
-
-  - route: "/townhall/watch"
-    legacy_routes: []
-    surface_key: "townhall_watch"
-    ui_title: "townhall watch"
-    ui_nouns: ["townhall", "watch", "drop"]
-    lint_targets: ["nav", "h1", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
-
-  - route: "/townhall/listen"
-    legacy_routes: []
-    surface_key: "townhall_listen"
-    ui_title: "townhall listen"
-    ui_nouns: ["townhall", "listen", "drop"]
-    lint_targets: ["nav", "h1", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
-
-  - route: "/townhall/read"
-    legacy_routes: []
-    surface_key: "townhall_read"
-    ui_title: "townhall read"
-    ui_nouns: ["townhall", "read", "drop"]
-    lint_targets: ["nav", "h1", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
-
-  - route: "/townhall/gallery"
-    legacy_routes: []
-    surface_key: "townhall_gallery"
-    ui_title: "townhall gallery"
-    ui_nouns: ["townhall", "gallery", "drop"]
-    lint_targets: ["nav", "h1", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
-
-  - route: "/townhall/live"
-    legacy_routes: []
-    surface_key: "townhall_live"
-    ui_title: "townhall live"
-    ui_nouns: ["townhall", "live", "drop"]
-    lint_targets: ["nav", "h1", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
+    rules:
+      - kind: "ban_terms"
+        terms: ["collections", "collection (place)"]
+        replace_with: "worlds"
 
   - route: "/watch"
     legacy_routes: []
@@ -184,7 +148,7 @@ surfaces:
     lint_targets: ["nav", "h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.catalog", "openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
   - route: "/listen"
@@ -195,7 +159,7 @@ surfaces:
     lint_targets: ["nav", "h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.catalog", "openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
   - route: "/read"
@@ -206,55 +170,22 @@ surfaces:
     lint_targets: ["nav", "h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.catalog", "openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
-  - route: "/gallery"
-    legacy_routes: ["/photos"]
-    surface_key: "gallery_hub"
-    ui_title: "gallery"
-    ui_nouns: ["gallery", "drop"]
-    lint_targets: ["nav", "h1", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
-
-  - route: "/live"
-    legacy_routes: ["/live-now"]
-    surface_key: "live_hub"
-    ui_title: "live"
+  - route: "/live-now"
+    legacy_routes: ["/live"]
+    surface_key: "live_now_hub"
+    ui_title: "live now"
     ui_nouns: ["live", "drop"]
     lint_targets: ["nav", "h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
-
-  - route: "/collect"
-    legacy_routes: []
-    surface_key: "collect_entry"
-    ui_title: "collect"
-    ui_nouns: ["my_collection"]
-    lint_targets: ["nav", "h1", "cta"]
-    roles: ["collector", "creator"]
-    public_safe: false
-    contract_deps: ["openapi_v1.session"]
-    proof_ids: ["p_session_required"]
-
-  - route: "/auctions"
-    legacy_routes: []
-    surface_key: "auctions"
-    ui_title: "auctions"
-    ui_nouns: ["drop"]
-    lint_targets: ["nav", "h1", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["canon_feature_flags", "openapi_v1.catalog", "openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
   # -------------------------------------------------------------------
-  # 2) identity + access + setup
+  # 2) identity + access
   # -------------------------------------------------------------------
   - route: "/auth/sign-in"
     legacy_routes: []
@@ -278,39 +209,6 @@ surfaces:
     contract_deps: ["openapi_v1.auth", "openapi_v1.session", "schema_v1.accounts", "canon_no_leaks_scan"]
     proof_ids: ["p_auth_session_primary", "p_no_leaks_ci"]
 
-  - route: "/auth/wallet-connect"
-    legacy_routes: []
-    surface_key: "wallet_connect"
-    ui_title: "connect wallet"
-    ui_nouns: []
-    lint_targets: ["h1", "cta", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.wallet", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
-
-  - route: "/auth/wallet-link"
-    legacy_routes: []
-    surface_key: "wallet_link"
-    ui_title: "link wallet"
-    ui_nouns: []
-    lint_targets: ["h1", "cta", "metadata_labels"]
-    roles: ["collector", "creator"]
-    public_safe: false
-    contract_deps: ["openapi_v1.wallet", "openapi_v1.session"]
-    proof_ids: ["p_session_required"]
-
-  - route: "/onboarding/profile-setup"
-    legacy_routes: ["/space-setup"]
-    surface_key: "profile_setup"
-    ui_title: "profile setup"
-    ui_nouns: ["studio"]
-    lint_targets: ["h1", "cta", "metadata_labels"]
-    roles: ["collector", "creator"]
-    public_safe: false
-    contract_deps: ["openapi_v1.session", "openapi_v1.profile", "schema_v1.profiles"]
-    proof_ids: ["p_first_run_destination", "p_session_required"]
-
   - route: "/logout"
     legacy_routes: []
     surface_key: "logout"
@@ -323,10 +221,24 @@ surfaces:
     proof_ids: ["p_session_required"]
 
   # -------------------------------------------------------------------
-  # 3) discovery + drop + world + studio
+  # 3) first-run setup
   # -------------------------------------------------------------------
-  - route: "/studio/:handle"
-    legacy_routes: ["/studios/:handle", "/creators/:handle"]
+  - route: "/space-setup"
+    legacy_routes: ["/network-setup"]
+    surface_key: "first_run_space_setup"
+    ui_title: "space setup"
+    ui_nouns: []
+    lint_targets: ["h1", "cta", "metadata_labels"]
+    roles: ["collector", "creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.session", "openapi_v1.settings", "openapi_v1.collections", "openapi_v1.notifications", "schema_v1.spaces", "schema_v1.collections"]
+    proof_ids: ["p_first_run_destination", "p_session_required"]
+
+  # -------------------------------------------------------------------
+  # 4) studio (public creator presence)
+  # -------------------------------------------------------------------
+  - route: "/studios/:handle"
+    legacy_routes: ["/creators/:handle", "/studio/:handle"]
     surface_key: "studio_public"
     ui_title: "studio"
     ui_nouns: ["studio", "drop", "world"]
@@ -335,27 +247,24 @@ surfaces:
     public_safe: true
     contract_deps: ["openapi_v1.profile", "openapi_v1.catalog", "schema_v1.profiles", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
+    rules:
+      - kind: "ban_terms"
+        terms: ["profile", "creator profile"]
+        replace_with: "studio"
 
-  - route: "/worlds"
-    legacy_routes: ["/collections"]
-    surface_key: "world_index"
-    ui_title: "worlds"
-    ui_nouns: ["world"]
-    lint_targets: ["nav", "h1", "empty_state", "metadata_labels"]
-    roles: ["public", "collector", "creator"]
-    public_safe: true
-    contract_deps: ["openapi_v1.collections", "openapi_v1.search", "schema_v1.collections", "canon_no_leaks_scan"]
-    proof_ids: ["p_no_leaks_ci"]
-
+  # -------------------------------------------------------------------
+  # 5) worlds (public places) + world index
+  # -------------------------------------------------------------------
   - route: "/worlds/:id"
     legacy_routes: ["/collections/:id"]
+
     surface_key: "world_detail"
     ui_title: "world"
     ui_nouns: ["world", "drop", "studio"]
     lint_targets: ["h1", "metadata_labels", "empty_state"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.collections", "openapi_v1.catalog", "schema_v1.collections", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.collections", "openapi_v1.catalog", "openapi_v1.search", "schema_v1.collections", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
   - route: "/worlds/:id/drops"
@@ -366,9 +275,12 @@ surfaces:
     lint_targets: ["h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.collections", "openapi_v1.catalog", "schema_v1.collections", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.collections", "openapi_v1.catalog", "openapi_v1.search", "schema_v1.collections", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
+  # -------------------------------------------------------------------
+  # 6) drops (detail + sub-surfaces)
+  # -------------------------------------------------------------------
   - route: "/drops/:id"
     legacy_routes: ["/assets/:id"]
     surface_key: "drop_detail"
@@ -377,8 +289,12 @@ surfaces:
     lint_targets: ["h1", "nav", "cta", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.assets", "openapi_v1.catalog", "schema_v1.assets", "schema_v1.catalog", "canon_no_leaks_scan"]
     proof_ids: ["p_preview_safe_only", "p_no_leaks_ci"]
+    rules:
+      - kind: "ban_terms"
+        terms: ["asset", "assets", "collectible asset", "owned assets", "my assets"]
+        replace_with: "drop(s)"
 
   - route: "/drops/:id/details"
     legacy_routes: ["/assets/:id/details"]
@@ -388,7 +304,7 @@ surfaces:
     lint_targets: ["h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.assets", "schema_v1.assets", "canon_no_leaks_scan"]
     proof_ids: ["p_preview_safe_only", "p_no_leaks_ci"]
 
   - route: "/drops/:id/properties"
@@ -399,7 +315,7 @@ surfaces:
     lint_targets: ["h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.assets", "schema_v1.assets", "canon_no_leaks_scan"]
     proof_ids: ["p_preview_safe_only", "p_no_leaks_ci"]
 
   - route: "/drops/:id/offers"
@@ -424,6 +340,9 @@ surfaces:
     contract_deps: ["openapi_v1.activity", "schema_v1.activity", "canon_no_leaks_scan"]
     proof_ids: ["p_no_leaks_ci"]
 
+  # -------------------------------------------------------------------
+  # 7) consume physics (preview vs full; all full consumes are gated)
+  # -------------------------------------------------------------------
   - route: "/drops/:id/preview"
     legacy_routes: ["/assets/:id/preview"]
     surface_key: "drop_preview_generic"
@@ -432,19 +351,23 @@ surfaces:
     lint_targets: ["h1", "cta", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.assets", "schema_v1.assets", "canon_no_leaks_scan"]
     proof_ids: ["p_preview_safe_only", "p_no_leaks_ci"]
 
-  - route: "/drops/:id/preview/gallery"
-    legacy_routes: ["/drops/:id/preview/photos", "/assets/:id/preview/photos"]
-    surface_key: "drop_preview_gallery"
-    ui_title: "gallery preview"
-    ui_nouns: ["gallery", "drop"]
+  - route: "/drops/:id/preview/photos"
+    legacy_routes: ["/assets/:id/preview/gallery", "/drops/:id/preview/gallery"]
+    surface_key: "drop_preview_photos"
+    ui_title: "photos preview"
+    ui_nouns: ["photos", "drop"]
     lint_targets: ["h1", "metadata_labels"]
     roles: ["public", "collector", "creator"]
     public_safe: true
-    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    contract_deps: ["openapi_v1.assets", "schema_v1.assets", "canon_no_leaks_scan"]
     proof_ids: ["p_preview_safe_only", "p_no_leaks_ci"]
+    rules:
+      - kind: "ban_terms"
+        terms: ["gallery", "galleries"]
+        replace_with: "photos"
 
   - route: "/drops/:id/watch"
     legacy_routes: ["/assets/:id/watch"]
@@ -479,11 +402,11 @@ surfaces:
     contract_deps: ["canon_media_gate", "openapi_v1.entitlements", "openapi_v1.session", "schema_v1.entitlements"]
     proof_ids: ["p_media_gate_entitlement", "p_refund_revokes_entitlement", "p_session_required"]
 
-  - route: "/drops/:id/gallery"
-    legacy_routes: ["/drops/:id/photos", "/assets/:id/photos", "/assets/:id/view"]
-    surface_key: "drop_full_gallery"
-    ui_title: "gallery"
-    ui_nouns: ["gallery", "drop"]
+  - route: "/drops/:id/photos"
+    legacy_routes: ["/assets/:id/view", "/drops/:id/gallery"]
+    surface_key: "drop_full_photos"
+    ui_title: "photos"
+    ui_nouns: ["photos", "drop"]
     lint_targets: ["h1", "cta", "metadata_labels"]
     roles: ["collector", "creator"]
     public_safe: false
@@ -491,19 +414,26 @@ surfaces:
     proof_ids: ["p_media_gate_entitlement", "p_refund_revokes_entitlement", "p_session_required"]
 
   # -------------------------------------------------------------------
-  # 4) commerce, ownership, trust
+  # 8) money moments (hosted checkout; webhook-only mint trigger)
   # -------------------------------------------------------------------
   - route: "/pay/buy/:drop_id"
     legacy_routes: ["/pay/buy/:asset_id"]
     surface_key: "pay_buy_drop"
-    ui_title: "buy"
+    ui_title: "collect"
     ui_nouns: ["drop"]
     lint_targets: ["cta", "metadata_labels"]
     roles: ["collector", "creator"]
     public_safe: false
     contract_deps: ["canon_payments_stripe", "openapi_v1.payments", "openapi_v1.session", "schema_v1.payments"]
     proof_ids: ["p_stripe_checkout_redirect", "p_session_required"]
+    rules:
+      - kind: "context_allow"
+        context: "billing_context"
+        terms: ["purchase", "receipt", "refund"]
 
+  # -------------------------------------------------------------------
+  # 9) ownership + saved curation
+  # -------------------------------------------------------------------
   - route: "/my-collection"
     legacy_routes: ["/my-assets", "/owned-assets", "/owned"]
     surface_key: "my_collection_owned"
@@ -512,20 +442,33 @@ surfaces:
     lint_targets: ["nav", "h1", "metadata_labels", "empty_state"]
     roles: ["collector", "creator"]
     public_safe: false
-    contract_deps: ["openapi_v1.session", "openapi_v1.collection", "schema_v1.collection", "canon_certificates"]
+    contract_deps: ["openapi_v1.session", "openapi_v1.library", "schema_v1.library", "canon_certificates"]
     proof_ids: ["p_session_required", "p_library_contains_certificate"]
+    rules:
+      - kind: "require_terms"
+        terms: ["my collection"]
+      - kind: "ban_terms"
+        terms: ["library"]  # library is not allowed to mean owned inventory
+        replace_with: "my collection"
 
-  - route: "/favorites"
-    legacy_routes: ["/library", "/saved", "/bookmarks"]
-    surface_key: "favorites_saved"
-    ui_title: "favorites"
-    ui_nouns: ["favorites", "drop", "world", "studio"]
+  - route: "/library"
+    legacy_routes: ["/saved", "/bookmarks"]
+    surface_key: "library_saved"
+    ui_title: "library"
+    ui_nouns: ["library", "drop", "world", "studio"]
     lint_targets: ["nav", "h1", "metadata_labels", "empty_state"]
     roles: ["collector", "creator"]
     public_safe: false
     contract_deps: ["openapi_v1.session", "openapi_v1.library", "schema_v1.library"]
     proof_ids: ["p_session_required"]
+    rules:
+      - kind: "ban_terms"
+        terms: ["my collection"]  # my collection is not allowed to mean saved
+        replace_with: "library"
 
+  # -------------------------------------------------------------------
+  # 10) certificates (public verification)
+  # -------------------------------------------------------------------
   - route: "/certificates/:cert_id"
     legacy_routes: []
     surface_key: "certificate_verify"
@@ -538,30 +481,8 @@ surfaces:
     proof_ids: ["p_public_cert_verify", "p_no_leaks_ci"]
 
   # -------------------------------------------------------------------
-  # 5) creator and settings operations
+  # 11) workshop (creator back-office)
   # -------------------------------------------------------------------
-  - route: "/invest"
-    legacy_routes: []
-    surface_key: "invest"
-    ui_title: "invest"
-    ui_nouns: ["drop"]
-    lint_targets: ["h1", "metadata_labels", "cta"]
-    roles: ["collector", "creator"]
-    public_safe: false
-    contract_deps: ["openapi_v1.session"]
-    proof_ids: ["p_session_required"]
-
-  - route: "/create"
-    legacy_routes: []
-    surface_key: "create"
-    ui_title: "create"
-    ui_nouns: ["drop", "world"]
-    lint_targets: ["h1", "metadata_labels", "cta"]
-    roles: ["creator"]
-    public_safe: false
-    contract_deps: ["openapi_v1.session", "schema_v1.accounts"]
-    proof_ids: ["p_session_required"]
-
   - route: "/workshop"
     legacy_routes: ["/studio"]
     surface_key: "workshop_root"
@@ -572,60 +493,114 @@ surfaces:
     public_safe: false
     contract_deps: ["openapi_v1.session", "schema_v1.accounts"]
     proof_ids: ["p_session_required"]
+    rules:
+      - kind: "ban_terms"
+        terms: ["studio"]  # when meaning making suite
+        replace_with: "workshop"
 
-  - route: "/dashboard"
-    legacy_routes: ["/workshop/analytics"]
-    surface_key: "dashboard_analytics"
-    ui_title: "dashboard"
-    ui_nouns: ["workshop"]
-    lint_targets: ["h1", "metadata_labels", "cta"]
-    roles: ["creator"]
+# =====================================================================
+# 16) drift-proof enforcement checklist (for designers + engineers)
+# =====================================================================
+  # -------------------------------------------------------------------
+  # 12) compatibility surfaces (v2.1 rollout)
+  # -------------------------------------------------------------------
+  - route: "/auth/wallet-connect"
+    legacy_routes: []
+    surface_key: "auth_wallet_connect"
+    ui_title: "wallet connect"
+    ui_nouns: []
+    lint_targets: ["h1", "cta", "metadata_labels"]
+    roles: ["public"]
+    public_safe: true
+    contract_deps: ["openapi_v1.auth", "openapi_v1.session", "schema_v1.accounts", "canon_no_leaks_scan"]
+    proof_ids: ["p_auth_session_primary", "p_no_leaks_ci"]
+
+  - route: "/auth/wallet-link"
+    legacy_routes: []
+    surface_key: "auth_wallet_link"
+    ui_title: "wallet link"
+    ui_nouns: []
+    lint_targets: ["h1", "cta", "metadata_labels"]
+    roles: ["collector", "creator"]
     public_safe: false
-    contract_deps: ["openapi_v1.analytics", "openapi_v1.session"]
+    contract_deps: ["openapi_v1.auth", "openapi_v1.session", "schema_v1.accounts"]
     proof_ids: ["p_session_required"]
 
-  - route: "/my-campaigns"
-    legacy_routes: ["/workshop/campaigns"]
-    surface_key: "my_campaigns"
-    ui_title: "my campaigns"
-    ui_nouns: ["workshop"]
-    lint_targets: ["h1", "metadata_labels", "cta"]
-    roles: ["creator"]
+  - route: "/onboarding/profile-setup"
+    legacy_routes: []
+    surface_key: "identity_setup"
+    ui_title: "identity setup"
+    ui_nouns: ["studio"]
+    lint_targets: ["h1", "cta", "metadata_labels"]
+    roles: ["collector", "creator"]
     public_safe: false
-    contract_deps: ["openapi_v1.campaigns", "openapi_v1.session"]
+    contract_deps: ["openapi_v1.auth", "openapi_v1.session", "schema_v1.accounts"]
+    proof_ids: ["p_first_run_destination", "p_session_required"]
+
+  - route: "/collect"
+    legacy_routes: []
+    surface_key: "collect_market"
+    ui_title: "collect"
+    ui_nouns: ["collect", "drop", "world"]
+    lint_targets: ["nav", "h1", "cta", "metadata_labels"]
+    roles: ["collector", "creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.catalog", "openapi_v1.payments", "schema_v1.catalog"]
     proof_ids: ["p_session_required"]
 
-  - route: "/payouts"
-    legacy_routes: ["/workshop/payouts"]
-    surface_key: "payouts"
-    ui_title: "payouts"
-    ui_nouns: ["workshop"]
-    lint_targets: ["h1", "metadata_labels", "cta"]
-    roles: ["creator"]
+  - route: "/auctions"
+    legacy_routes: []
+    surface_key: "collect_auctions"
+    ui_title: "collect auctions"
+    ui_nouns: ["collect", "drop"]
+    lint_targets: ["nav", "h1", "cta", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/favorites"
+    legacy_routes: []
+    surface_key: "favorites"
+    ui_title: "favorites"
+    ui_nouns: ["library", "drop"]
+    lint_targets: ["h1", "metadata_labels", "empty_state"]
+    roles: ["collector", "creator"]
     public_safe: false
-    contract_deps: ["openapi_v1.payouts", "openapi_v1.session"]
+    contract_deps: ["openapi_v1.library", "schema_v1.library"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/following"
+    legacy_routes: []
+    surface_key: "following"
+    ui_title: "following"
+    ui_nouns: ["studio", "drop"]
+    lint_targets: ["h1", "metadata_labels", "empty_state"]
+    roles: ["collector", "creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.social", "schema_v1.social"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/invest"
+    legacy_routes: []
+    surface_key: "invest"
+    ui_title: "invest"
+    ui_nouns: ["collect", "drop"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["collector", "creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog"]
     proof_ids: ["p_session_required"]
 
   - route: "/settings/account"
     legacy_routes: []
     surface_key: "settings_account"
-    ui_title: "account details"
+    ui_title: "account"
     ui_nouns: []
-    lint_targets: ["h1", "metadata_labels", "cta"]
+    lint_targets: ["h1", "metadata_labels"]
     roles: ["collector", "creator"]
     public_safe: false
-    contract_deps: ["openapi_v1.settings", "openapi_v1.session"]
-    proof_ids: ["p_session_required"]
-
-  - route: "/settings/security"
-    legacy_routes: []
-    surface_key: "settings_security"
-    ui_title: "security"
-    ui_nouns: []
-    lint_targets: ["h1", "metadata_labels", "cta"]
-    roles: ["collector", "creator"]
-    public_safe: false
-    contract_deps: ["openapi_v1.settings", "openapi_v1.session"]
+    contract_deps: ["openapi_v1.settings", "schema_v1.accounts"]
     proof_ids: ["p_session_required"]
 
   - route: "/settings/apps"
@@ -633,10 +608,10 @@ surfaces:
     surface_key: "settings_apps"
     ui_title: "apps"
     ui_nouns: []
-    lint_targets: ["h1", "metadata_labels", "cta"]
+    lint_targets: ["h1", "metadata_labels"]
     roles: ["collector", "creator"]
     public_safe: false
-    contract_deps: ["openapi_v1.settings", "openapi_v1.session"]
+    contract_deps: ["openapi_v1.settings", "schema_v1.accounts"]
     proof_ids: ["p_session_required"]
 
   - route: "/settings/notifications"
@@ -644,33 +619,212 @@ surfaces:
     surface_key: "settings_notifications"
     ui_title: "notifications"
     ui_nouns: []
-    lint_targets: ["h1", "metadata_labels", "cta"]
+    lint_targets: ["h1", "metadata_labels"]
     roles: ["collector", "creator"]
     public_safe: false
-    contract_deps: ["openapi_v1.settings", "openapi_v1.session"]
+    contract_deps: ["openapi_v1.settings", "schema_v1.accounts"]
     proof_ids: ["p_session_required"]
 
-  - route: "/following"
+  - route: "/settings/security"
     legacy_routes: []
-    surface_key: "following"
-    ui_title: "following"
-    ui_nouns: ["favorites", "studio"]
-    lint_targets: ["h1", "metadata_labels", "cta"]
+    surface_key: "settings_security"
+    ui_title: "security"
+    ui_nouns: []
+    lint_targets: ["h1", "metadata_labels"]
     roles: ["collector", "creator"]
     public_safe: false
-    contract_deps: ["openapi_v1.social", "openapi_v1.session"]
+    contract_deps: ["openapi_v1.settings", "schema_v1.accounts"]
     proof_ids: ["p_session_required"]
 
-# =====================================================================
-# 16) drift-proof enforcement checklist (for designers + engineers)
-# =====================================================================
+  - route: "/create"
+    legacy_routes: []
+    surface_key: "create"
+    ui_title: "create"
+    ui_nouns: ["workshop"]
+    lint_targets: ["h1", "metadata_labels", "cta"]
+    roles: ["creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.workshop", "schema_v1.workshop"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/dashboard"
+    legacy_routes: []
+    surface_key: "dashboard"
+    ui_title: "dashboard"
+    ui_nouns: ["workshop"]
+    lint_targets: ["h1", "metadata_labels"]
+    roles: ["creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.workshop", "schema_v1.workshop"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/my-campaigns"
+    legacy_routes: []
+    surface_key: "my_campaigns"
+    ui_title: "my campaigns"
+    ui_nouns: ["workshop"]
+    lint_targets: ["h1", "metadata_labels", "empty_state"]
+    roles: ["creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.workshop", "schema_v1.workshop"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/payouts"
+    legacy_routes: []
+    surface_key: "payouts"
+    ui_title: "payouts"
+    ui_nouns: ["workshop"]
+    lint_targets: ["h1", "metadata_labels", "empty_state"]
+    roles: ["creator"]
+    public_safe: false
+    contract_deps: ["openapi_v1.workshop", "schema_v1.workshop"]
+    proof_ids: ["p_session_required"]
+
+  - route: "/photos"
+    legacy_routes: ["/gallery"]
+    surface_key: "photos_hub"
+    ui_title: "photos"
+    ui_nouns: ["photos", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall"
+    legacy_routes: []
+    surface_key: "townhall"
+    ui_title: "townhall"
+    ui_nouns: ["townhall", "drop"]
+    lint_targets: ["nav", "h1", "cta", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_public_safe_render", "p_no_leaks_ci"]
+
+  - route: "/townhall/watch"
+    legacy_routes: []
+    surface_key: "townhall_watch"
+    ui_title: "townhall watch"
+    ui_nouns: ["townhall", "watch", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/listen"
+    legacy_routes: []
+    surface_key: "townhall_listen"
+    ui_title: "townhall listen"
+    ui_nouns: ["townhall", "listen", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/read"
+    legacy_routes: []
+    surface_key: "townhall_read"
+    ui_title: "townhall read"
+    ui_nouns: ["townhall", "read", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/photos"
+    legacy_routes: ["/townhall/gallery"]
+    surface_key: "townhall_photos"
+    ui_title: "townhall photos"
+    ui_nouns: ["townhall", "photos", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/live"
+    legacy_routes: []
+    surface_key: "townhall_live"
+    ui_title: "townhall live"
+    ui_nouns: ["townhall", "live", "drop"]
+    lint_targets: ["nav", "h1", "metadata_labels"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.catalog", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
+
+  - route: "/townhall/search"
+    legacy_routes: []
+    surface_key: "townhall_search"
+    ui_title: "townhall search"
+    ui_nouns: ["townhall", "drop", "world", "studio"]
+    lint_targets: ["h1", "metadata_labels", "empty_state"]
+    roles: ["public", "collector", "creator"]
+    public_safe: true
+    contract_deps: ["openapi_v1.search", "schema_v1.catalog", "canon_no_leaks_scan"]
+    proof_ids: ["p_no_leaks_ci"]
 enforcement_checklist:
   designers:
     - "ui_title must be used exactly as written for the surface key"
     - "ui_nouns must only contain locked glossary nouns"
-    - "do not introduce banned synonyms in any lint target"
+    - "do not introduce synonyms (asset/collection/profile/gallery) in any lint target"
   engineers:
     - "scan lint_targets only (nav, h1, cta, empty_state, metadata_labels)"
     - "apply matching rules: case-insensitive + whole-word + variants + ui phrases"
     - "honor exceptions.by_route and exceptions.by_context"
     - "no free-text notes; add any new logic as structured rules"
+
+- surface_key: "collector_public"
+  route: "/collector/:handle"
+  ui_title: "collector"
+  ui_nouns: ["collector", "my collection", "world", "drop"]
+  lint_targets: ["nav", "h1", "metadata_labels"]
+  roles: ["public", "collector"]
+  public_safe: true
+  contract_deps: ["openapi_v1.profile", "schema_v1.profile", "canon_no_leaks_scan"]
+  proof_ids: ["p_no_leaks_ci"]
+  rules:
+    - kind: "respect_visibility"
+      fields: ["profile_visibility", "ownership_visibility"]
+
+⸻
+
+surfaces (v2.0 additions)
+
+- route: "/workshop/worlds/:world_id/schedule"
+  surface_key: "workshop_release_queue"
+  ui_title: "schedule"
+  ui_nouns: ["workshop", "world", "drop"]
+  lint_targets: ["nav", "h1", "metadata_labels"]
+  roles: ["studio"]
+  public_safe: false
+
+- route: "/worlds/:world_id/upgrade"
+  surface_key: "world_collect_upgrade"
+  ui_title: "collect"
+  ui_nouns: ["world", "collect"]
+  lint_targets: ["nav", "h1", "metadata_labels"]
+  roles: ["collector"]
+  public_safe: true
+
+⸻
+
+internal config (v2.1)
+
+showroom_lanes:
+- newest
+- rising
+- most_collected
+- new_voices
+- sustained_craft
+
+ui copy lock (v2.1)
+
+membership_what_you_get: "access while active"
+world_collect_what_you_get: "ownership of these drops"
+season_pass_what_you_get: "ownership of drops released in this window"
+live_session_what_you_get: "entry based on eligibility"

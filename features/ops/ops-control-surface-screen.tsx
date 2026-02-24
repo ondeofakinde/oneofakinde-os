@@ -152,7 +152,7 @@ function renderAuctionBody(session: Session | null, drops: Drop[]) {
                     open lane
                   </Link>
                   <Link
-                    href={session ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id))}
+                    href={session ? routes.collectDrop(drop.id) : routes.signIn(routes.collectDrop(drop.id))}
                     className="slice-button alt"
                   >
                     place bid
@@ -210,7 +210,7 @@ function renderInvestBody(session: Session, drops: Drop[]) {
               <span>{entry.drop.title}</span>
               <span>{entry.momentum}</span>
               <span>{entry.floor}</span>
-              <Link href={routes.buyDrop(entry.drop.id)} className="slice-link">
+              <Link href={routes.collectDrop(entry.drop.id)} className="slice-link">
                 invest
               </Link>
             </div>

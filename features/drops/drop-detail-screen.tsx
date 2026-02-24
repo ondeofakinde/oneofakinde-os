@@ -11,7 +11,9 @@ type DropDetailScreenProps = {
 const PRICE_HISTORY = [18, 22, 19, 24, 26, 28, 31, 29, 34, 36, 39, 42];
 
 export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
-  const buyHref = session ? routes.buyDrop(drop.id) : routes.signIn(routes.buyDrop(drop.id));
+  const collectHref = session
+    ? routes.collectDrop(drop.id)
+    : routes.signIn(routes.collectDrop(drop.id));
   const watchHref = session ? routes.dropWatch(drop.id) : routes.signIn(routes.dropWatch(drop.id));
   const favoritesHref = session ? routes.favorites() : routes.signIn(routes.favorites());
 
@@ -54,8 +56,8 @@ export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
             <p className="dropflow-meta">{drop.releaseDate} · {drop.worldLabel}</p>
 
             <div className="dropflow-cta-row">
-              <Link href={buyHref} className="dropflow-primary-cta">
-                buy now
+              <Link href={collectHref} className="dropflow-primary-cta">
+                collect
               </Link>
               <Link href={watchHref} className="dropflow-secondary-cta">
                 watch
@@ -108,7 +110,7 @@ export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
             </div>
             <div>
               <dt>mode access</dt>
-              <dd>watch · listen · read · gallery</dd>
+              <dd>watch · listen · read · photos</dd>
             </div>
             <div>
               <dt>certificate</dt>
@@ -121,7 +123,7 @@ export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
       <aside className="dropflow-side-notes" aria-label="drop context notes">
         <h2>{drop.title}</h2>
         <p>drop detail is now modeled as a high-visibility conversion surface.</p>
-        <p>default actions: buy, watch path, and save-to-favorites.</p>
+        <p>default actions: collect, watch path, and save-to-favorites.</p>
       </aside>
     </main>
   );

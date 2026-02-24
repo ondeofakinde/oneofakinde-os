@@ -89,7 +89,7 @@ export function MyCollectionScreen({
         </div>
 
         {collection.ownedDrops.length === 0 ? (
-          <p className="slice-copy">your my collection is empty. explore and buy a drop to begin.</p>
+          <p className="slice-copy">your my collection is empty. explore and collect a drop to begin.</p>
         ) : (
           <ul className="slice-grid" aria-label="my collection drop list">
             {collection.ownedDrops.map((owned) => (
@@ -112,7 +112,7 @@ export function MyCollectionScreen({
                     read
                   </Link>
                   <Link href={routes.dropPhotos(owned.drop.id)} className="slice-button alt">
-                    gallery
+                    photos
                   </Link>
                   <Link href={routes.certificate(owned.certificateId)} className="slice-button alt">
                     certificate

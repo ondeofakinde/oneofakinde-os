@@ -26,13 +26,13 @@ test("feed-mode selects available preview mode for townhall surface", () => {
     ...baseDrop,
     previewMedia: {
       read: { type: "text", text: "chapter excerpt" },
-      gallery: { type: "image", src: "https://cdn.example/gallery.jpg" }
+      photos: { type: "image", src: "https://cdn.example/photos.jpg" }
     }
   };
 
   const first = resolveDropModeForTownhallSurface(drop, 0, "townhall");
 
-  assert.equal(first, "gallery");
+  assert.equal(first, "photos");
 });
 
 test("feed-mode falls back to watch when preview map is missing", () => {

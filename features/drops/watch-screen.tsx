@@ -29,13 +29,13 @@ export function WatchScreen({
       {!hasEntitlement ? (
         <section className="slice-panel">
           <p className="slice-label">access required</p>
-          <h2 className="slice-title">buy this drop to unlock watch</h2>
+          <h2 className="slice-title">collect this drop to unlock watch</h2>
           <p className="slice-copy">
-            this watch mode requires entitlement. complete purchase to unlock the full stream.
+            this watch mode requires entitlement. complete collect to unlock the full stream.
           </p>
           <div className="slice-button-row">
-            <Link href={routes.buyDrop(drop.id)} className="slice-button">
-              buy {formatUsd(drop.priceUsd)}
+            <Link href={routes.collectDrop(drop.id)} className="slice-button">
+              collect {formatUsd(drop.priceUsd)}
             </Link>
             <Link href={routes.drop(drop.id)} className="slice-button ghost">
               open drop

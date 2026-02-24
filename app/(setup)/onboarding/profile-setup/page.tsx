@@ -18,13 +18,11 @@ function firstParam(value: string | string[] | undefined): string | null {
 export default async function ProfileSetupPage({ searchParams }: ProfileSetupPageProps) {
   const resolvedParams = await searchParams;
   const returnTo = normalizeReturnTo(firstParam(resolvedParams.returnTo), "/townhall");
-  const session = await requireSession(
-    `/onboarding/profile-setup?returnTo=${encodeURIComponent(returnTo)}`
-  );
+  const session = await requireSession(routes.profileSetup(returnTo));
 
   return (
     <main className="identity-page">
-      <section className="identity-frame" aria-label="profile setup">
+      <section className="identity-frame" aria-label="identity setup">
         <header className="identity-head">
           <p className="identity-brand">oneofakinde</p>
           <h1 className="identity-title">let&apos;s build your identity</h1>
@@ -35,7 +33,7 @@ export default async function ProfileSetupPage({ searchParams }: ProfileSetupPag
           <input type="hidden" name="returnTo" value={returnTo} />
 
           <label className="identity-field">
-            <span className="identity-label">choose your profile pic</span>
+            <span className="identity-label">choose your avatar image</span>
             <div className="identity-upload-row">
               <button type="button" className="identity-chip" disabled>
                 upload image
