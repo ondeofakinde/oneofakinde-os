@@ -1,6 +1,8 @@
 import type {
   AccountRole,
   Certificate,
+  CollectListingType,
+  CollectOfferState,
   Drop,
   PurchaseReceipt,
   TownhallCommentVisibility,
@@ -111,6 +113,20 @@ export type TownhallTelemetryEventRecord = {
   occurredAt: string;
 };
 
+export type CollectOfferRecord = {
+  id: string;
+  accountId: string;
+  dropId: string;
+  listingType: CollectListingType;
+  amountUsd: number;
+  state: CollectOfferState;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string | null;
+  executionVisibility: "public" | "private";
+  executionPriceUsd: number | null;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -130,6 +146,7 @@ export type BffDatabase = {
   townhallComments: TownhallCommentRecord[];
   townhallShares: TownhallShareRecord[];
   townhallTelemetryEvents: TownhallTelemetryEventRecord[];
+  collectOffers: CollectOfferRecord[];
 };
 
 type MutationResult<T> = {
@@ -499,6 +516,34 @@ function createSeedDatabase(): BffDatabase {
         metadata: {},
         occurredAt: new Date(now.valueOf() - DAY_MS / 10).toISOString()
       }
+    ],
+    collectOffers: [
+      {
+        id: "offer_seed_voidrunner_resale_1",
+        accountId,
+        dropId: "voidrunner",
+        listingType: "resale",
+        amountUsd: 10.49,
+        state: "settled",
+        createdAt: new Date(now.valueOf() - DAY_MS * 2).toISOString(),
+        updatedAt: new Date(now.valueOf() - DAY_MS).toISOString(),
+        expiresAt: new Date(now.valueOf() + DAY_MS * 7).toISOString(),
+        executionVisibility: "private",
+        executionPriceUsd: 10.21
+      },
+      {
+        id: "offer_seed_through_lens_auction_1",
+        accountId,
+        dropId: "through-the-lens",
+        listingType: "auction",
+        amountUsd: 12.4,
+        state: "offer_submitted",
+        createdAt: new Date(now.valueOf() - DAY_MS * 3).toISOString(),
+        updatedAt: new Date(now.valueOf() - DAY_MS * 2).toISOString(),
+        expiresAt: new Date(now.valueOf() + DAY_MS * 5).toISOString(),
+        executionVisibility: "public",
+        executionPriceUsd: null
+      }
     ]
   };
 }
@@ -518,7 +563,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     townhallLikes: [],
     townhallComments: [],
     townhallShares: [],
-    townhallTelemetryEvents: []
+    townhallTelemetryEvents: [],
+    collectOffers: []
   };
 }
 
@@ -541,7 +587,8 @@ function createEmptyDatabase(): BffDatabase {
     townhallLikes: [],
     townhallComments: [],
     townhallShares: [],
-    townhallTelemetryEvents: []
+    townhallTelemetryEvents: [],
+    collectOffers: []
   };
 }
 
@@ -567,13 +614,19 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.townhallLikes) &&
     Array.isArray(candidate.townhallComments) &&
     Array.isArray(candidate.townhallShares) &&
-    Array.isArray(candidate.townhallTelemetryEvents)
+    Array.isArray(candidate.townhallTelemetryEvents) &&
+    Array.isArray(candidate.collectOffers)
   );
 }
 
 function hasLegacyBaseDbShape(input: unknown): input is Omit<
   BffDatabase,
-  "stripeWebhookEvents" | "townhallLikes" | "townhallComments" | "townhallShares" | "townhallTelemetryEvents"
+  | "stripeWebhookEvents"
+  | "townhallLikes"
+  | "townhallComments"
+  | "townhallShares"
+  | "townhallTelemetryEvents"
+  | "collectOffers"
 > {
   if (!input || typeof input !== "object") {
     return false;
@@ -672,6 +725,46 @@ function normalizeTownhallTelemetryEvents(
   }));
 }
 
+function normalizeCollectListingType(value: unknown): CollectListingType {
+  if (value === "sale" || value === "auction" || value === "resale") {
+    return value;
+  }
+  return "sale";
+}
+
+function normalizeCollectOfferState(value: unknown): CollectOfferState {
+  if (
+    value === "listed" ||
+    value === "offer_submitted" ||
+    value === "countered" ||
+    value === "accepted" ||
+    value === "settled" ||
+    value === "expired" ||
+    value === "withdrawn"
+  ) {
+    return value;
+  }
+  return "listed";
+}
+
+function normalizeCollectOfferRecords(events: CollectOfferRecord[]): CollectOfferRecord[] {
+  return events.map((event) => ({
+    ...event,
+    listingType: normalizeCollectListingType((event as { listingType?: unknown }).listingType),
+    state: normalizeCollectOfferState((event as { state?: unknown }).state),
+    amountUsd:
+      typeof event.amountUsd === "number" && Number.isFinite(event.amountUsd) ? event.amountUsd : 0,
+    executionVisibility:
+      event.executionVisibility === "private" || event.executionVisibility === "public"
+        ? event.executionVisibility
+        : "public",
+    executionPriceUsd:
+      typeof event.executionPriceUsd === "number" && Number.isFinite(event.executionPriceUsd)
+        ? event.executionPriceUsd
+        : null
+  }));
+}
+
 function normalizeTownhallCommentVisibility(value: unknown): TownhallCommentVisibility {
   return value === "hidden" ? "hidden" : "visible";
 }
@@ -711,7 +804,8 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
     return {
       ...input,
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
-      townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents)
+      townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents),
+      collectOffers: normalizeCollectOfferRecords(input.collectOffers)
     };
   }
 
@@ -735,6 +829,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         ? normalizeTownhallTelemetryEvents(
             candidate.townhallTelemetryEvents as TownhallTelemetryEventRecord[]
           )
+        : [],
+      collectOffers: Array.isArray(candidate.collectOffers)
+        ? normalizeCollectOfferRecords(candidate.collectOffers as CollectOfferRecord[])
         : []
     };
   }
@@ -886,7 +983,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallLikesResult,
     townhallCommentsResult,
     townhallSharesResult,
-    townhallTelemetryEventsResult
+    townhallTelemetryEventsResult,
+    collectOffersResult
   ] = await Promise.all([
     client.query<{ key: string; value: string }>("SELECT key, value FROM bff_meta"),
     client.query<{ data: unknown }>("SELECT data FROM bff_catalog_drops ORDER BY id ASC"),
@@ -964,6 +1062,21 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       occurredAt: string;
     }>(
       'SELECT id, account_id AS "accountId", drop_id AS "dropId", event_type AS "eventType", watch_time_seconds AS "watchTimeSeconds", completion_percent AS "completionPercent", metadata_json AS "metadataJson", occurred_at AS "occurredAt" FROM bff_townhall_telemetry_events ORDER BY occurred_at DESC'
+    ),
+    client.query<{
+      id: string;
+      accountId: string;
+      dropId: string;
+      listingType: CollectListingType;
+      amountUsd: string | number;
+      state: CollectOfferState;
+      createdAt: string;
+      updatedAt: string;
+      expiresAt: string | null;
+      executionVisibility: "public" | "private";
+      executionPriceUsd: string | number | null;
+    }>(
+      'SELECT id, account_id AS "accountId", drop_id AS "dropId", listing_type AS "listingType", amount_usd AS "amountUsd", state, created_at AS "createdAt", updated_at AS "updatedAt", expires_at AS "expiresAt", execution_visibility AS "executionVisibility", execution_price_usd AS "executionPriceUsd" FROM bff_collect_offers ORDER BY updated_at DESC'
     )
   ]);
 
@@ -983,7 +1096,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallLikesResult.rowCount === 0 &&
     townhallCommentsResult.rowCount === 0 &&
     townhallSharesResult.rowCount === 0 &&
-    townhallTelemetryEventsResult.rowCount === 0;
+    townhallTelemetryEventsResult.rowCount === 0 &&
+    collectOffersResult.rowCount === 0;
 
   if (isEmpty) {
     return null;
@@ -1050,7 +1164,25 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       completionPercent: Number(row.completionPercent),
       metadata: normalizeTownhallTelemetryMetadata(row.metadataJson),
       occurredAt: row.occurredAt
-    }))
+    })),
+    collectOffers: normalizeCollectOfferRecords(
+      collectOffersResult.rows.map((row) => ({
+        id: row.id,
+        accountId: row.accountId,
+        dropId: row.dropId,
+        listingType: row.listingType,
+        amountUsd: Number(row.amountUsd),
+        state: row.state,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        expiresAt: row.expiresAt,
+        executionVisibility: row.executionVisibility,
+        executionPriceUsd:
+          row.executionPriceUsd === null || row.executionPriceUsd === undefined
+            ? null
+            : Number(row.executionPriceUsd)
+      }))
+    )
   };
 }
 
@@ -1058,6 +1190,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   await client.query(`
     TRUNCATE TABLE
       bff_townhall_telemetry_events,
+      bff_collect_offers,
       bff_townhall_shares,
       bff_townhall_comments,
       bff_townhall_likes,
@@ -1234,6 +1367,25 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         event.completionPercent,
         JSON.stringify(event.metadata ?? {}),
         event.occurredAt
+      ]
+    );
+  }
+
+  for (const offer of db.collectOffers) {
+    await client.query(
+      "INSERT INTO bff_collect_offers (id, account_id, drop_id, listing_type, amount_usd, state, created_at, updated_at, expires_at, execution_visibility, execution_price_usd) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+      [
+        offer.id,
+        offer.accountId,
+        offer.dropId,
+        offer.listingType,
+        offer.amountUsd,
+        offer.state,
+        offer.createdAt,
+        offer.updatedAt,
+        offer.expiresAt,
+        offer.executionVisibility,
+        offer.executionPriceUsd
       ]
     );
   }

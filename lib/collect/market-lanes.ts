@@ -59,7 +59,9 @@ function buildOfferTimeline(
     actorHandle: OFFER_ACTOR_BY_INDEX[listingIndex % OFFER_ACTOR_BY_INDEX.length] ?? "collector_demo",
     createdAt,
     updatedAt: createdAt,
-    expiresAt: new Date(releaseTimestamp + 1000 * 60 * 60 * 24 * 14).toISOString()
+    expiresAt: new Date(releaseTimestamp + 1000 * 60 * 60 * 24 * 14).toISOString(),
+    executionVisibility: listingType === "resale" ? "private" : "public",
+    executionPriceUsd: null
   };
 
   if (listingType === "sale") {
@@ -124,13 +126,49 @@ export function listCollectInventoryByLane(
 }
 
 export function buildCollectInventorySnapshot(drops: Drop[]): CollectInventorySnapshot {
+  return buildCollectInventorySnapshotFromOffers(drops, []);
+}
+
+function sortByUpdatedAtDesc(offers: CollectOffer[]): CollectOffer[] {
+  return [...offers].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+}
+
+export function resolveCollectListingTypeByDropId(
+  drops: Drop[],
+  dropId: string
+): CollectListingType | null {
+  const sortedDrops = [...drops].sort((a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate));
+  const index = sortedDrops.findIndex((drop) => drop.id === dropId);
+  if (index < 0) {
+    return null;
+  }
+  return laneForDropIndex(index);
+}
+
+export function buildCollectInventorySnapshotFromOffers(
+  drops: Drop[],
+  offers: CollectOffer[]
+): CollectInventorySnapshot {
   const sortedDrops = [...drops].sort((a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate));
   const offersByDropId: Record<string, CollectOffer[]> = {};
+  const explicitOffersByDropId = new Map<string, CollectOffer[]>();
+  for (const offer of offers) {
+    const current = explicitOffersByDropId.get(offer.dropId) ?? [];
+    current.push(offer);
+    explicitOffersByDropId.set(offer.dropId, current);
+  }
+
   const listings = sortedDrops.map((drop, index) => {
-    const listingType = laneForDropIndex(index);
-    const offers = buildOfferTimeline(drop, listingType, index);
-    offersByDropId[drop.id] = offers;
-    return toListing(drop, listingType, offers);
+    const fallbackListingType = laneForDropIndex(index);
+    const explicitOffers = explicitOffersByDropId.get(drop.id) ?? [];
+    const resolvedOffers =
+      explicitOffers.length > 0
+        ? sortByUpdatedAtDesc(explicitOffers)
+        : buildOfferTimeline(drop, fallbackListingType, index);
+
+    const resolvedListingType = resolvedOffers[0]?.listingType ?? fallbackListingType;
+    offersByDropId[drop.id] = resolvedOffers;
+    return toListing(drop, resolvedListingType, resolvedOffers);
   });
 
   return {
