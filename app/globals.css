@@ -2307,6 +2307,14 @@ a {
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 26%, rgba(0, 0, 0, 0.9) 100%);
 }
 
+.dropmedia-listen-poster {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .dropmedia-social-rail {
   position: absolute;
   right: 10px;
@@ -2363,6 +2371,38 @@ a {
   color: #b7c7d2;
   font-size: 0.82rem;
   line-height: 1.38;
+}
+
+.dropmedia-listen-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, auto));
+  gap: 6px;
+}
+
+.dropmedia-control {
+  border: 1px solid #3e5260;
+  border-radius: 999px;
+  background: rgba(6, 11, 15, 0.82);
+  color: #dce8f1;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.dropmedia-control:disabled {
+  opacity: 0.55;
+}
+
+.dropmedia-progress-label {
+  color: #a3b6c4;
+  font-size: 0.66rem;
+  letter-spacing: 0.03em;
+}
+
+.dropmedia-progress {
+  width: 100%;
+  accent-color: #7ca8c0;
 }
 
 .dropmedia-mode-row {
