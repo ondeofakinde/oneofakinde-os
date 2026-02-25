@@ -48,7 +48,8 @@ function buildOfferTimeline(
   listingIndex: number
 ): CollectOffer[] {
   const releaseTimestamp = Date.parse(`${drop.releaseDate}T12:00:00.000Z`) || Date.now();
-  const createdAt = new Date(releaseTimestamp + listingIndex * 60_000).toISOString();
+  const createdAtMs = releaseTimestamp + listingIndex * 60_000;
+  const createdAt = new Date(createdAtMs).toISOString();
   const baseOffer: CollectOffer = {
     id: formatOfferId(drop.id, listingIndex),
     dropId: drop.id,
@@ -68,18 +69,18 @@ function buildOfferTimeline(
   if (listingType === "auction") {
     const submitted = applyCollectOfferAction(baseOffer, "submit_offer", {
       amountUsd: toUsd(baseOffer.amountUsd * 1.06),
-      updatedAt: new Date(releaseTimestamp + 1000 * 60 * 20).toISOString()
+      updatedAt: new Date(createdAtMs + 1000 * 60 * 20).toISOString()
     });
     return [submitted];
   }
 
   const submitted = applyCollectOfferAction(baseOffer, "submit_offer", {
     amountUsd: toUsd(baseOffer.amountUsd * 0.94),
-    updatedAt: new Date(releaseTimestamp + 1000 * 60 * 15).toISOString()
+    updatedAt: new Date(createdAtMs + 1000 * 60 * 15).toISOString()
   });
   const countered = applyCollectOfferAction(submitted, "counter_offer", {
     amountUsd: toUsd(baseOffer.amountUsd * 1.01),
-    updatedAt: new Date(releaseTimestamp + 1000 * 60 * 28).toISOString()
+    updatedAt: new Date(createdAtMs + 1000 * 60 * 28).toISOString()
   });
   return [countered];
 }

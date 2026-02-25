@@ -22,6 +22,9 @@ export async function GET(
   ]);
   const snapshot = buildCollectInventorySnapshot(drops);
   const listing = snapshot.listings.find((entry) => entry.drop.id === dropId) ?? null;
+  if (!listing) {
+    return notFound("drop not found");
+  }
   const offers = snapshot.offersByDropId[dropId] ?? [];
 
   return ok({
