@@ -1,6 +1,7 @@
 import type {
   AccountRole,
   Certificate,
+  CollectEnforcementSignalType,
   CollectListingType,
   CollectOfferState,
   Drop,
@@ -127,6 +128,16 @@ export type CollectOfferRecord = {
   executionPriceUsd: number | null;
 };
 
+export type CollectEnforcementSignalRecord = {
+  id: string;
+  signalType: CollectEnforcementSignalType;
+  dropId: string | null;
+  offerId: string | null;
+  accountId: string | null;
+  reason: string;
+  occurredAt: string;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -147,6 +158,7 @@ export type BffDatabase = {
   townhallShares: TownhallShareRecord[];
   townhallTelemetryEvents: TownhallTelemetryEventRecord[];
   collectOffers: CollectOfferRecord[];
+  collectEnforcementSignals: CollectEnforcementSignalRecord[];
 };
 
 type MutationResult<T> = {
@@ -544,7 +556,8 @@ function createSeedDatabase(): BffDatabase {
         executionVisibility: "public",
         executionPriceUsd: null
       }
-    ]
+    ],
+    collectEnforcementSignals: []
   };
 }
 
@@ -564,7 +577,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     townhallComments: [],
     townhallShares: [],
     townhallTelemetryEvents: [],
-    collectOffers: []
+    collectOffers: [],
+    collectEnforcementSignals: []
   };
 }
 
@@ -588,7 +602,8 @@ function createEmptyDatabase(): BffDatabase {
     townhallComments: [],
     townhallShares: [],
     townhallTelemetryEvents: [],
-    collectOffers: []
+    collectOffers: [],
+    collectEnforcementSignals: []
   };
 }
 
@@ -615,7 +630,8 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.townhallComments) &&
     Array.isArray(candidate.townhallShares) &&
     Array.isArray(candidate.townhallTelemetryEvents) &&
-    Array.isArray(candidate.collectOffers)
+    Array.isArray(candidate.collectOffers) &&
+    Array.isArray(candidate.collectEnforcementSignals)
   );
 }
 
@@ -627,6 +643,7 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "townhallShares"
   | "townhallTelemetryEvents"
   | "collectOffers"
+  | "collectEnforcementSignals"
 > {
   if (!input || typeof input !== "object") {
     return false;
@@ -765,6 +782,54 @@ function normalizeCollectOfferRecords(events: CollectOfferRecord[]): CollectOffe
   }));
 }
 
+function normalizeCollectEnforcementSignalType(value: unknown): CollectEnforcementSignalType {
+  if (
+    value === "invalid_listing_action_blocked" ||
+    value === "invalid_amount_rejected" ||
+    value === "invalid_transition_blocked" ||
+    value === "unauthorized_transition_blocked" ||
+    value === "cross_drop_transition_blocked" ||
+    value === "invalid_settle_price_rejected" ||
+    value === "reaward_blocked"
+  ) {
+    return value;
+  }
+
+  return "invalid_transition_blocked";
+}
+
+function normalizeCollectEnforcementSignalRecords(
+  events: CollectEnforcementSignalRecord[]
+): CollectEnforcementSignalRecord[] {
+  return events.map((event) => {
+    const candidate = event as Partial<CollectEnforcementSignalRecord> & {
+      signalType?: unknown;
+      dropId?: unknown;
+      offerId?: unknown;
+      accountId?: unknown;
+      reason?: unknown;
+      occurredAt?: unknown;
+    };
+
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `sig_${randomUUID()}`,
+      signalType: normalizeCollectEnforcementSignalType(candidate.signalType),
+      dropId: typeof candidate.dropId === "string" && candidate.dropId.trim() ? candidate.dropId : null,
+      offerId: typeof candidate.offerId === "string" && candidate.offerId.trim() ? candidate.offerId : null,
+      accountId:
+        typeof candidate.accountId === "string" && candidate.accountId.trim() ? candidate.accountId : null,
+      reason:
+        typeof candidate.reason === "string" && candidate.reason.trim()
+          ? candidate.reason
+          : "enforcement signal recorded",
+      occurredAt:
+        typeof candidate.occurredAt === "string" && candidate.occurredAt.trim()
+          ? candidate.occurredAt
+          : new Date().toISOString()
+    };
+  });
+}
+
 function normalizeTownhallCommentVisibility(value: unknown): TownhallCommentVisibility {
   return value === "hidden" ? "hidden" : "visible";
 }
@@ -805,7 +870,10 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       ...input,
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
       townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents),
-      collectOffers: normalizeCollectOfferRecords(input.collectOffers)
+      collectOffers: normalizeCollectOfferRecords(input.collectOffers),
+      collectEnforcementSignals: normalizeCollectEnforcementSignalRecords(
+        input.collectEnforcementSignals
+      )
     };
   }
 
@@ -832,6 +900,11 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       collectOffers: Array.isArray(candidate.collectOffers)
         ? normalizeCollectOfferRecords(candidate.collectOffers as CollectOfferRecord[])
+        : [],
+      collectEnforcementSignals: Array.isArray(candidate.collectEnforcementSignals)
+        ? normalizeCollectEnforcementSignalRecords(
+            candidate.collectEnforcementSignals as CollectEnforcementSignalRecord[]
+          )
         : []
     };
   }
@@ -984,7 +1057,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallCommentsResult,
     townhallSharesResult,
     townhallTelemetryEventsResult,
-    collectOffersResult
+    collectOffersResult,
+    collectEnforcementSignalsResult
   ] = await Promise.all([
     client.query<{ key: string; value: string }>("SELECT key, value FROM bff_meta"),
     client.query<{ data: unknown }>("SELECT data FROM bff_catalog_drops ORDER BY id ASC"),
@@ -1077,6 +1151,17 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       executionPriceUsd: string | number | null;
     }>(
       'SELECT id, account_id AS "accountId", drop_id AS "dropId", listing_type AS "listingType", amount_usd AS "amountUsd", state, created_at AS "createdAt", updated_at AS "updatedAt", expires_at AS "expiresAt", execution_visibility AS "executionVisibility", execution_price_usd AS "executionPriceUsd" FROM bff_collect_offers ORDER BY updated_at DESC'
+    ),
+    client.query<{
+      id: string;
+      signalType: CollectEnforcementSignalType;
+      dropId: string | null;
+      offerId: string | null;
+      accountId: string | null;
+      reason: string;
+      occurredAt: string;
+    }>(
+      'SELECT id, signal_type AS "signalType", drop_id AS "dropId", offer_id AS "offerId", account_id AS "accountId", reason, occurred_at AS "occurredAt" FROM bff_collect_enforcement_signals ORDER BY occurred_at DESC'
     )
   ]);
 
@@ -1097,7 +1182,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallCommentsResult.rowCount === 0 &&
     townhallSharesResult.rowCount === 0 &&
     townhallTelemetryEventsResult.rowCount === 0 &&
-    collectOffersResult.rowCount === 0;
+    collectOffersResult.rowCount === 0 &&
+    collectEnforcementSignalsResult.rowCount === 0;
 
   if (isEmpty) {
     return null;
@@ -1182,6 +1268,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
             ? null
             : Number(row.executionPriceUsd)
       }))
+    ),
+    collectEnforcementSignals: normalizeCollectEnforcementSignalRecords(
+      collectEnforcementSignalsResult.rows
     )
   };
 }
@@ -1190,6 +1279,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   await client.query(`
     TRUNCATE TABLE
       bff_townhall_telemetry_events,
+      bff_collect_enforcement_signals,
       bff_collect_offers,
       bff_townhall_shares,
       bff_townhall_comments,
@@ -1386,6 +1476,21 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         offer.expiresAt,
         offer.executionVisibility,
         offer.executionPriceUsd
+      ]
+    );
+  }
+
+  for (const signal of db.collectEnforcementSignals) {
+    await client.query(
+      "INSERT INTO bff_collect_enforcement_signals (id, signal_type, drop_id, offer_id, account_id, reason, occurred_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [
+        signal.id,
+        signal.signalType,
+        signal.dropId,
+        signal.offerId,
+        signal.accountId,
+        signal.reason,
+        signal.occurredAt
       ]
     );
   }

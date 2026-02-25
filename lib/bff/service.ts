@@ -1,5 +1,10 @@
 import type {
   Certificate,
+  CollectEnforcementSignal,
+  CollectEnforcementSignalType,
+  CollectIntegrityFlag,
+  CollectIntegrityFlagSeverity,
+  CollectIntegritySnapshot,
   CollectInventoryListing,
   CollectMarketLane,
   CollectOffer,
@@ -33,6 +38,7 @@ import {
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import {
+  type CollectEnforcementSignalRecord,
   type CollectOfferRecord,
   createAccountFromEmail,
   getDropPriceTotalUsd,
@@ -53,6 +59,28 @@ const STRIPE_WEBHOOK_EVENT_LOG_LIMIT = 1000;
 const TOWNHALL_COMMENT_MAX_LENGTH = 600;
 const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
 const COLLECT_OFFERS_LOG_LIMIT = 50_000;
+const COLLECT_ENFORCEMENT_SIGNAL_LOG_LIMIT = 10_000;
+const COLLECT_INTEGRITY_RECENT_SIGNAL_LIMIT = 100;
+
+const COLLECT_ENFORCEMENT_SIGNAL_TYPES: CollectEnforcementSignalType[] = [
+  "invalid_listing_action_blocked",
+  "invalid_amount_rejected",
+  "invalid_transition_blocked",
+  "unauthorized_transition_blocked",
+  "cross_drop_transition_blocked",
+  "invalid_settle_price_rejected",
+  "reaward_blocked"
+];
+
+const COLLECT_SIGNAL_SEVERITY: Record<CollectEnforcementSignalType, CollectIntegrityFlagSeverity> = {
+  invalid_listing_action_blocked: "warning",
+  invalid_amount_rejected: "warning",
+  invalid_transition_blocked: "warning",
+  unauthorized_transition_blocked: "critical",
+  cross_drop_transition_blocked: "critical",
+  invalid_settle_price_rejected: "warning",
+  reaward_blocked: "info"
+};
 
 const TOWNHALL_SHARE_CHANNEL_SET = new Set<TownhallShareChannel>([
   "sms",
@@ -607,6 +635,155 @@ function trimCollectOffers(db: BffDatabase): void {
   if (db.collectOffers.length > COLLECT_OFFERS_LOG_LIMIT) {
     db.collectOffers.length = COLLECT_OFFERS_LOG_LIMIT;
   }
+}
+
+function trimCollectEnforcementSignals(db: BffDatabase): void {
+  if (db.collectEnforcementSignals.length > COLLECT_ENFORCEMENT_SIGNAL_LOG_LIMIT) {
+    db.collectEnforcementSignals.length = COLLECT_ENFORCEMENT_SIGNAL_LOG_LIMIT;
+  }
+}
+
+function recordCollectEnforcementSignalInDatabase(
+  db: BffDatabase,
+  input: {
+    signalType: CollectEnforcementSignalType;
+    reason: string;
+    dropId?: string | null;
+    offerId?: string | null;
+    accountId?: string | null;
+    occurredAt?: string;
+  }
+): CollectEnforcementSignalRecord {
+  const signal: CollectEnforcementSignalRecord = {
+    id: `sig_${randomUUID()}`,
+    signalType: input.signalType,
+    dropId: input.dropId ?? null,
+    offerId: input.offerId ?? null,
+    accountId: input.accountId ?? null,
+    reason: input.reason.trim() || "collect enforcement signal",
+    occurredAt: input.occurredAt ?? new Date().toISOString()
+  };
+
+  db.collectEnforcementSignals.unshift(signal);
+  trimCollectEnforcementSignals(db);
+  return signal;
+}
+
+function toCollectEnforcementSignal(record: CollectEnforcementSignalRecord): CollectEnforcementSignal {
+  return {
+    id: record.id,
+    signalType: record.signalType,
+    dropId: record.dropId,
+    offerId: record.offerId,
+    accountId: record.accountId,
+    reason: record.reason,
+    occurredAt: record.occurredAt
+  };
+}
+
+function emptyCollectSignalCounts(): Record<CollectEnforcementSignalType, number> {
+  return {
+    invalid_listing_action_blocked: 0,
+    invalid_amount_rejected: 0,
+    invalid_transition_blocked: 0,
+    unauthorized_transition_blocked: 0,
+    cross_drop_transition_blocked: 0,
+    invalid_settle_price_rejected: 0,
+    reaward_blocked: 0
+  };
+}
+
+function buildCollectIntegritySnapshot(
+  db: BffDatabase,
+  input?: {
+    dropId?: string | null;
+    limit?: number;
+  }
+): CollectIntegritySnapshot {
+  const scopedDropId = input?.dropId?.trim() || null;
+  const limit = Math.max(
+    1,
+    Math.min(COLLECT_INTEGRITY_RECENT_SIGNAL_LIMIT, Math.floor(input?.limit ?? 25))
+  );
+  const scopedSignals = db.collectEnforcementSignals.filter((signal) =>
+    scopedDropId ? signal.dropId === scopedDropId : true
+  );
+
+  const signalCounts = emptyCollectSignalCounts();
+  const latestByType = new Map<CollectEnforcementSignalType, CollectEnforcementSignalRecord>();
+
+  for (const signal of scopedSignals) {
+    signalCounts[signal.signalType] += 1;
+    if (!latestByType.has(signal.signalType)) {
+      latestByType.set(signal.signalType, signal);
+    }
+  }
+
+  const flags: CollectIntegrityFlag[] = [];
+  for (const signalType of COLLECT_ENFORCEMENT_SIGNAL_TYPES) {
+    const count = signalCounts[signalType];
+    if (count <= 0) {
+      continue;
+    }
+
+    const latest = latestByType.get(signalType);
+    if (!latest) {
+      continue;
+    }
+
+    flags.push({
+      code: signalType,
+      severity: COLLECT_SIGNAL_SEVERITY[signalType],
+      dropId: scopedDropId,
+      count,
+      lastOccurredAt: latest.occurredAt,
+      reason: latest.reason
+    });
+  }
+
+  const settledByDrop = new Map<string, number>();
+  for (const offer of db.collectOffers) {
+    if (offer.state !== "settled") {
+      continue;
+    }
+
+    if (scopedDropId && offer.dropId !== scopedDropId) {
+      continue;
+    }
+
+    settledByDrop.set(offer.dropId, (settledByDrop.get(offer.dropId) ?? 0) + 1);
+  }
+
+  const multiSettledDrops = Array.from(settledByDrop.entries()).filter(([, count]) => count > 1);
+  if (multiSettledDrops.length > 0) {
+    if (scopedDropId) {
+      const settledCount = multiSettledDrops[0]?.[1] ?? 0;
+      flags.push({
+        code: "multiple_settled_offers",
+        severity: "critical",
+        dropId: scopedDropId,
+        count: settledCount,
+        lastOccurredAt: new Date().toISOString(),
+        reason: "multiple settled offers found for one drop"
+      });
+    } else {
+      flags.push({
+        code: "multiple_settled_offers",
+        severity: "critical",
+        dropId: null,
+        count: multiSettledDrops.length,
+        lastOccurredAt: new Date().toISOString(),
+        reason: "multiple drops have more than one settled offer"
+      });
+    }
+  }
+
+  return {
+    dropId: scopedDropId,
+    flags,
+    signalCounts,
+    recentSignals: scopedSignals.slice(0, limit).map(toCollectEnforcementSignal)
+  };
 }
 
 function buildCollectInventoryView(
@@ -1446,6 +1623,30 @@ export const commerceBffService = {
     }));
   },
 
+  async getCollectIntegritySnapshot(input?: {
+    dropId?: string | null;
+    limit?: number;
+  }): Promise<CollectIntegritySnapshot> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: buildCollectIntegritySnapshot(db, input)
+    }));
+  },
+
+  async recordCollectEnforcementSignal(input: {
+    signalType: CollectEnforcementSignalType;
+    reason: string;
+    dropId?: string | null;
+    offerId?: string | null;
+    accountId?: string | null;
+    occurredAt?: string;
+  }): Promise<CollectEnforcementSignal> {
+    return withDatabase(async (db) => ({
+      persist: true,
+      result: toCollectEnforcementSignal(recordCollectEnforcementSignalInDatabase(db, input))
+    }));
+  },
+
   async submitCollectResaleOffer(input: {
     accountId: string;
     dropId: string;
@@ -1463,16 +1664,28 @@ export const commerceBffService = {
 
       const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
       if (listingType !== "resale") {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "invalid_listing_action_blocked",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "resale offer submission attempted on non-resale drop"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
 
       const normalizedAmount = normalizePositiveAmountUsd(input.amountUsd);
       if (normalizedAmount === null) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "invalid_amount_rejected",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "resale offer amount must be positive"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
@@ -1512,16 +1725,28 @@ export const commerceBffService = {
 
       const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
       if (listingType !== "auction") {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "invalid_listing_action_blocked",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "auction bid submission attempted on non-auction drop"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
 
       const normalizedAmount = normalizePositiveAmountUsd(input.amountUsd);
       if (normalizedAmount === null) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "invalid_amount_rejected",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "auction bid amount must be positive"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
@@ -1560,8 +1785,14 @@ export const commerceBffService = {
 
       const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
       if (listingType !== "auction" || !canModerateCollectOfferTransition(account, drop)) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "unauthorized_transition_blocked",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "auction award attempted without creator authorization"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
@@ -1571,8 +1802,14 @@ export const commerceBffService = {
         (offer) => offer.state === "accepted" || offer.state === "settled"
       );
       if (hasLockedAuctionWinner) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "reaward_blocked",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "auction award attempted while winner already accepted or settled"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
@@ -1637,8 +1874,14 @@ export const commerceBffService = {
 
       const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
       if (listingType !== "auction" || !canModerateCollectOfferTransition(account, drop)) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "unauthorized_transition_blocked",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "auction settle attempted without creator authorization"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
@@ -1647,8 +1890,14 @@ export const commerceBffService = {
         (offer) => offer.state === "accepted"
       );
       if (!acceptedOffer) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "invalid_transition_blocked",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "auction settle attempted without accepted offer"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
@@ -1677,8 +1926,15 @@ export const commerceBffService = {
       if (input.executionPriceUsd !== undefined) {
         const explicitExecution = normalizePositiveAmountUsd(input.executionPriceUsd);
         if (explicitExecution === null) {
+          recordCollectEnforcementSignalInDatabase(db, {
+            signalType: "invalid_settle_price_rejected",
+            dropId: drop.id,
+            offerId: acceptedOffer.id,
+            accountId: account.id,
+            reason: "auction settle execution price must be positive"
+          });
           return {
-            persist: false,
+            persist: true,
             result: null
           };
         }
@@ -1715,8 +1971,14 @@ export const commerceBffService = {
 
       const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
       if (listingType !== "auction" || !canModerateCollectOfferTransition(account, drop)) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "unauthorized_transition_blocked",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "auction fallback attempted without creator authorization"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
@@ -1724,8 +1986,14 @@ export const commerceBffService = {
       const offers = getDropAuctionOffers(db, drop.id);
       const acceptedOffer = offers.find((offer) => offer.state === "accepted");
       if (!acceptedOffer) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "invalid_transition_blocked",
+          dropId: drop.id,
+          accountId: account.id,
+          reason: "auction fallback attempted without accepted offer"
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
@@ -1821,15 +2089,29 @@ export const commerceBffService = {
       }
 
       if (!canApplyCollectOfferAction(offer.state, input.action)) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "invalid_transition_blocked",
+          dropId: offer.dropId,
+          offerId: offer.id,
+          accountId: account.id,
+          reason: `invalid offer transition requested: ${offer.state} -> ${input.action}`
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
 
       if (!canTransitionCollectOffer(db, account, offer, input.action)) {
+        recordCollectEnforcementSignalInDatabase(db, {
+          signalType: "unauthorized_transition_blocked",
+          dropId: offer.dropId,
+          offerId: offer.id,
+          accountId: account.id,
+          reason: `offer transition blocked for account role: ${input.action}`
+        });
         return {
-          persist: false,
+          persist: true,
           result: null
         };
       }
@@ -1865,8 +2147,15 @@ export const commerceBffService = {
         if (input.executionPriceUsd !== undefined) {
           const explicitExecution = normalizePositiveAmountUsd(input.executionPriceUsd);
           if (explicitExecution === null) {
+            recordCollectEnforcementSignalInDatabase(db, {
+              signalType: "invalid_settle_price_rejected",
+              dropId: offer.dropId,
+              offerId: offer.id,
+              accountId: account.id,
+              reason: "offer settle execution price must be positive"
+            });
             return {
-              persist: false,
+              persist: true,
               result: null
             };
           }

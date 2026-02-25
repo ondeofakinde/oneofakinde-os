@@ -118,12 +118,24 @@ export async function POST(
   }
   const parsedExecutionPrice = parseOptionalExecutionPriceUsd(body);
   if (!parsedExecutionPrice.ok) {
+    await commerceBffService.recordCollectEnforcementSignal({
+      signalType: "invalid_settle_price_rejected",
+      dropId,
+      accountId: guard.session.accountId,
+      reason: `invalid executionPriceUsd for action ${action}`
+    });
     return parsedExecutionPrice.response;
   }
 
   if (action === "submit_resale_fixed_offer") {
     const rawAmount = body?.amountUsd;
     if (typeof rawAmount !== "number" || !Number.isFinite(rawAmount) || rawAmount <= 0) {
+      await commerceBffService.recordCollectEnforcementSignal({
+        signalType: "invalid_amount_rejected",
+        dropId,
+        accountId: guard.session.accountId,
+        reason: "resale offer amount must be a positive number"
+      });
       return badRequest("amountUsd must be a positive number");
     }
 
@@ -150,6 +162,12 @@ export async function POST(
   if (action === "submit_auction_bid") {
     const rawAmount = body?.amountUsd;
     if (typeof rawAmount !== "number" || !Number.isFinite(rawAmount) || rawAmount <= 0) {
+      await commerceBffService.recordCollectEnforcementSignal({
+        signalType: "invalid_amount_rejected",
+        dropId,
+        accountId: guard.session.accountId,
+        reason: "auction bid amount must be a positive number"
+      });
       return badRequest("amountUsd must be a positive number");
     }
 
@@ -247,6 +265,12 @@ export async function POST(
   }
 
   if (!isCollectOfferAction(action)) {
+    await commerceBffService.recordCollectEnforcementSignal({
+      signalType: "invalid_transition_blocked",
+      dropId,
+      accountId: guard.session.accountId,
+      reason: `unsupported collect action: ${action}`
+    });
     return badRequest("unsupported action");
   }
 
@@ -259,6 +283,13 @@ export async function POST(
     return notFound("drop not found");
   }
   if (!current.offers.some((offer) => offer.id === offerId)) {
+    await commerceBffService.recordCollectEnforcementSignal({
+      signalType: "cross_drop_transition_blocked",
+      dropId,
+      offerId,
+      accountId: guard.session.accountId,
+      reason: "offer transition rejected because offer does not belong to drop"
+    });
     return notFound("offer not found");
   }
 
