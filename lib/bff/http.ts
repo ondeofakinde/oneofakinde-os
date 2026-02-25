@@ -16,6 +16,10 @@ export function unauthorized(message = "unauthorized"): NextResponse<{ error: st
   return NextResponse.json({ error: message }, { status: 401 });
 }
 
+export function forbidden(message = "forbidden"): NextResponse<{ error: string }> {
+  return NextResponse.json({ error: message }, { status: 403 });
+}
+
 export function getRequiredSearchParam(url: URL, key: string): string | null {
   const value = url.searchParams.get(key)?.trim();
   return value || null;

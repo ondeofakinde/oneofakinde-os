@@ -20,6 +20,12 @@ import {
   type TownhallShowroomMediaFilter,
   type TownhallShowroomOrdering
 } from "@/lib/townhall/showroom-query";
+import {
+  buildTownhallFeedHrefWithFocus,
+  resolveTownhallFeedActiveIndex,
+  routeForTownhallMediaFilter,
+  type TownhallFeedFocus
+} from "@/lib/townhall/feed-focus";
 import Link from "next/link";
 import type { UrlObject } from "node:url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -48,6 +54,8 @@ type TownhallFeedScreenProps = {
   pageSize?: number;
   showroomMedia?: TownhallShowroomMediaFilter | string;
   showroomOrdering?: TownhallShowroomOrdering | string;
+  initialFocusDropId?: string | null;
+  initialFocusPosition?: number | null;
 };
 
 type TownhallPanel = "comments" | "collect" | "share";
@@ -265,14 +273,28 @@ export function TownhallFeedScreen({
   initialHasMore = false,
   pageSize = DEFAULT_TOWNHALL_FEED_PAGE_SIZE,
   showroomMedia = DEFAULT_TOWNHALL_SHOWROOM_MEDIA_FILTER,
-  showroomOrdering = DEFAULT_TOWNHALL_SHOWROOM_ORDERING
+  showroomOrdering = DEFAULT_TOWNHALL_SHOWROOM_ORDERING,
+  initialFocusDropId = null,
+  initialFocusPosition = null
 }: TownhallFeedScreenProps) {
   const parsedShowroomOrdering = parseTownhallShowroomOrdering(showroomOrdering);
   const parsedShowroomMedia = parseTownhallShowroomMediaFilter(showroomMedia);
   const effectiveShowroomMedia = mode === "townhall" ? parsedShowroomMedia : mode;
+  const initialFocus = useMemo<TownhallFeedFocus>(
+    () => ({
+      dropId: initialFocusDropId ?? null,
+      position:
+        typeof initialFocusPosition === "number" && Number.isFinite(initialFocusPosition)
+          ? Math.max(1, Math.floor(initialFocusPosition))
+          : null
+    }),
+    [initialFocusDropId, initialFocusPosition]
+  );
 
   const [feedDrops, setFeedDrops] = useState<Drop[]>(drops);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(() =>
+    resolveTownhallFeedActiveIndex(drops, initialFocus)
+  );
   const [isImmersive, setIsImmersive] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -314,6 +336,7 @@ export function TownhallFeedScreen({
   const previewStartedDropIdsRef = useRef<Set<string>>(new Set());
   const accessStartedDropIdsRef = useRef<Set<string>>(new Set());
   const watchTimeDropPositionRef = useRef<number>(0);
+  const appliedInitialFocusRef = useRef(false);
 
   const failedPreviewAssetKeySet = useMemo(
     () => new Set(failedPreviewAssetKeys),
@@ -456,7 +479,9 @@ export function TownhallFeedScreen({
     openedDropIdsRef.current.clear();
     previewStartedDropIdsRef.current.clear();
     accessStartedDropIdsRef.current.clear();
-  }, [drops, ownedDropIds, initialNextCursor, initialHasMore]);
+    appliedInitialFocusRef.current = false;
+    setActiveIndex(resolveTownhallFeedActiveIndex(drops, initialFocus));
+  }, [drops, ownedDropIds, initialNextCursor, initialHasMore, initialFocus]);
 
   useEffect(() => {
     setSocialByDrop((current) => {
@@ -471,6 +496,27 @@ export function TownhallFeedScreen({
       return upsertSocialMap(merged, feedDrops);
     });
   }, [feedDrops, initialSocialByDropId]);
+
+  useEffect(() => {
+    if (appliedInitialFocusRef.current) {
+      return;
+    }
+
+    if (activeIndex <= 0) {
+      appliedInitialFocusRef.current = true;
+      return;
+    }
+
+    const target = itemRefs.current[activeIndex];
+    if (!target) {
+      return;
+    }
+
+    appliedInitialFocusRef.current = true;
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "auto", block: "start" });
+    });
+  }, [activeIndex, feedDrops.length]);
 
   useEffect(() => {
     const nowMs = Date.now();
@@ -759,17 +805,8 @@ export function TownhallFeedScreen({
     return `${shareOrigin}${routes.drop(dropId)}`;
   }
 
-  function routeForMediaFilter(mediaFilter: TownhallShowroomMediaFilter): string {
-    if (mediaFilter === "watch") return routes.townhallWatch();
-    if (mediaFilter === "listen") return routes.townhallListen();
-    if (mediaFilter === "read") return routes.townhallRead();
-    if (mediaFilter === "photos") return routes.townhallPhotos();
-    if (mediaFilter === "live") return routes.townhallLive();
-    return routes.townhall();
-  }
-
   function showroomHref(mediaFilter: TownhallShowroomMediaFilter, ordering: TownhallShowroomOrdering): UrlObject {
-    const pathname = routeForMediaFilter(mediaFilter);
+    const pathname = routeForTownhallMediaFilter(mediaFilter);
     if (ordering !== DEFAULT_TOWNHALL_SHOWROOM_ORDERING) {
       return {
         pathname,
@@ -786,7 +823,7 @@ export function TownhallFeedScreen({
     mediaFilter: TownhallShowroomMediaFilter,
     ordering: TownhallShowroomOrdering
   ): string {
-    const pathname = routeForMediaFilter(mediaFilter);
+    const pathname = routeForTownhallMediaFilter(mediaFilter);
     if (ordering === DEFAULT_TOWNHALL_SHOWROOM_ORDERING) {
       return pathname;
     }
@@ -796,6 +833,22 @@ export function TownhallFeedScreen({
 
   function currentFeedHref(): string {
     return showroomHrefString(effectiveShowroomMedia, parsedShowroomOrdering);
+  }
+
+  function dropOpenHref(dropId: string, position: number): UrlObject {
+    const returnTo = buildTownhallFeedHrefWithFocus({
+      mediaFilter: effectiveShowroomMedia,
+      ordering: parsedShowroomOrdering,
+      focusDropId: dropId,
+      focusPosition: position
+    });
+
+    return {
+      pathname: routes.drop(dropId),
+      query: {
+        returnTo
+      }
+    };
   }
 
   function redirectToSignInForInteraction() {
@@ -988,6 +1041,38 @@ export function TownhallFeedScreen({
     }
 
     setCommentDraft("");
+  }
+
+  async function handleCommentReport(dropId: string, commentId: string) {
+    if (!viewer) {
+      redirectToSignInForInteraction();
+      return;
+    }
+
+    const social = await postSocialMutation(
+      `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/report`
+    );
+    if (social) {
+      applySocialSnapshot(social);
+    }
+  }
+
+  async function handleCommentModeration(
+    dropId: string,
+    commentId: string,
+    action: "hide" | "restore"
+  ) {
+    if (!viewer) {
+      redirectToSignInForInteraction();
+      return;
+    }
+
+    const social = await postSocialMutation(
+      `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/${action}`
+    );
+    if (social) {
+      applySocialSnapshot(social);
+    }
   }
 
   async function recordShare(dropId: string, channel: TownhallShareChannel) {
@@ -1444,10 +1529,42 @@ export function TownhallFeedScreen({
                       <ul className="townhall-comment-list">
                         {comments.map((comment) => (
                           <li key={comment.id}>
-                            <p>
-                              <strong>@{comment.authorHandle}</strong> · {formatRelativeAge(comment.createdAt)}
+                            <div className="townhall-comment-head">
+                              <p>
+                                <strong>@{comment.authorHandle}</strong> · {formatRelativeAge(comment.createdAt)}
+                              </p>
+                              <div className="townhall-comment-actions">
+                                {comment.canReport ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void handleCommentReport(drop.id, comment.id);
+                                    }}
+                                  >
+                                    report
+                                  </button>
+                                ) : null}
+                                {comment.canModerate ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void handleCommentModeration(
+                                        drop.id,
+                                        comment.id,
+                                        comment.visibility === "hidden" ? "restore" : "hide"
+                                      );
+                                    }}
+                                  >
+                                    {comment.visibility === "hidden" ? "restore" : "hide"}
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                            <p className={comment.visibility === "hidden" ? "townhall-comment-hidden" : undefined}>
+                              {comment.visibility === "hidden"
+                                ? "comment hidden by moderation."
+                                : comment.body}
                             </p>
-                            <p>{comment.body}</p>
                           </li>
                         ))}
                       </ul>
@@ -1502,7 +1619,7 @@ export function TownhallFeedScreen({
                       </dl>
                       <div className="townhall-overlay-actions">
                         <Link
-                          href={routes.drop(drop.id)}
+                          href={dropOpenHref(drop.id, index + 1)}
                           onClick={() => {
                             void postTelemetryEvent(drop.id, "access_start", {
                               metadata: telemetryMetadata({

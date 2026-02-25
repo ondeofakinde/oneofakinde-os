@@ -6,6 +6,9 @@ import test from "node:test";
 import { GET as getLibraryRoute } from "../../app/api/v1/library/route";
 import { GET as getTownhallSocialRoute } from "../../app/api/v1/townhall/social/route";
 import { POST as postTownhallCommentRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/route";
+import { POST as postTownhallCommentHideRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/[comment_id]/hide/route";
+import { POST as postTownhallCommentReportRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/[comment_id]/report/route";
+import { POST as postTownhallCommentRestoreRoute } from "../../app/api/v1/townhall/social/comments/[drop_id]/[comment_id]/restore/route";
 import { POST as postTownhallLikeRoute } from "../../app/api/v1/townhall/social/likes/[drop_id]/route";
 import { POST as postTownhallSaveRoute } from "../../app/api/v1/townhall/social/saves/[drop_id]/route";
 import { POST as postTownhallShareRoute } from "../../app/api/v1/townhall/social/shares/[drop_id]/route";
@@ -49,6 +52,14 @@ test("proof: townhall social actions persist via bff routes", async (t) => {
   const session = await commerceBffService.createSession({
     email: `townhall-social-${randomUUID()}@oneofakinde.test`,
     role: "collector"
+  });
+  const reporterSession = await commerceBffService.createSession({
+    email: `townhall-social-reporter-${randomUUID()}@oneofakinde.test`,
+    role: "collector"
+  });
+  const creatorSession = await commerceBffService.createSession({
+    email: "oneofakinde@oneofakinde.test",
+    role: "creator"
   });
 
   const drop = (await commerceBffService.listDrops())[0];
@@ -104,6 +115,94 @@ test("proof: townhall social actions persist via bff routes", async (t) => {
   assert.equal(commentPayload.social.commentCount, baseline.commentCount + 1);
   assert.equal(commentPayload.social.comments[0]?.body, commentBody);
   assert.equal(commentPayload.social.comments[0]?.authorHandle, session.handle);
+  assert.equal(commentPayload.social.comments[0]?.visibility, "visible");
+  assert.equal(commentPayload.social.comments[0]?.canModerate, true);
+  assert.equal(commentPayload.social.comments[0]?.canReport, false);
+  const createdCommentId = commentPayload.social.comments[0]?.id;
+  assert.ok(createdCommentId, "expected created comment id");
+
+  const reportResponse = await postTownhallCommentReportRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdCommentId}/report`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": reporterSession.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(reportResponse.status, 201);
+  const reportPayload = await parseJson<{ social: TownhallDropSocialSnapshot }>(reportResponse);
+  assert.equal(reportPayload.social.comments[0]?.reportCount, 1);
+
+  const forbiddenHideResponse = await postTownhallCommentHideRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdCommentId}/hide`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": reporterSession.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(forbiddenHideResponse.status, 403);
+
+  const hideResponse = await postTownhallCommentHideRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdCommentId}/hide`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": creatorSession.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(hideResponse.status, 200);
+  const hidePayload = await parseJson<{ social: TownhallDropSocialSnapshot }>(hideResponse);
+  assert.equal(hidePayload.social.commentCount, baseline.commentCount);
+  const creatorComment = hidePayload.social.comments.find((entry) => entry.id === createdCommentId);
+  assert.ok(creatorComment, "expected creator moderator view of hidden comment");
+  assert.equal(creatorComment?.visibility, "hidden");
+  assert.equal(creatorComment?.canModerate, true);
+
+  const publicAfterHideResponse = await getTownhallSocialRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/townhall/social?drop_ids=${encodeURIComponent(drop.id)}`)
+  );
+  assert.equal(publicAfterHideResponse.status, 200);
+  const publicAfterHidePayload = await parseJson<{
+    social: { byDropId: Record<string, TownhallDropSocialSnapshot> };
+  }>(publicAfterHideResponse);
+  const publicHiddenDrop = socialForDrop(publicAfterHidePayload.social.byDropId, drop.id);
+  assert.ok(
+    !publicHiddenDrop.comments.some((entry) => entry.id === createdCommentId),
+    "expected hidden comment to stay out of public comment list"
+  );
+  assert.equal(publicHiddenDrop.commentCount, baseline.commentCount);
+
+  const restoreResponse = await postTownhallCommentRestoreRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/townhall/social/comments/${drop.id}/${createdCommentId}/restore`,
+      {
+        method: "POST",
+        headers: {
+          "x-ook-session-token": creatorSession.sessionToken
+        }
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(restoreResponse.status, 200);
+  const restorePayload = await parseJson<{ social: TownhallDropSocialSnapshot }>(restoreResponse);
+  assert.equal(restorePayload.social.commentCount, baseline.commentCount + 1);
+  const restoredComment = restorePayload.social.comments.find((entry) => entry.id === createdCommentId);
+  assert.ok(restoredComment, "expected restored comment in social snapshot");
+  assert.equal(restoredComment?.visibility, "visible");
 
   const saveResponse = await postTownhallSaveRoute(
     new Request(`http://127.0.0.1:3000/api/v1/townhall/social/saves/${drop.id}`, {
@@ -152,7 +251,7 @@ test("proof: townhall social actions persist via bff routes", async (t) => {
   assert.equal(refreshed.likeCount, baseline.likeCount + 1);
   assert.equal(refreshed.commentCount, baseline.commentCount + 1);
   assert.equal(refreshed.shareCount, baseline.shareCount + 1);
-  assert.equal(refreshed.comments[0]?.body, commentBody);
+  assert.equal(refreshed.comments.find((entry) => entry.id === createdCommentId)?.body, commentBody);
 
   const libraryResponse = await getLibraryRoute(
     new Request("http://127.0.0.1:3000/api/v1/library", {
@@ -176,4 +275,3 @@ test("proof: townhall social actions persist via bff routes", async (t) => {
     "expected saved drop in persisted library snapshot"
   );
 });
-

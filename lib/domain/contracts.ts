@@ -123,12 +123,18 @@ export type LibrarySnapshot = {
 
 export type TownhallShareChannel = "sms" | "internal_dm" | "whatsapp" | "telegram";
 
+export type TownhallCommentVisibility = "visible" | "hidden";
+
 export type TownhallComment = {
   id: string;
   dropId: string;
   authorHandle: string;
   body: string;
   createdAt: string;
+  visibility: TownhallCommentVisibility;
+  reportCount: number;
+  canModerate: boolean;
+  canReport: boolean;
 };
 
 export type TownhallDropSocialSnapshot = {

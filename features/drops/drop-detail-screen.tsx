@@ -2,15 +2,17 @@ import { formatUsd } from "@/features/shared/format";
 import type { Drop, Session } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
+import type { UrlObject } from "node:url";
 
 type DropDetailScreenProps = {
   drop: Drop;
   session: Session | null;
+  backHref: UrlObject;
 };
 
 const PRICE_HISTORY = [18, 22, 19, 24, 26, 28, 31, 29, 34, 36, 39, 42];
 
-export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
+export function DropDetailScreen({ drop, session, backHref }: DropDetailScreenProps) {
   const collectHref = session
     ? routes.collectDrop(drop.id)
     : routes.signIn(routes.collectDrop(drop.id));
@@ -21,7 +23,7 @@ export function DropDetailScreen({ drop, session }: DropDetailScreenProps) {
     <main className="dropflow-page">
       <section className="dropflow-phone-shell" aria-label="drop detail surface">
         <header className="dropflow-header">
-          <Link href={routes.townhall()} className="dropflow-icon-link" aria-label="back to townhall">
+          <Link href={backHref} className="dropflow-icon-link" aria-label="back to townhall">
             ←
           </Link>
           <p className="dropflow-brand">oneofakinde</p>
