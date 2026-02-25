@@ -156,6 +156,21 @@ test("proof: auction bids can be awarded and settled with public execution price
   assert.equal(persisted?.state, "settled");
   assert.equal(persisted?.executionVisibility, "public");
   assert.equal(persisted?.executionPriceUsd, 14.95);
+
+  const reawardResponse = await postCollectDropOffersRoute(
+    new Request(`http://127.0.0.1:3000/api/v1/collect/offers/${auctionDropId}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ook-session-token": creator.sessionToken
+      },
+      body: JSON.stringify({
+        action: "award_highest_auction_bid"
+      })
+    }),
+    withRouteParams({ drop_id: auctionDropId })
+  );
+  assert.equal(reawardResponse.status, 400);
 });
 
 test("proof: auction fallback expires current winner and awards next bid", async (t) => {

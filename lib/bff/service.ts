@@ -1567,8 +1567,10 @@ export const commerceBffService = {
       }
 
       const offers = getDropAuctionOffers(db, drop.id);
-      const hasAcceptedOffer = offers.some((offer) => offer.state === "accepted");
-      if (hasAcceptedOffer) {
+      const hasLockedAuctionWinner = offers.some(
+        (offer) => offer.state === "accepted" || offer.state === "settled"
+      );
+      if (hasLockedAuctionWinner) {
         return {
           persist: false,
           result: null
