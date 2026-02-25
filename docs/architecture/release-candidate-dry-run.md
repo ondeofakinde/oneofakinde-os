@@ -55,12 +55,16 @@ Any failed check exits non-zero.
 - `rc-07`: entitlement gate returns `true` for owned drop
 - `rc-08`: social actions persist through BFF
 - `rc-09`: telemetry ingest accepts watch/completion/collect-intent
+- `rc-10`: townhall ui contract proof is green (`tests/proofs/townhall-ui-contract.test.ts`)
+- `rc-11`: manual townhall freeze matrix rows are all `PASS` (`docs/architecture/townhall-immersive-qa-matrix.md`)
 
 ## Freeze Gate
 
 Do not cut release if any of these are true:
 
 - dry run has one or more `FAIL`
+- `rc-10` proof is red
+- `rc-11` matrix has `TBD` or `FAIL`
 - `npm run test:proofs` is red
 - `npm run build` is red
 - required PR checks in `config/release-required-checks.json` are not green
