@@ -128,7 +128,8 @@ function mergeTelemetrySignals(
   return {
     watchTimeSeconds: override?.watchTimeSeconds ?? 0,
     completions: override?.completions ?? 0,
-    collectIntents: override?.collectIntents ?? 0
+    collectIntents: override?.collectIntents ?? 0,
+    impressions: override?.impressions ?? 0
   };
 }
 

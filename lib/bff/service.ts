@@ -50,7 +50,8 @@ const TOWNHALL_SHARE_CHANNEL_SET = new Set<TownhallShareChannel>([
 const TOWNHALL_TELEMETRY_EVENT_SET = new Set<TownhallTelemetryEventType>([
   "watch_time",
   "completion",
-  "collect_intent"
+  "collect_intent",
+  "impression"
 ]);
 const TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT = 100_000;
 const MAX_WATCH_TIME_SECONDS_PER_EVENT = 600;
@@ -375,7 +376,8 @@ function emptyTelemetrySignals(): TownhallTelemetrySignals {
   return {
     watchTimeSeconds: 0,
     completions: 0,
-    collectIntents: 0
+    collectIntents: 0,
+    impressions: 0
   };
 }
 
@@ -401,6 +403,8 @@ function buildTownhallTelemetrySignals(
       current.completions += 1;
     } else if (event.eventType === "collect_intent") {
       current.collectIntents += 1;
+    } else if (event.eventType === "impression") {
+      current.impressions += 1;
     }
 
     byDropId[event.dropId] = current;

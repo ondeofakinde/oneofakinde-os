@@ -96,10 +96,25 @@ test("proof: townhall telemetry events persist and aggregate for ranking", async
   const collectPayload = await parseJson<{ accepted: boolean }>(collectIntentResponse);
   assert.equal(collectPayload.accepted, true);
 
+  const impressionResponse = await postTownhallTelemetryRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/telemetry", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        dropId: drop.id,
+        eventType: "impression"
+      })
+    })
+  );
+  assert.equal(impressionResponse.status, 202);
+
   const signals = await commerceBffService.getTownhallTelemetrySignals([drop.id]);
   assert.equal(signals[drop.id]?.completions, 1);
   assert.equal(signals[drop.id]?.collectIntents, 1);
   assert.equal(signals[drop.id]?.watchTimeSeconds, 21.4);
+  assert.equal(signals[drop.id]?.impressions, 1);
 
   const raw = JSON.parse(await fs.readFile(dbPath, "utf8")) as {
     townhallTelemetryEvents: Array<{
@@ -110,10 +125,11 @@ test("proof: townhall telemetry events persist and aggregate for ranking", async
   };
 
   const dropEvents = raw.townhallTelemetryEvents.filter((entry) => entry.dropId === drop.id);
-  assert.equal(dropEvents.length, 3);
+  assert.equal(dropEvents.length, 4);
   assert.ok(dropEvents.some((entry) => entry.eventType === "watch_time" && entry.accountId === null));
   assert.ok(dropEvents.some((entry) => entry.eventType === "completion" && entry.accountId === session.accountId));
   assert.ok(
     dropEvents.some((entry) => entry.eventType === "collect_intent" && entry.accountId === session.accountId)
   );
+  assert.ok(dropEvents.some((entry) => entry.eventType === "impression" && entry.accountId === null));
 });
