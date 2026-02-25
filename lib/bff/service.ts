@@ -1507,10 +1507,16 @@ export const commerceBffService = {
       offer.amountUsd = transitioned.amountUsd;
 
       if (input.action === "settle_offer") {
-        const normalizedExecution =
-          typeof input.executionPriceUsd === "number" && Number.isFinite(input.executionPriceUsd)
-            ? Number(input.executionPriceUsd.toFixed(2))
-            : offer.amountUsd;
+        let normalizedExecution = offer.amountUsd;
+        if (typeof input.executionPriceUsd === "number") {
+          if (!Number.isFinite(input.executionPriceUsd) || input.executionPriceUsd <= 0) {
+            return {
+              persist: false,
+              result: null
+            };
+          }
+          normalizedExecution = Number(input.executionPriceUsd.toFixed(2));
+        }
         offer.executionPriceUsd = normalizedExecution;
         offer.executionVisibility = offer.listingType === "resale" ? "private" : "public";
       }

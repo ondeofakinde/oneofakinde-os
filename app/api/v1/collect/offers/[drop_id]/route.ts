@@ -54,6 +54,38 @@ type PostCollectOffersBody = {
   executionPriceUsd?: number;
 };
 
+function parseOptionalExecutionPriceUsd(body: Record<string, unknown> | null): {
+  ok: true;
+  value: number | undefined;
+} | {
+  ok: false;
+  response: Response;
+} {
+  const rawExecutionPrice = body?.executionPriceUsd;
+  if (rawExecutionPrice === undefined) {
+    return {
+      ok: true,
+      value: undefined
+    };
+  }
+
+  if (
+    typeof rawExecutionPrice !== "number" ||
+    !Number.isFinite(rawExecutionPrice) ||
+    rawExecutionPrice <= 0
+  ) {
+    return {
+      ok: false,
+      response: badRequest("executionPriceUsd must be a positive number")
+    };
+  }
+
+  return {
+    ok: true,
+    value: rawExecutionPrice
+  };
+}
+
 function isCollectOfferAction(value: string): value is CollectOfferAction {
   return (
     value === "submit_offer" ||
@@ -83,6 +115,10 @@ export async function POST(
   const action = getRequiredBodyString(body, "action");
   if (!action) {
     return badRequest("action is required");
+  }
+  const parsedExecutionPrice = parseOptionalExecutionPriceUsd(body);
+  if (!parsedExecutionPrice.ok) {
+    return parsedExecutionPrice.response;
   }
 
   if (action === "submit_resale_fixed_offer") {
@@ -133,10 +169,7 @@ export async function POST(
       accountId: guard.session.accountId,
       offerId: latestOfferId,
       action: transitionAction,
-      executionPriceUsd:
-        typeof body?.executionPriceUsd === "number" && Number.isFinite(body.executionPriceUsd)
-          ? body.executionPriceUsd
-          : undefined
+      executionPriceUsd: parsedExecutionPrice.value
     });
 
     if (!transitioned) {
@@ -158,15 +191,19 @@ export async function POST(
   if (!offerId) {
     return badRequest("offerId is required");
   }
+  const current = await commerceBffService.getCollectDropOffers(dropId, guard.session.accountId);
+  if (!current) {
+    return notFound("drop not found");
+  }
+  if (!current.offers.some((offer) => offer.id === offerId)) {
+    return notFound("offer not found");
+  }
 
   const transitioned = await commerceBffService.transitionCollectOffer({
     accountId: guard.session.accountId,
     offerId,
     action,
-    executionPriceUsd:
-      typeof body?.executionPriceUsd === "number" && Number.isFinite(body.executionPriceUsd)
-        ? body.executionPriceUsd
-        : undefined
+    executionPriceUsd: parsedExecutionPrice.value
   });
 
   if (!transitioned) {
