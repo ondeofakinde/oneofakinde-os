@@ -110,6 +110,28 @@ test("proof: townhall telemetry events persist and aggregate for ranking", async
   );
   assert.equal(impressionResponse.status, 202);
 
+  const showroomImpressionResponse = await postTownhallTelemetryRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/telemetry", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        dropId: drop.id,
+        eventType: "showroom_impression",
+        metadata: {
+          source: "showroom",
+          surface: "townhall",
+          mediaFilter: "watch",
+          ordering: "rising",
+          position: 1,
+          action: "start"
+        }
+      })
+    })
+  );
+  assert.equal(showroomImpressionResponse.status, 202);
+
   const signals = await commerceBffService.getTownhallTelemetrySignals([drop.id]);
   assert.equal(signals[drop.id]?.completions, 1);
   assert.equal(signals[drop.id]?.collectIntents, 1);
@@ -121,15 +143,30 @@ test("proof: townhall telemetry events persist and aggregate for ranking", async
       dropId: string;
       eventType: string;
       accountId: string | null;
+      metadata?: {
+        source?: string;
+        surface?: string;
+        ordering?: string;
+        mediaFilter?: string;
+        position?: number;
+      };
     }>;
   };
 
   const dropEvents = raw.townhallTelemetryEvents.filter((entry) => entry.dropId === drop.id);
-  assert.equal(dropEvents.length, 4);
+  assert.equal(dropEvents.length, 5);
   assert.ok(dropEvents.some((entry) => entry.eventType === "watch_time" && entry.accountId === null));
   assert.ok(dropEvents.some((entry) => entry.eventType === "completion" && entry.accountId === session.accountId));
   assert.ok(
     dropEvents.some((entry) => entry.eventType === "collect_intent" && entry.accountId === session.accountId)
   );
   assert.ok(dropEvents.some((entry) => entry.eventType === "impression" && entry.accountId === null));
+  assert.ok(
+    dropEvents.some(
+      (entry) =>
+        entry.eventType === "showroom_impression" &&
+        entry.metadata?.surface === "townhall" &&
+        entry.metadata?.ordering === "rising"
+    )
+  );
 });

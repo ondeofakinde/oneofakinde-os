@@ -1013,6 +1013,10 @@ a {
   grid-column: 1 / -1;
 }
 
+.townhall-header-feed .townhall-showroom-row {
+  grid-column: 1 / -1;
+}
+
 .townhall-avatar-link {
   width: 34px;
   height: 34px;
@@ -1281,6 +1285,33 @@ a {
 }
 
 .townhall-mode-link.active {
+  color: #ddf4ff;
+  border-color: #527997;
+  background: rgba(28, 52, 74, 0.7);
+}
+
+.townhall-showroom-row {
+  margin-top: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.townhall-showroom-row-ordering {
+  margin-top: 0;
+}
+
+.townhall-showroom-chip {
+  border: 1px solid #31414f;
+  border-radius: 999px;
+  color: #a8bbc9;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  line-height: 1;
+  background: rgba(8, 12, 16, 0.72);
+}
+
+.townhall-showroom-chip.active {
   color: #ddf4ff;
   border-color: #527997;
   background: rgba(28, 52, 74, 0.7);

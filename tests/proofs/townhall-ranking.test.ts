@@ -145,3 +145,65 @@ test("townhall ranking applies persisted telemetry boost", () => {
 
   assert.equal(ranked[0]?.id, "beta");
 });
+
+test("townhall ranking supports newest ordering lane", () => {
+  const drops = [
+    makeDrop("older", "2026-01-01"),
+    makeDrop("newer", "2026-02-19"),
+    makeDrop("middle", "2026-02-10")
+  ];
+
+  const ranked = rankDropsForTownhall(drops, {
+    now: new Date("2026-02-20T00:00:00.000Z"),
+    ordering: "newest"
+  });
+
+  assert.deepEqual(
+    ranked.map((drop) => drop.id),
+    ["newer", "middle", "older"]
+  );
+});
+
+test("townhall ranking supports most collected ordering lane", () => {
+  const drops = [
+    makeDrop("low", "2026-02-19"),
+    makeDrop("high", "2026-02-18"),
+    makeDrop("mid", "2026-02-17")
+  ];
+
+  const ranked = rankDropsForTownhall(drops, {
+    now: new Date("2026-02-20T00:00:00.000Z"),
+    ordering: "most_collected",
+    signalsByDropId: {
+      low: {
+        watched: 10_000,
+        collected: 100,
+        liked: 1_000,
+        shared: 100,
+        commented: 100,
+        saved: 300
+      },
+      high: {
+        watched: 9_000,
+        collected: 9_000,
+        liked: 900,
+        shared: 80,
+        commented: 70,
+        saved: 260
+      },
+      mid: {
+        watched: 8_000,
+        collected: 2_200,
+        liked: 800,
+        shared: 60,
+        commented: 50,
+        saved: 230
+      }
+    }
+  });
+
+  assert.deepEqual(
+    ranked.map((drop) => drop.id),
+    ["high", "mid", "low"]
+  );
+});

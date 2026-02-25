@@ -1,4 +1,5 @@
 import type { Drop, TownhallTelemetrySignals } from "@/lib/domain/contracts";
+import type { TownhallShowroomOrdering } from "@/lib/townhall/showroom-query";
 
 export type TownhallEngagementSignals = {
   watched: number;
@@ -11,6 +12,7 @@ export type TownhallEngagementSignals = {
 
 type TownhallRankingOptions = {
   now?: Date;
+  ordering?: TownhallShowroomOrdering;
   signalsByDropId?: Record<string, Partial<TownhallEngagementSignals>>;
   telemetryByDropId?: Record<string, Partial<TownhallTelemetrySignals>>;
 };
@@ -144,6 +146,7 @@ function telemetryRawScore(signals: TownhallTelemetrySignals): number {
 export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOptions = {}): Drop[] {
   const now = options.now ?? new Date();
   const nowMs = now.getTime();
+  const ordering = options.ordering ?? "rising";
 
   const scored = drops.map((drop) => {
     const releaseMs = parseReleaseDate(drop.releaseDate);
@@ -152,6 +155,7 @@ export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOpti
     return {
       drop,
       releaseMs,
+      collected: signals.collected,
       recency: recencyScore(nowMs, releaseMs),
       engagement: engagementRawScore(signals),
       telemetry: telemetryRawScore(telemetrySignals)
@@ -175,6 +179,19 @@ export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOpti
       };
     })
     .sort((a, b) => {
+      if (ordering === "newest") {
+        if (b.releaseMs !== a.releaseMs) {
+          return b.releaseMs - a.releaseMs;
+        }
+        return a.drop.title.localeCompare(b.drop.title);
+      }
+
+      if (ordering === "most_collected") {
+        if (b.collected !== a.collected) {
+          return b.collected - a.collected;
+        }
+      }
+
       if (b.blendedScore !== a.blendedScore) {
         return b.blendedScore - a.blendedScore;
       }

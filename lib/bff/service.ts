@@ -14,6 +14,7 @@ import type {
   TownhallDropSocialSnapshot,
   TownhallShareChannel,
   TownhallSocialSnapshot,
+  TownhallTelemetryMetadata,
   TownhallTelemetryEventType,
   TownhallTelemetrySignals,
   World
@@ -51,7 +52,18 @@ const TOWNHALL_TELEMETRY_EVENT_SET = new Set<TownhallTelemetryEventType>([
   "watch_time",
   "completion",
   "collect_intent",
-  "impression"
+  "impression",
+  "showroom_impression",
+  "drop_opened",
+  "drop_dwell_time",
+  "preview_start",
+  "preview_complete",
+  "access_start",
+  "access_complete",
+  "interaction_like",
+  "interaction_comment",
+  "interaction_share",
+  "interaction_save"
 ]);
 const TOWNHALL_TELEMETRY_EVENT_LOG_LIMIT = 100_000;
 const MAX_WATCH_TIME_SECONDS_PER_EVENT = 600;
@@ -294,6 +306,75 @@ function normalizeCompletionPercent(value: number | undefined): number {
   }
 
   return Math.min(100, Math.max(0, Number(value)));
+}
+
+function normalizeTownhallTelemetryMetadata(
+  value: TownhallTelemetryMetadata | undefined
+): TownhallTelemetryMetadata {
+  if (!value) {
+    return {};
+  }
+
+  const metadata: TownhallTelemetryMetadata = {};
+
+  if (value.source === "showroom" || value.source === "drop") {
+    metadata.source = value.source;
+  }
+
+  if (
+    value.surface === "townhall" ||
+    value.surface === "watch" ||
+    value.surface === "listen" ||
+    value.surface === "read" ||
+    value.surface === "photos" ||
+    value.surface === "live"
+  ) {
+    metadata.surface = value.surface;
+  }
+
+  if (
+    value.mediaFilter === "all" ||
+    value.mediaFilter === "watch" ||
+    value.mediaFilter === "listen" ||
+    value.mediaFilter === "read" ||
+    value.mediaFilter === "photos" ||
+    value.mediaFilter === "live"
+  ) {
+    metadata.mediaFilter = value.mediaFilter;
+  }
+
+  if (
+    value.ordering === "rising" ||
+    value.ordering === "newest" ||
+    value.ordering === "most_collected"
+  ) {
+    metadata.ordering = value.ordering;
+  }
+
+  if (typeof value.position === "number" && Number.isFinite(value.position)) {
+    metadata.position = Math.max(1, Math.floor(value.position));
+  }
+
+  if (
+    value.channel === "sms" ||
+    value.channel === "internal_dm" ||
+    value.channel === "whatsapp" ||
+    value.channel === "telegram"
+  ) {
+    metadata.channel = value.channel;
+  }
+
+  if (
+    value.action === "open" ||
+    value.action === "complete" ||
+    value.action === "start" ||
+    value.action === "toggle" ||
+    value.action === "submit"
+  ) {
+    metadata.action = value.action;
+  }
+
+  return metadata;
 }
 
 function normalizeTownhallCommentBody(value: string): string {
@@ -1116,6 +1197,7 @@ export const commerceBffService = {
     eventType: TownhallTelemetryEventType;
     watchTimeSeconds?: number;
     completionPercent?: number;
+    metadata?: TownhallTelemetryMetadata;
     occurredAt?: string;
   }): Promise<boolean> {
     return withDatabase<boolean>(async (db): Promise<TownhallTelemetryMutationResult> => {
@@ -1129,7 +1211,9 @@ export const commerceBffService = {
 
       const account = input.accountId ? findAccountById(db, input.accountId) : null;
       const normalizedWatchTime =
-        input.eventType === "watch_time" ? normalizeWatchTimeSeconds(input.watchTimeSeconds) : 0;
+        input.eventType === "watch_time" || input.eventType === "drop_dwell_time"
+          ? normalizeWatchTimeSeconds(input.watchTimeSeconds)
+          : 0;
       const normalizedCompletion =
         input.eventType === "completion"
           ? normalizeCompletionPercent(input.completionPercent ?? 100)
@@ -1142,6 +1226,7 @@ export const commerceBffService = {
         eventType: input.eventType,
         watchTimeSeconds: normalizedWatchTime,
         completionPercent: normalizedCompletion,
+        metadata: normalizeTownhallTelemetryMetadata(input.metadata),
         occurredAt: input.occurredAt ?? new Date().toISOString()
       } satisfies TownhallTelemetryEventRecord);
 
