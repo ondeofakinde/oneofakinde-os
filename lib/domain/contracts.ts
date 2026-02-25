@@ -37,6 +37,48 @@ export type Drop = {
   previewMedia?: DropPreviewMap;
 };
 
+export type CollectMarketLane = "all" | "sale" | "auction" | "resale";
+export type CollectListingType = Exclude<CollectMarketLane, "all">;
+
+export type CollectOfferState =
+  | "listed"
+  | "offer_submitted"
+  | "countered"
+  | "accepted"
+  | "settled"
+  | "expired"
+  | "withdrawn";
+
+export type CollectOfferAction =
+  | "submit_offer"
+  | "counter_offer"
+  | "accept_offer"
+  | "settle_offer"
+  | "expire_offer"
+  | "withdraw_offer";
+
+export type CollectOffer = {
+  id: string;
+  dropId: string;
+  listingType: CollectListingType;
+  amountUsd: number;
+  state: CollectOfferState;
+  actorHandle: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string | null;
+};
+
+export type CollectInventoryListing = {
+  drop: Drop;
+  listingType: CollectListingType;
+  lane: CollectMarketLane;
+  priceUsd: number;
+  offerCount: number;
+  highestOfferUsd: number | null;
+  latestOfferState: CollectOfferState;
+};
+
 export type World = {
   id: string;
   title: string;
