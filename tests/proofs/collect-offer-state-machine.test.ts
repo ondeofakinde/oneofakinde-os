@@ -17,7 +17,9 @@ function createOffer(): CollectOffer {
     actorHandle: "collector_demo",
     createdAt: "2026-02-20T00:00:00.000Z",
     updatedAt: "2026-02-20T00:00:00.000Z",
-    expiresAt: "2026-02-27T00:00:00.000Z"
+    expiresAt: "2026-02-27T00:00:00.000Z",
+    executionVisibility: "private",
+    executionPriceUsd: null
   };
 }
 

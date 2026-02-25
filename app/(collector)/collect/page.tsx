@@ -1,9 +1,6 @@
 import { CollectMarketplaceScreen } from "@/features/collect/collect-marketplace-screen";
-import {
-  buildCollectInventorySnapshot,
-  parseCollectMarketLane
-} from "@/lib/collect/market-lanes";
-import { gateway } from "@/lib/gateway";
+import { commerceBffService } from "@/lib/bff/service";
+import { parseCollectMarketLane } from "@/lib/collect/market-lanes";
 import { requireSession } from "@/lib/server/session";
 
 type CollectPageProps = {
@@ -17,16 +14,15 @@ function firstParam(value: string | string[] | undefined): string {
 
 export default async function CollectPage({ searchParams }: CollectPageProps) {
   const session = await requireSession("/collect");
-  const drops = await gateway.listDrops();
-  const inventory = buildCollectInventorySnapshot(drops);
   const resolvedParams = await searchParams;
   const initialLane = parseCollectMarketLane(firstParam(resolvedParams.lane));
+  const inventory = await commerceBffService.getCollectInventory(session.accountId, initialLane);
 
   return (
     <CollectMarketplaceScreen
       session={session}
       listings={inventory.listings}
-      initialLane={initialLane}
+      initialLane={inventory.lane}
     />
   );
 }

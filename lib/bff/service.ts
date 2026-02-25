@@ -1,5 +1,9 @@
 import type {
   Certificate,
+  CollectInventoryListing,
+  CollectMarketLane,
+  CollectOffer,
+  CollectOfferAction,
   CheckoutPreview,
   CreateSessionInput,
   Drop,
@@ -21,8 +25,15 @@ import type {
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
 import type { CheckoutSessionResult, CreateCheckoutSessionInput, StripeWebhookApplyResult } from "@/lib/bff/contracts";
+import {
+  buildCollectInventorySnapshotFromOffers,
+  listCollectInventoryByLane,
+  resolveCollectListingTypeByDropId
+} from "@/lib/collect/market-lanes";
+import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import {
+  type CollectOfferRecord,
   createAccountFromEmail,
   getDropPriceTotalUsd,
   normalizeEmail,
@@ -41,6 +52,7 @@ const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const STRIPE_WEBHOOK_EVENT_LOG_LIMIT = 1000;
 const TOWNHALL_COMMENT_MAX_LENGTH = 600;
 const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
+const COLLECT_OFFERS_LOG_LIMIT = 50_000;
 
 const TOWNHALL_SHARE_CHANNEL_SET = new Set<TownhallShareChannel>([
   "sms",
@@ -551,6 +563,122 @@ function buildTownhallTelemetrySignals(
   }
 
   return byDropId;
+}
+
+function accountHandleLookup(db: BffDatabase): Map<string, string> {
+  return new Map(db.accounts.map((account) => [account.id, account.handle]));
+}
+
+function canViewPrivateCollectExecutionPrice(
+  offer: CollectOfferRecord,
+  viewerAccountId: string | null
+): boolean {
+  if (!viewerAccountId) {
+    return false;
+  }
+  return viewerAccountId === offer.accountId;
+}
+
+function toCollectOffer(
+  offer: CollectOfferRecord,
+  accountHandleById: Map<string, string>,
+  viewerAccountId: string | null
+): CollectOffer {
+  const isPrivate = offer.executionVisibility === "private";
+  const canViewPrivate = canViewPrivateCollectExecutionPrice(offer, viewerAccountId);
+  const executionPriceUsd = isPrivate && !canViewPrivate ? null : offer.executionPriceUsd;
+
+  return {
+    id: offer.id,
+    dropId: offer.dropId,
+    listingType: offer.listingType,
+    amountUsd: offer.amountUsd,
+    state: offer.state,
+    actorHandle: accountHandleById.get(offer.accountId) ?? "collector",
+    createdAt: offer.createdAt,
+    updatedAt: offer.updatedAt,
+    expiresAt: offer.expiresAt,
+    executionVisibility: offer.executionVisibility,
+    executionPriceUsd
+  };
+}
+
+function trimCollectOffers(db: BffDatabase): void {
+  if (db.collectOffers.length > COLLECT_OFFERS_LOG_LIMIT) {
+    db.collectOffers.length = COLLECT_OFFERS_LOG_LIMIT;
+  }
+}
+
+function buildCollectInventoryView(
+  db: BffDatabase,
+  viewerAccountId: string | null,
+  lane: CollectMarketLane = "all"
+): {
+  lane: CollectMarketLane;
+  listings: CollectInventoryListing[];
+} {
+  const accountHandleById = accountHandleLookup(db);
+  const offers = db.collectOffers.map((offer) =>
+    toCollectOffer(offer, accountHandleById, viewerAccountId)
+  );
+  const snapshot = buildCollectInventorySnapshotFromOffers(db.catalog.drops, offers);
+  return {
+    lane,
+    listings: listCollectInventoryByLane(snapshot.listings, lane)
+  };
+}
+
+function buildCollectDropOffersView(
+  db: BffDatabase,
+  dropId: string,
+  viewerAccountId: string | null
+): {
+  listing: CollectInventoryListing;
+  offers: CollectOffer[];
+} | null {
+  const accountHandleById = accountHandleLookup(db);
+  const offers = db.collectOffers.map((offer) =>
+    toCollectOffer(offer, accountHandleById, viewerAccountId)
+  );
+  const snapshot = buildCollectInventorySnapshotFromOffers(db.catalog.drops, offers);
+  const listing = snapshot.listings.find((entry) => entry.drop.id === dropId) ?? null;
+  if (!listing) {
+    return null;
+  }
+
+  return {
+    listing,
+    offers: snapshot.offersByDropId[dropId] ?? []
+  };
+}
+
+function canModerateCollectOfferTransition(
+  account: AccountRecord,
+  drop: Drop
+): boolean {
+  return account.roles.includes("creator") && account.handle === drop.studioHandle;
+}
+
+function canTransitionCollectOffer(
+  db: BffDatabase,
+  account: AccountRecord,
+  offer: CollectOfferRecord,
+  action: CollectOfferAction
+): boolean {
+  const drop = findDropById(db, offer.dropId);
+  if (!drop) {
+    return false;
+  }
+
+  if (action === "withdraw_offer") {
+    return offer.accountId === account.id;
+  }
+
+  if (action === "counter_offer" || action === "accept_offer" || action === "settle_offer" || action === "expire_offer") {
+    return canModerateCollectOfferTransition(account, drop);
+  }
+
+  return false;
 }
 
 const gatewayMethods: CommerceGateway = {
@@ -1220,6 +1348,183 @@ export const commerceBffService = {
     return completePendingPaymentById(paymentId, {
       expectedAccountId: accountId,
       allowedProviders: ["manual"]
+    });
+  },
+
+  async getCollectInventory(
+    accountId: string | null,
+    lane: CollectMarketLane = "all"
+  ): Promise<{ lane: CollectMarketLane; listings: CollectInventoryListing[] }> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: buildCollectInventoryView(db, accountId, lane)
+    }));
+  },
+
+  async getCollectDropOffers(
+    dropId: string,
+    accountId: string | null
+  ): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null> {
+    return withDatabase(async (db) => ({
+      persist: false,
+      result: buildCollectDropOffersView(db, dropId, accountId)
+    }));
+  },
+
+  async submitCollectResaleOffer(input: {
+    accountId: string;
+    dropId: string;
+    amountUsd: number;
+  }): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      const drop = findDropById(db, input.dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
+      if (listingType !== "resale") {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const normalizedAmount = Number(input.amountUsd);
+      if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const createdAt = new Date().toISOString();
+      const base: CollectOffer = {
+        id: `offer_${randomUUID()}`,
+        dropId: drop.id,
+        listingType: "resale",
+        amountUsd: Number(normalizedAmount.toFixed(2)),
+        state: "listed",
+        actorHandle: account.handle,
+        createdAt,
+        updatedAt: createdAt,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
+        executionVisibility: "private",
+        executionPriceUsd: null
+      };
+      const submitted = applyCollectOfferAction(base, "submit_offer", {
+        amountUsd: base.amountUsd,
+        updatedAt: createdAt
+      });
+
+      db.collectOffers.unshift({
+        id: submitted.id,
+        accountId: account.id,
+        dropId: submitted.dropId,
+        listingType: submitted.listingType,
+        amountUsd: submitted.amountUsd,
+        state: submitted.state,
+        createdAt: submitted.createdAt,
+        updatedAt: submitted.updatedAt,
+        expiresAt: submitted.expiresAt,
+        executionVisibility: "private",
+        executionPriceUsd: null
+      });
+      trimCollectOffers(db);
+
+      return {
+        persist: true,
+        result: buildCollectDropOffersView(db, drop.id, account.id)
+      };
+    });
+  },
+
+  async transitionCollectOffer(input: {
+    accountId: string;
+    offerId: string;
+    action: CollectOfferAction;
+    executionPriceUsd?: number;
+  }): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const offer = db.collectOffers.find((entry) => entry.id === input.offerId) ?? null;
+      if (!offer) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (!canApplyCollectOfferAction(offer.state, input.action)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (!canTransitionCollectOffer(db, account, offer, input.action)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const actorHandle = account.handle;
+      const transitioned = applyCollectOfferAction(
+        {
+          id: offer.id,
+          dropId: offer.dropId,
+          listingType: offer.listingType,
+          amountUsd: offer.amountUsd,
+          state: offer.state,
+          actorHandle,
+          createdAt: offer.createdAt,
+          updatedAt: offer.updatedAt,
+          expiresAt: offer.expiresAt,
+          executionVisibility: offer.executionVisibility,
+          executionPriceUsd: offer.executionPriceUsd
+        },
+        input.action,
+        {
+          updatedAt: new Date().toISOString()
+        }
+      );
+
+      offer.state = transitioned.state;
+      offer.updatedAt = transitioned.updatedAt;
+      offer.expiresAt = transitioned.expiresAt;
+      offer.amountUsd = transitioned.amountUsd;
+
+      if (input.action === "settle_offer") {
+        let normalizedExecution = offer.amountUsd;
+        if (typeof input.executionPriceUsd === "number") {
+          if (!Number.isFinite(input.executionPriceUsd) || input.executionPriceUsd <= 0) {
+            return {
+              persist: false,
+              result: null
+            };
+          }
+          normalizedExecution = Number(input.executionPriceUsd.toFixed(2));
+        }
+        offer.executionPriceUsd = normalizedExecution;
+        offer.executionVisibility = offer.listingType === "resale" ? "private" : "public";
+      }
+
+      return {
+        persist: true,
+        result: buildCollectDropOffersView(db, offer.dropId, account.id)
+      };
     });
   },
 

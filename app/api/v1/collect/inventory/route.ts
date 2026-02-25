@@ -1,10 +1,6 @@
 import { requireRequestSession } from "@/lib/bff/auth";
 import { ok } from "@/lib/bff/http";
-import {
-  buildCollectInventorySnapshot,
-  listCollectInventoryByLane,
-  parseCollectMarketLane
-} from "@/lib/collect/market-lanes";
+import { parseCollectMarketLane } from "@/lib/collect/market-lanes";
 import { commerceBffService } from "@/lib/bff/service";
 
 export async function GET(request: Request) {
@@ -15,12 +11,10 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const lane = parseCollectMarketLane(url.searchParams.get("lane"));
-  const drops = await commerceBffService.listDrops();
-  const snapshot = buildCollectInventorySnapshot(drops);
-  const listings = listCollectInventoryByLane(snapshot.listings, lane);
+  const inventory = await commerceBffService.getCollectInventory(guard.session.accountId, lane);
 
   return ok({
-    lane,
-    listings
+    lane: inventory.lane,
+    listings: inventory.listings
   });
 }

@@ -67,6 +67,8 @@ export type CollectOffer = {
   createdAt: string;
   updatedAt: string;
   expiresAt: string | null;
+  executionVisibility: "public" | "private" | null;
+  executionPriceUsd: number | null;
 };
 
 export type CollectInventoryListing = {
