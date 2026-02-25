@@ -1,6 +1,7 @@
 import { gateway } from "@/lib/gateway";
 import { getOptionalSession } from "@/lib/server/session";
 import { rankDropsForTownhall } from "@/lib/townhall/ranking";
+import { DEFAULT_TOWNHALL_FEED_PAGE_SIZE, paginateTownhallFeed } from "@/lib/townhall/feed-pagination";
 import { commerceBffService } from "@/lib/bff/service";
 import type { TownhallDropSocialSnapshot } from "@/lib/domain/contracts";
 
@@ -17,21 +18,27 @@ export async function loadTownhallFeedContext() {
   const rankedDrops = rankDropsForTownhall(drops, {
     telemetryByDropId
   });
-  const rankedDropIds = rankedDrops.map((drop) => drop.id);
+  const initialPage = paginateTownhallFeed(rankedDrops, {
+    pageSize: DEFAULT_TOWNHALL_FEED_PAGE_SIZE
+  });
+  const initialDropIds = initialPage.drops.map((drop) => drop.id);
 
   if (!session) {
-    const social = await commerceBffService.getTownhallSocialSnapshot(null, rankedDropIds);
+    const social = await commerceBffService.getTownhallSocialSnapshot(null, initialDropIds);
     return {
       viewer: null as TownhallViewer | null,
-      drops: rankedDrops,
+      drops: initialPage.drops,
       ownedDropIds: [] as string[],
-      socialByDropId: social.byDropId as Record<string, TownhallDropSocialSnapshot>
+      socialByDropId: social.byDropId as Record<string, TownhallDropSocialSnapshot>,
+      nextCursor: initialPage.nextCursor,
+      hasMore: initialPage.hasMore,
+      pageSize: initialPage.pageSize
     };
   }
 
   const [collection, social] = await Promise.all([
     gateway.getMyCollection(session.accountId),
-    commerceBffService.getTownhallSocialSnapshot(session.accountId, rankedDropIds)
+    commerceBffService.getTownhallSocialSnapshot(session.accountId, initialDropIds)
   ]);
 
   return {
@@ -39,8 +46,11 @@ export async function loadTownhallFeedContext() {
       accountId: session.accountId,
       handle: session.handle
     } as TownhallViewer,
-    drops: rankedDrops,
+    drops: initialPage.drops,
     ownedDropIds: (collection?.ownedDrops ?? []).map((entry) => entry.drop.id),
-    socialByDropId: social.byDropId as Record<string, TownhallDropSocialSnapshot>
+    socialByDropId: social.byDropId as Record<string, TownhallDropSocialSnapshot>,
+    nextCursor: initialPage.nextCursor,
+    hasMore: initialPage.hasMore,
+    pageSize: initialPage.pageSize
   };
 }

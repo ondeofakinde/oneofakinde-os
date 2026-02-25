@@ -1426,6 +1426,24 @@ a {
   contain: layout;
 }
 
+.townhall-feed-load-state {
+  margin: 12px auto calc(88px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(88, 119, 143, 0.46);
+  background: rgba(7, 12, 17, 0.88);
+  color: #a3bdcf;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-align: center;
+  width: max-content;
+  max-width: calc(100% - 32px);
+}
+
+.townhall-feed-load-retry {
+  cursor: pointer;
+}
+
 .townhall-phone-shell-feed.immersive {
   padding: 0;
   gap: 0;

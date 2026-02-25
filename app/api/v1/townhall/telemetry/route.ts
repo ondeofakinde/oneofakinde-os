@@ -11,7 +11,12 @@ type TelemetryBody = {
 };
 
 function isTelemetryEventType(value: string): value is TownhallTelemetryEventType {
-  return value === "watch_time" || value === "completion" || value === "collect_intent";
+  return (
+    value === "watch_time" ||
+    value === "completion" ||
+    value === "collect_intent" ||
+    value === "impression"
+  );
 }
 
 function getOptionalBodyNumber(payload: Record<string, unknown> | null, key: string): number | undefined {
@@ -33,7 +38,7 @@ export async function POST(request: Request) {
 
   const eventTypeRaw = getRequiredBodyString(body, "eventType");
   if (!eventTypeRaw || !isTelemetryEventType(eventTypeRaw)) {
-    return badRequest("eventType must be watch_time, completion, or collect_intent");
+    return badRequest("eventType must be watch_time, completion, collect_intent, or impression");
   }
 
   const watchTimeSeconds = getOptionalBodyNumber(body, "watchTimeSeconds");

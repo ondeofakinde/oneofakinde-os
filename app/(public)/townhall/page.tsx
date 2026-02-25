@@ -2,7 +2,8 @@ import { TownhallFeedScreen } from "@/features/townhall/townhall-feed-screen";
 import { loadTownhallFeedContext } from "./load-feed-context";
 
 export default async function TownhallPage() {
-  const { viewer, drops, ownedDropIds, socialByDropId } = await loadTownhallFeedContext();
+  const { viewer, drops, ownedDropIds, socialByDropId, nextCursor, hasMore, pageSize } =
+    await loadTownhallFeedContext();
   return (
     <TownhallFeedScreen
       mode="townhall"
@@ -10,6 +11,9 @@ export default async function TownhallPage() {
       drops={drops}
       ownedDropIds={ownedDropIds}
       initialSocialByDropId={socialByDropId}
+      initialNextCursor={nextCursor}
+      initialHasMore={hasMore}
+      pageSize={pageSize}
     />
   );
 }

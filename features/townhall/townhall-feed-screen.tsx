@@ -8,10 +8,11 @@ import type {
   TownhallTelemetryEventType
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
+import { DEFAULT_TOWNHALL_FEED_PAGE_SIZE } from "@/lib/townhall/feed-pagination";
 import { resolveDropModeForTownhallSurface, type TownhallSurfaceMode } from "@/lib/townhall/feed-mode";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
 import {
   BookmarkIcon,
@@ -32,6 +33,9 @@ type TownhallFeedScreenProps = {
   drops: Drop[];
   ownedDropIds?: string[];
   initialSocialByDropId?: Record<string, TownhallDropSocialSnapshot>;
+  initialNextCursor?: string | null;
+  initialHasMore?: boolean;
+  pageSize?: number;
 };
 
 type TownhallPanel = "comments" | "collect" | "share";
@@ -71,6 +75,18 @@ type TouchPoint = {
   x: number;
   y: number;
   startedAtMs: number;
+};
+
+type FeedPagePayload = {
+  feed?: {
+    drops?: Drop[];
+    nextCursor?: string | null;
+    hasMore?: boolean;
+    pageSize?: number;
+    totalCount?: number;
+  };
+  ownedDropIds?: string[];
+  socialByDropId?: Record<string, TownhallDropSocialSnapshot>;
 };
 
 const LONG_PRESS_CONTROLS_MS = 420;
@@ -203,16 +219,25 @@ export function TownhallFeedScreen({
   viewer,
   drops,
   ownedDropIds = [],
-  initialSocialByDropId = {}
+  initialSocialByDropId = {},
+  initialNextCursor = null,
+  initialHasMore = false,
+  pageSize = DEFAULT_TOWNHALL_FEED_PAGE_SIZE
 }: TownhallFeedScreenProps) {
+  const [feedDrops, setFeedDrops] = useState<Drop[]>(drops);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isImmersive, setIsImmersive] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [volume, setVolume] = useState(0.7);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
+  const [hasMore, setHasMore] = useState<boolean>(initialHasMore);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
+  const [ownedDropState, setOwnedDropState] = useState<string[]>(ownedDropIds);
   const [socialByDrop, setSocialByDrop] = useState<Record<string, TownhallDropSocialSnapshot>>(() =>
-    createInitialSocialMap(drops, initialSocialByDropId)
+    createInitialSocialMap(feedDrops, initialSocialByDropId)
   );
   const [openPanel, setOpenPanel] = useState<TownhallPanel | null>(null);
   const [panelDropId, setPanelDropId] = useState<string | null>(null);
@@ -236,14 +261,16 @@ export function TownhallFeedScreen({
   const showControlsLongPressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressStageTapUntilMsRef = useRef(0);
   const touchStartPointRef = useRef<TouchPoint | null>(null);
+  const isLoadingMoreRef = useRef(false);
+  const impressionLoggedDropIdsRef = useRef<Set<string>>(new Set());
 
   const failedPreviewAssetKeySet = useMemo(
     () => new Set(failedPreviewAssetKeys),
     [failedPreviewAssetKeys]
   );
-  const ownedSet = useMemo(() => new Set(ownedDropIds), [ownedDropIds]);
+  const ownedSet = useMemo(() => new Set(ownedDropState), [ownedDropState]);
 
-  const activeDrop = drops[activeIndex] ?? drops[0] ?? null;
+  const activeDrop = feedDrops[activeIndex] ?? feedDrops[0] ?? null;
 
   async function postTelemetryEvent(
     dropId: string,
@@ -313,14 +340,48 @@ export function TownhallFeedScreen({
   }
 
   useEffect(() => {
-    setSocialByDrop((current) => upsertSocialMap(current, drops));
-  }, [drops]);
+    setFeedDrops(drops);
+    setOwnedDropState(ownedDropIds);
+    setNextCursor(initialNextCursor);
+    setHasMore(initialHasMore);
+    setIsLoadingMore(false);
+    setLoadMoreError("");
+    setActiveIndex(0);
+    impressionLoggedDropIdsRef.current.clear();
+  }, [drops, ownedDropIds, initialNextCursor, initialHasMore]);
+
+  useEffect(() => {
+    setSocialByDrop((current) => {
+      const seeded = createInitialSocialMap(feedDrops, initialSocialByDropId);
+      const merged: Record<string, TownhallDropSocialSnapshot> = { ...seeded };
+      for (const [dropId, snapshot] of Object.entries(current)) {
+        merged[dropId] = {
+          ...snapshot,
+          comments: [...snapshot.comments]
+        };
+      }
+      return upsertSocialMap(merged, feedDrops);
+    });
+  }, [feedDrops, initialSocialByDropId]);
 
   useEffect(() => {
     const nowMs = Date.now();
     flushWatchTimeTelemetry(nowMs);
     watchTimeDropIdRef.current = activeDrop?.id ?? null;
     watchTimeStartedAtMsRef.current = nowMs;
+  }, [activeDrop?.id]);
+
+  useEffect(() => {
+    if (!activeDrop?.id) {
+      return;
+    }
+
+    if (impressionLoggedDropIdsRef.current.has(activeDrop.id)) {
+      return;
+    }
+
+    impressionLoggedDropIdsRef.current.add(activeDrop.id);
+    void postTelemetryEvent(activeDrop.id, "impression");
   }, [activeDrop?.id]);
 
   useEffect(() => {
@@ -385,7 +446,7 @@ export function TownhallFeedScreen({
     }
 
     return () => observer.disconnect();
-  }, [activeIndex, drops.length, isImmersive]);
+  }, [activeIndex, feedDrops.length, isImmersive]);
 
   useEffect(() => {
     setShowControls(false);
@@ -411,18 +472,6 @@ export function TownhallFeedScreen({
       media.pause();
     }
   }, [activeIndex, isMuted, volume, isPlaying]);
-
-  if (!activeDrop) {
-    return (
-      <main className="townhall-page">
-        <section className="townhall-phone-shell townhall-empty">
-          <p className="townhall-brand">oneofakinde</p>
-          <h1>townhall</h1>
-          <p>no drops are available yet.</p>
-        </section>
-      </main>
-    );
-  }
 
   function togglePanel(panel: TownhallPanel, dropId: string) {
     if (openPanel === panel && panelDropId === dropId) {
@@ -570,6 +619,90 @@ export function TownhallFeedScreen({
     window.location.href = routes.signIn(currentFeedHref());
   }
 
+  const loadNextFeedPage = useCallback(async () => {
+    if (!hasMore || !nextCursor || isLoadingMoreRef.current) {
+      return;
+    }
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    setLoadMoreError("");
+
+    try {
+      const params = new URLSearchParams();
+      params.set("cursor", nextCursor);
+      params.set("limit", String(pageSize));
+      const response = await fetch(`/api/v1/townhall/feed?${params.toString()}`, {
+        method: "GET",
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        throw new Error(`failed to load feed page (${response.status})`);
+      }
+
+      const payload = (await response.json()) as FeedPagePayload;
+      const incomingDrops = payload.feed?.drops ?? [];
+      const incomingSocialByDropId = payload.socialByDropId ?? {};
+
+      setFeedDrops((current) => {
+        if (!incomingDrops.length) {
+          return current;
+        }
+
+        const seen = new Set(current.map((drop) => drop.id));
+        const append = incomingDrops.filter((drop) => !seen.has(drop.id));
+        if (!append.length) {
+          return current;
+        }
+
+        return [...current, ...append];
+      });
+
+      setSocialByDrop((current) => {
+        const merged = { ...current };
+        for (const [dropId, snapshot] of Object.entries(incomingSocialByDropId)) {
+          merged[dropId] = {
+            ...snapshot,
+            comments: [...snapshot.comments]
+          };
+        }
+        return merged;
+      });
+
+      if (payload.ownedDropIds?.length) {
+        setOwnedDropState((current) => {
+          const seen = new Set(current);
+          for (const dropId of payload.ownedDropIds ?? []) {
+            seen.add(dropId);
+          }
+          return Array.from(seen);
+        });
+      }
+
+      setNextCursor(payload.feed?.nextCursor ?? null);
+      setHasMore(Boolean(payload.feed?.hasMore));
+    } catch {
+      setLoadMoreError("feed loading paused. pull to retry.");
+    } finally {
+      isLoadingMoreRef.current = false;
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, nextCursor, pageSize]);
+
+  useEffect(() => {
+    if (!hasMore || !nextCursor || isLoadingMoreRef.current) {
+      return;
+    }
+
+    const remaining = feedDrops.length - activeIndex - 1;
+    if (remaining > 1) {
+      return;
+    }
+
+    void loadNextFeedPage();
+  }, [activeIndex, feedDrops.length, hasMore, nextCursor, loadNextFeedPage]);
+
   function applySocialSnapshot(snapshot: TownhallDropSocialSnapshot) {
     setSocialByDrop((current) => ({
       ...current,
@@ -693,6 +826,18 @@ export function TownhallFeedScreen({
     });
   }
 
+  if (!activeDrop) {
+    return (
+      <main className="townhall-page">
+        <section className="townhall-phone-shell townhall-empty">
+          <p className="townhall-brand">oneofakinde</p>
+          <h1>townhall</h1>
+          <p>no drops are available yet.</p>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="townhall-page">
       <section className={`townhall-phone-shell townhall-phone-shell-feed ${isImmersive ? "immersive" : ""}`} aria-label="townhall feed shell">
@@ -735,7 +880,7 @@ export function TownhallFeedScreen({
           onWheelCapture={markScrollIntent}
           onTouchMoveCapture={markScrollIntent}
         >
-          {drops.map((drop, index) => {
+          {feedDrops.map((drop, index) => {
             const isActive = index === activeIndex;
             const isPaywalled = !ownedSet.has(drop.id);
             const openCurrentPanel = isActive && panelDropId === drop.id ? openPanel : null;
@@ -1166,6 +1311,24 @@ export function TownhallFeedScreen({
               </article>
             );
           })}
+
+          {isLoadingMore ? (
+            <div className="townhall-feed-load-state" aria-live="polite">
+              loading more drops...
+            </div>
+          ) : null}
+
+          {loadMoreError ? (
+            <button
+              type="button"
+              className="townhall-feed-load-state townhall-feed-load-retry"
+              onClick={() => {
+                void loadNextFeedPage();
+              }}
+            >
+              {loadMoreError}
+            </button>
+          ) : null}
         </div>
 
         <TownhallBottomNav activeMode={modeNav(mode)} noImmersiveToggle />
