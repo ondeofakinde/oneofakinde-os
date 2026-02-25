@@ -1686,6 +1686,36 @@ a {
   margin-bottom: 0;
 }
 
+.townhall-comment-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.townhall-comment-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.townhall-comment-actions button {
+  border: 1px solid #435b6b;
+  border-radius: 999px;
+  background: rgba(8, 16, 23, 0.72);
+  color: #bed1de;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.townhall-comment-hidden {
+  color: #8ca3b3;
+  font-style: italic;
+}
+
 .townhall-comment-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

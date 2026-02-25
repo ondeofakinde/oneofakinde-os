@@ -3,6 +3,7 @@ import type {
   Certificate,
   Drop,
   PurchaseReceipt,
+  TownhallCommentVisibility,
   TownhallShareChannel,
   TownhallTelemetryMetadata,
   TownhallTelemetryEventType,
@@ -84,6 +85,11 @@ export type TownhallCommentRecord = {
   dropId: string;
   body: string;
   createdAt: string;
+  visibility: TownhallCommentVisibility;
+  reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  moderatedByAccountId: string | null;
 };
 
 export type TownhallShareRecord = {
@@ -445,7 +451,12 @@ function createSeedDatabase(): BffDatabase {
         accountId,
         dropId: "stardust",
         body: "this drop keeps getting better each replay.",
-        createdAt: new Date(now.valueOf() - DAY_MS / 4).toISOString()
+        createdAt: new Date(now.valueOf() - DAY_MS / 4).toISOString(),
+        visibility: "visible",
+        reportCount: 0,
+        reportedAt: null,
+        moderatedAt: null,
+        moderatedByAccountId: null
       }
     ],
     townhallShares: [
@@ -661,10 +672,45 @@ function normalizeTownhallTelemetryEvents(
   }));
 }
 
+function normalizeTownhallCommentVisibility(value: unknown): TownhallCommentVisibility {
+  return value === "hidden" ? "hidden" : "visible";
+}
+
+function normalizeTownhallCommentRecords(events: TownhallCommentRecord[]): TownhallCommentRecord[] {
+  return events.map((event) => {
+    const candidate = event as Partial<TownhallCommentRecord> & {
+      visibility?: unknown;
+      reportCount?: unknown;
+      reportedAt?: unknown;
+      moderatedAt?: unknown;
+      moderatedByAccountId?: unknown;
+    };
+
+    return {
+      ...event,
+      visibility: normalizeTownhallCommentVisibility(candidate.visibility),
+      reportCount:
+        typeof candidate.reportCount === "number" && Number.isFinite(candidate.reportCount)
+          ? Math.max(0, Math.floor(candidate.reportCount))
+          : 0,
+      reportedAt: typeof candidate.reportedAt === "string" && candidate.reportedAt.trim() ? candidate.reportedAt : null,
+      moderatedAt:
+        typeof candidate.moderatedAt === "string" && candidate.moderatedAt.trim()
+          ? candidate.moderatedAt
+          : null,
+      moderatedByAccountId:
+        typeof candidate.moderatedByAccountId === "string" && candidate.moderatedByAccountId.trim()
+          ? candidate.moderatedByAccountId
+          : null
+    };
+  });
+}
+
 function normalizeDatabase(input: unknown): BffDatabase | null {
   if (isValidDb(input)) {
     return {
       ...input,
+      townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
       townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents)
     };
   }
@@ -680,7 +726,7 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         ? (candidate.townhallLikes as TownhallLikeRecord[])
         : [],
       townhallComments: Array.isArray(candidate.townhallComments)
-        ? (candidate.townhallComments as TownhallCommentRecord[])
+        ? normalizeTownhallCommentRecords(candidate.townhallComments as TownhallCommentRecord[])
         : [],
       townhallShares: Array.isArray(candidate.townhallShares)
         ? (candidate.townhallShares as TownhallShareRecord[])
@@ -902,7 +948,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       'SELECT account_id AS "accountId", drop_id AS "dropId", liked_at AS "likedAt" FROM bff_townhall_likes ORDER BY liked_at DESC'
     ),
     client.query<TownhallCommentRecord>(
-      'SELECT id, account_id AS "accountId", drop_id AS "dropId", body, created_at AS "createdAt" FROM bff_townhall_comments ORDER BY created_at DESC'
+      'SELECT id, account_id AS "accountId", drop_id AS "dropId", body, created_at AS "createdAt", status AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId" FROM bff_townhall_comments ORDER BY created_at DESC'
     ),
     client.query<TownhallShareRecord>(
       'SELECT id, account_id AS "accountId", drop_id AS "dropId", channel, shared_at AS "sharedAt" FROM bff_townhall_shares ORDER BY shared_at DESC'
@@ -993,7 +1039,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     })),
     stripeWebhookEvents: webhookEventsResult.rows,
     townhallLikes: townhallLikesResult.rows,
-    townhallComments: townhallCommentsResult.rows,
+    townhallComments: normalizeTownhallCommentRecords(townhallCommentsResult.rows),
     townhallShares: townhallSharesResult.rows,
     townhallTelemetryEvents: townhallTelemetryEventsResult.rows.map((row) => ({
       id: row.id,
@@ -1153,8 +1199,19 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const comment of db.townhallComments) {
     await client.query(
-      "INSERT INTO bff_townhall_comments (id, account_id, drop_id, body, created_at) VALUES ($1, $2, $3, $4, $5)",
-      [comment.id, comment.accountId, comment.dropId, comment.body, comment.createdAt]
+      "INSERT INTO bff_townhall_comments (id, account_id, drop_id, body, created_at, status, report_count, reported_at, moderated_at, moderated_by_account_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+      [
+        comment.id,
+        comment.accountId,
+        comment.dropId,
+        comment.body,
+        comment.createdAt,
+        comment.visibility,
+        comment.reportCount,
+        comment.reportedAt,
+        comment.moderatedAt,
+        comment.moderatedByAccountId
+      ]
     );
   }
 

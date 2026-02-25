@@ -1,4 +1,9 @@
 import { TownhallFeedScreen } from "@/features/townhall/townhall-feed-screen";
+import {
+  parseTownhallFeedFocusDrop,
+  parseTownhallFeedFocusPosition,
+  townhallFeedFocusQueryKeys
+} from "@/lib/townhall/feed-focus";
 import { loadTownhallFeedContext } from "../load-feed-context";
 
 type TownhallReadPageProps = {
@@ -35,6 +40,8 @@ export default async function TownhallReadPage({ searchParams }: TownhallReadPag
       mode="read"
       viewer={viewer}
       drops={drops}
+      initialFocusDropId={parseTownhallFeedFocusDrop(firstQueryValue(params[townhallFeedFocusQueryKeys.drop]))}
+      initialFocusPosition={parseTownhallFeedFocusPosition(firstQueryValue(params[townhallFeedFocusQueryKeys.position]))}
       ownedDropIds={ownedDropIds}
       initialSocialByDropId={socialByDropId}
       initialNextCursor={nextCursor}
