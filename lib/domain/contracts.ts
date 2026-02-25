@@ -71,6 +71,43 @@ export type CollectOffer = {
   executionPriceUsd: number | null;
 };
 
+export type CollectEnforcementSignalType =
+  | "invalid_listing_action_blocked"
+  | "invalid_amount_rejected"
+  | "invalid_transition_blocked"
+  | "unauthorized_transition_blocked"
+  | "cross_drop_transition_blocked"
+  | "invalid_settle_price_rejected"
+  | "reaward_blocked";
+
+export type CollectEnforcementSignal = {
+  id: string;
+  signalType: CollectEnforcementSignalType;
+  dropId: string | null;
+  offerId: string | null;
+  accountId: string | null;
+  reason: string;
+  occurredAt: string;
+};
+
+export type CollectIntegrityFlagSeverity = "info" | "warning" | "critical";
+
+export type CollectIntegrityFlag = {
+  code: CollectEnforcementSignalType | "multiple_settled_offers";
+  severity: CollectIntegrityFlagSeverity;
+  dropId: string | null;
+  count: number;
+  lastOccurredAt: string;
+  reason: string;
+};
+
+export type CollectIntegritySnapshot = {
+  dropId: string | null;
+  flags: CollectIntegrityFlag[];
+  signalCounts: Record<CollectEnforcementSignalType, number>;
+  recentSignals: CollectEnforcementSignal[];
+};
+
 export type CollectInventoryListing = {
   drop: Drop;
   listingType: CollectListingType;
