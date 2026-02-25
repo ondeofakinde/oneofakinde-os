@@ -145,3 +145,106 @@ test("townhall ranking applies persisted telemetry boost", () => {
 
   assert.equal(ranked[0]?.id, "beta");
 });
+
+test("townhall ranking supports latest order mode", () => {
+  const drops = [
+    makeDrop("old", "2026-02-10"),
+    makeDrop("new", "2026-02-19"),
+    makeDrop("mid", "2026-02-15")
+  ];
+
+  const ranked = rankDropsForTownhall(drops, {
+    orderMode: "latest",
+    now: new Date("2026-02-20T00:00:00.000Z")
+  });
+
+  assert.deepEqual(
+    ranked.map((drop) => drop.id),
+    ["new", "mid", "old"]
+  );
+});
+
+test("townhall ranking supports most_collected order mode", () => {
+  const drops = [
+    makeDrop("new-low", "2026-02-19"),
+    makeDrop("old-high", "2026-01-10"),
+    makeDrop("mid-mid", "2026-02-14")
+  ];
+
+  const ranked = rankDropsForTownhall(drops, {
+    orderMode: "most_collected",
+    now: new Date("2026-02-20T00:00:00.000Z"),
+    signalsByDropId: {
+      "new-low": {
+        watched: 50_000,
+        collected: 140,
+        liked: 10_000,
+        shared: 1_000,
+        commented: 800,
+        saved: 2_000
+      },
+      "old-high": {
+        watched: 20_000,
+        collected: 9_200,
+        liked: 3_100,
+        shared: 200,
+        commented: 140,
+        saved: 600
+      },
+      "mid-mid": {
+        watched: 60_000,
+        collected: 1_300,
+        liked: 8_200,
+        shared: 980,
+        commented: 730,
+        saved: 2_200
+      }
+    }
+  });
+
+  assert.equal(ranked[0]?.id, "old-high");
+});
+
+test("townhall ranking supports most_watched order mode with telemetry", () => {
+  const drops = [
+    makeDrop("alpha", "2026-02-18"),
+    makeDrop("beta", "2026-02-16")
+  ];
+
+  const ranked = rankDropsForTownhall(drops, {
+    orderMode: "most_watched",
+    now: new Date("2026-02-20T00:00:00.000Z"),
+    signalsByDropId: {
+      alpha: {
+        watched: 20_000,
+        collected: 500,
+        liked: 2_000,
+        shared: 200,
+        commented: 150,
+        saved: 400
+      },
+      beta: {
+        watched: 18_000,
+        collected: 520,
+        liked: 2_200,
+        shared: 210,
+        commented: 160,
+        saved: 430
+      }
+    },
+    telemetryByDropId: {
+      alpha: {
+        watchTimeSeconds: 120,
+        completions: 0,
+        collectIntents: 0
+      },
+      beta: {
+        watchTimeSeconds: 1_900,
+        completions: 8,
+        collectIntents: 1
+      }
+    }
+  });
+
+  assert.equal(ranked[0]?.id, "beta");
+});

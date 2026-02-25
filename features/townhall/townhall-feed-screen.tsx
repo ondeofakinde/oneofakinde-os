@@ -8,8 +8,10 @@ import type {
   TownhallTelemetryEventType
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
+import { TOWNHALL_ORDER_OPTIONS, type TownhallOrderMode } from "@/lib/townhall/order";
 import { resolveDropModeForTownhallSurface, type TownhallSurfaceMode } from "@/lib/townhall/feed-mode";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
+import type { Route } from "next";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TownhallBottomNav } from "./townhall-bottom-nav";
@@ -25,6 +27,7 @@ import {
 
 type TownhallFeedScreenProps = {
   mode: TownhallSurfaceMode;
+  orderMode: TownhallOrderMode;
   viewer: {
     accountId: string;
     handle: string;
@@ -200,6 +203,7 @@ function roundTelemetryMetric(value: number): number {
 
 export function TownhallFeedScreen({
   mode,
+  orderMode,
   viewer,
   drops,
   ownedDropIds = [],
@@ -553,13 +557,22 @@ export function TownhallFeedScreen({
     return `${shareOrigin}${routes.drop(dropId)}`;
   }
 
-  function currentFeedHref(): string {
+  function currentFeedHref(): Route {
     if (mode === "townhall") return routes.townhall();
     if (mode === "watch") return routes.townhallWatch();
     if (mode === "listen") return routes.townhallListen();
     if (mode === "read") return routes.townhallRead();
     if (mode === "photos") return routes.townhallGallery();
     return routes.townhallLive();
+  }
+
+  function orderHref(nextOrderMode: TownhallOrderMode): Route {
+    const basePath = currentFeedHref();
+    if (nextOrderMode === "constitutional") {
+      return basePath;
+    }
+
+    return `${basePath}?order=${encodeURIComponent(nextOrderMode)}` as Route;
   }
 
   function redirectToSignInForInteraction() {
@@ -726,6 +739,19 @@ export function TownhallFeedScreen({
               aria-label="search users, worlds, and drops"
             />
           </form>
+
+          <nav className="townhall-mode-row" aria-label="townhall order controls" data-no-immersive-toggle="true">
+            {TOWNHALL_ORDER_OPTIONS.map((option) => (
+              <Link
+                key={option.value}
+                href={orderHref(option.value)}
+                className={`townhall-mode-link ${orderMode === option.value ? "active" : ""}`}
+                aria-label={option.note}
+              >
+                {option.label}
+              </Link>
+            ))}
+          </nav>
         </header>
 
         <div
@@ -1173,7 +1199,8 @@ export function TownhallFeedScreen({
 
       <aside className="townhall-side-notes" aria-label="townhall concept notes">
         <h2>townhall shell</h2>
-        <p>smooth snap feed with one drop at a time, autoplay preview, and tap-to-immerse behavior.</p>
+        <p>smooth snap feed with one drop at a time and autoplay previews across all media modes.</p>
+        <p>order controls now support constitutional, latest, most collected, and most watched ranking modes.</p>
         <p>social lane now supports like, comments, collect, send, and save-to-private-library interactions.</p>
       </aside>
     </main>

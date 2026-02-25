@@ -1,20 +1,26 @@
-import { gateway } from "@/lib/gateway";
-import { getOptionalSession } from "@/lib/server/session";
-import { rankDropsForTownhall } from "@/lib/townhall/ranking";
 import { commerceBffService } from "@/lib/bff/service";
 import type { TownhallDropSocialSnapshot } from "@/lib/domain/contracts";
+import { gateway } from "@/lib/gateway";
+import { getOptionalSession } from "@/lib/server/session";
+import type { TownhallOrderMode } from "@/lib/townhall/order";
+import { rankDropsForTownhall } from "@/lib/townhall/ranking";
 
 type TownhallViewer = {
   accountId: string;
   handle: string;
 };
 
-export async function loadTownhallFeedContext() {
+type TownhallFeedContextOptions = {
+  orderMode?: TownhallOrderMode;
+};
+
+export async function loadTownhallFeedContext(options: TownhallFeedContextOptions = {}) {
   const [session, drops] = await Promise.all([getOptionalSession(), gateway.listDrops()]);
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
     drops.map((drop) => drop.id)
   );
   const rankedDrops = rankDropsForTownhall(drops, {
+    orderMode: options.orderMode,
     telemetryByDropId
   });
   const rankedDropIds = rankedDrops.map((drop) => drop.id);
