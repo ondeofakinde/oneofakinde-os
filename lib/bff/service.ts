@@ -681,6 +681,81 @@ function canTransitionCollectOffer(
   return false;
 }
 
+function normalizePositiveAmountUsd(value: number): number | null {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    return null;
+  }
+  return Number(normalized.toFixed(2));
+}
+
+function parseIsoTime(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function rankAuctionCandidates(offers: CollectOfferRecord[]): CollectOfferRecord[] {
+  return [...offers].sort((a, b) => {
+    if (b.amountUsd !== a.amountUsd) {
+      return b.amountUsd - a.amountUsd;
+    }
+
+    const createdDelta = parseIsoTime(a.createdAt) - parseIsoTime(b.createdAt);
+    if (createdDelta !== 0) {
+      return createdDelta;
+    }
+
+    return parseIsoTime(a.updatedAt) - parseIsoTime(b.updatedAt);
+  });
+}
+
+function getDropAuctionOffers(db: BffDatabase, dropId: string): CollectOfferRecord[] {
+  return db.collectOffers.filter(
+    (offer) => offer.dropId === dropId && offer.listingType === "auction"
+  );
+}
+
+function createSubmittedOfferRecord(input: {
+  account: AccountRecord;
+  drop: Drop;
+  listingType: "auction" | "resale";
+  amountUsd: number;
+  executionVisibility: "public" | "private";
+}): CollectOfferRecord {
+  const createdAt = new Date().toISOString();
+  const base: CollectOffer = {
+    id: `offer_${randomUUID()}`,
+    dropId: input.drop.id,
+    listingType: input.listingType,
+    amountUsd: input.amountUsd,
+    state: "listed",
+    actorHandle: input.account.handle,
+    createdAt,
+    updatedAt: createdAt,
+    expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
+    executionVisibility: input.executionVisibility,
+    executionPriceUsd: null
+  };
+  const submitted = applyCollectOfferAction(base, "submit_offer", {
+    amountUsd: base.amountUsd,
+    updatedAt: createdAt
+  });
+
+  return {
+    id: submitted.id,
+    accountId: input.account.id,
+    dropId: submitted.dropId,
+    listingType: submitted.listingType,
+    amountUsd: submitted.amountUsd,
+    state: submitted.state,
+    createdAt: submitted.createdAt,
+    updatedAt: submitted.updatedAt,
+    expiresAt: submitted.expiresAt,
+    executionVisibility: input.executionVisibility,
+    executionPriceUsd: null
+  };
+}
+
 const gatewayMethods: CommerceGateway = {
   async listDrops(): Promise<Drop[]> {
     return withDatabase(async (db) => ({
@@ -1394,47 +1469,324 @@ export const commerceBffService = {
         };
       }
 
-      const normalizedAmount = Number(input.amountUsd);
-      if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+      const normalizedAmount = normalizePositiveAmountUsd(input.amountUsd);
+      if (normalizedAmount === null) {
         return {
           persist: false,
           result: null
         };
       }
 
-      const createdAt = new Date().toISOString();
-      const base: CollectOffer = {
-        id: `offer_${randomUUID()}`,
-        dropId: drop.id,
-        listingType: "resale",
-        amountUsd: Number(normalizedAmount.toFixed(2)),
-        state: "listed",
-        actorHandle: account.handle,
-        createdAt,
-        updatedAt: createdAt,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
-        executionVisibility: "private",
-        executionPriceUsd: null
-      };
-      const submitted = applyCollectOfferAction(base, "submit_offer", {
-        amountUsd: base.amountUsd,
-        updatedAt: createdAt
-      });
-
-      db.collectOffers.unshift({
-        id: submitted.id,
-        accountId: account.id,
-        dropId: submitted.dropId,
-        listingType: submitted.listingType,
-        amountUsd: submitted.amountUsd,
-        state: submitted.state,
-        createdAt: submitted.createdAt,
-        updatedAt: submitted.updatedAt,
-        expiresAt: submitted.expiresAt,
-        executionVisibility: "private",
-        executionPriceUsd: null
-      });
+      db.collectOffers.unshift(
+        createSubmittedOfferRecord({
+          account,
+          drop,
+          listingType: "resale",
+          amountUsd: normalizedAmount,
+          executionVisibility: "private"
+        })
+      );
       trimCollectOffers(db);
+
+      return {
+        persist: true,
+        result: buildCollectDropOffersView(db, drop.id, account.id)
+      };
+    });
+  },
+
+  async submitCollectAuctionBid(input: {
+    accountId: string;
+    dropId: string;
+    amountUsd: number;
+  }): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      const drop = findDropById(db, input.dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
+      if (listingType !== "auction") {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const normalizedAmount = normalizePositiveAmountUsd(input.amountUsd);
+      if (normalizedAmount === null) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      db.collectOffers.unshift(
+        createSubmittedOfferRecord({
+          account,
+          drop,
+          listingType: "auction",
+          amountUsd: normalizedAmount,
+          executionVisibility: "public"
+        })
+      );
+      trimCollectOffers(db);
+
+      return {
+        persist: true,
+        result: buildCollectDropOffersView(db, drop.id, account.id)
+      };
+    });
+  },
+
+  async awardCollectAuctionBid(input: {
+    accountId: string;
+    dropId: string;
+  }): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      const drop = findDropById(db, input.dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
+      if (listingType !== "auction" || !canModerateCollectOfferTransition(account, drop)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const offers = getDropAuctionOffers(db, drop.id);
+      const hasAcceptedOffer = offers.some((offer) => offer.state === "accepted");
+      if (hasAcceptedOffer) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const openCandidates = rankAuctionCandidates(
+        offers.filter((offer) => offer.state === "offer_submitted" || offer.state === "countered")
+      );
+      const winner = openCandidates[0];
+      if (!winner) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const accepted = applyCollectOfferAction(
+        {
+          id: winner.id,
+          dropId: winner.dropId,
+          listingType: winner.listingType,
+          amountUsd: winner.amountUsd,
+          state: winner.state,
+          actorHandle: account.handle,
+          createdAt: winner.createdAt,
+          updatedAt: winner.updatedAt,
+          expiresAt: winner.expiresAt,
+          executionVisibility: winner.executionVisibility,
+          executionPriceUsd: winner.executionPriceUsd
+        },
+        "accept_offer",
+        {
+          updatedAt: new Date().toISOString()
+        }
+      );
+
+      winner.state = accepted.state;
+      winner.updatedAt = accepted.updatedAt;
+      winner.expiresAt = accepted.expiresAt;
+      winner.amountUsd = accepted.amountUsd;
+
+      return {
+        persist: true,
+        result: buildCollectDropOffersView(db, drop.id, account.id)
+      };
+    });
+  },
+
+  async settleCollectAuctionBid(input: {
+    accountId: string;
+    dropId: string;
+    executionPriceUsd?: number;
+  }): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      const drop = findDropById(db, input.dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
+      if (listingType !== "auction" || !canModerateCollectOfferTransition(account, drop)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const acceptedOffer = getDropAuctionOffers(db, drop.id).find(
+        (offer) => offer.state === "accepted"
+      );
+      if (!acceptedOffer) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const settled = applyCollectOfferAction(
+        {
+          id: acceptedOffer.id,
+          dropId: acceptedOffer.dropId,
+          listingType: acceptedOffer.listingType,
+          amountUsd: acceptedOffer.amountUsd,
+          state: acceptedOffer.state,
+          actorHandle: account.handle,
+          createdAt: acceptedOffer.createdAt,
+          updatedAt: acceptedOffer.updatedAt,
+          expiresAt: acceptedOffer.expiresAt,
+          executionVisibility: acceptedOffer.executionVisibility,
+          executionPriceUsd: acceptedOffer.executionPriceUsd
+        },
+        "settle_offer",
+        {
+          updatedAt: new Date().toISOString()
+        }
+      );
+
+      let normalizedExecution = acceptedOffer.amountUsd;
+      if (input.executionPriceUsd !== undefined) {
+        const explicitExecution = normalizePositiveAmountUsd(input.executionPriceUsd);
+        if (explicitExecution === null) {
+          return {
+            persist: false,
+            result: null
+          };
+        }
+        normalizedExecution = explicitExecution;
+      }
+
+      acceptedOffer.state = settled.state;
+      acceptedOffer.updatedAt = settled.updatedAt;
+      acceptedOffer.expiresAt = settled.expiresAt;
+      acceptedOffer.amountUsd = settled.amountUsd;
+      acceptedOffer.executionPriceUsd = normalizedExecution;
+      acceptedOffer.executionVisibility = "public";
+
+      return {
+        persist: true,
+        result: buildCollectDropOffersView(db, drop.id, account.id)
+      };
+    });
+  },
+
+  async fallbackCollectAuctionBid(input: {
+    accountId: string;
+    dropId: string;
+  }): Promise<{ listing: CollectInventoryListing; offers: CollectOffer[] } | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      const drop = findDropById(db, input.dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const listingType = resolveCollectListingTypeByDropId(db.catalog.drops, drop.id);
+      if (listingType !== "auction" || !canModerateCollectOfferTransition(account, drop)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const offers = getDropAuctionOffers(db, drop.id);
+      const acceptedOffer = offers.find((offer) => offer.state === "accepted");
+      if (!acceptedOffer) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const expired = applyCollectOfferAction(
+        {
+          id: acceptedOffer.id,
+          dropId: acceptedOffer.dropId,
+          listingType: acceptedOffer.listingType,
+          amountUsd: acceptedOffer.amountUsd,
+          state: acceptedOffer.state,
+          actorHandle: account.handle,
+          createdAt: acceptedOffer.createdAt,
+          updatedAt: acceptedOffer.updatedAt,
+          expiresAt: acceptedOffer.expiresAt,
+          executionVisibility: acceptedOffer.executionVisibility,
+          executionPriceUsd: acceptedOffer.executionPriceUsd
+        },
+        "expire_offer",
+        {
+          updatedAt: new Date().toISOString()
+        }
+      );
+
+      acceptedOffer.state = expired.state;
+      acceptedOffer.updatedAt = expired.updatedAt;
+      acceptedOffer.expiresAt = expired.expiresAt;
+      acceptedOffer.amountUsd = expired.amountUsd;
+
+      const fallbackCandidate = rankAuctionCandidates(
+        offers.filter(
+          (offer) =>
+            offer.id !== acceptedOffer.id &&
+            (offer.state === "offer_submitted" || offer.state === "countered")
+        )
+      )[0];
+
+      if (fallbackCandidate) {
+        const acceptedFallback = applyCollectOfferAction(
+          {
+            id: fallbackCandidate.id,
+            dropId: fallbackCandidate.dropId,
+            listingType: fallbackCandidate.listingType,
+            amountUsd: fallbackCandidate.amountUsd,
+            state: fallbackCandidate.state,
+            actorHandle: account.handle,
+            createdAt: fallbackCandidate.createdAt,
+            updatedAt: fallbackCandidate.updatedAt,
+            expiresAt: fallbackCandidate.expiresAt,
+            executionVisibility: fallbackCandidate.executionVisibility,
+            executionPriceUsd: fallbackCandidate.executionPriceUsd
+          },
+          "accept_offer",
+          {
+            updatedAt: new Date().toISOString()
+          }
+        );
+
+        fallbackCandidate.state = acceptedFallback.state;
+        fallbackCandidate.updatedAt = acceptedFallback.updatedAt;
+        fallbackCandidate.expiresAt = acceptedFallback.expiresAt;
+        fallbackCandidate.amountUsd = acceptedFallback.amountUsd;
+      }
 
       return {
         persist: true,
@@ -1508,14 +1860,15 @@ export const commerceBffService = {
 
       if (input.action === "settle_offer") {
         let normalizedExecution = offer.amountUsd;
-        if (typeof input.executionPriceUsd === "number") {
-          if (!Number.isFinite(input.executionPriceUsd) || input.executionPriceUsd <= 0) {
+        if (input.executionPriceUsd !== undefined) {
+          const explicitExecution = normalizePositiveAmountUsd(input.executionPriceUsd);
+          if (explicitExecution === null) {
             return {
               persist: false,
               result: null
             };
           }
-          normalizedExecution = Number(input.executionPriceUsd.toFixed(2));
+          normalizedExecution = explicitExecution;
         }
         offer.executionPriceUsd = normalizedExecution;
         offer.executionVisibility = offer.listingType === "resale" ? "private" : "public";

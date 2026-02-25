@@ -147,6 +147,32 @@ export async function POST(
     );
   }
 
+  if (action === "submit_auction_bid") {
+    const rawAmount = body?.amountUsd;
+    if (typeof rawAmount !== "number" || !Number.isFinite(rawAmount) || rawAmount <= 0) {
+      return badRequest("amountUsd must be a positive number");
+    }
+
+    const submitted = await commerceBffService.submitCollectAuctionBid({
+      accountId: guard.session.accountId,
+      dropId,
+      amountUsd: rawAmount
+    });
+
+    if (!submitted) {
+      return badRequest("auction bid cannot be submitted for this drop");
+    }
+
+    return ok(
+      {
+        dropId,
+        listing: submitted.listing,
+        offers: submitted.offers
+      },
+      201
+    );
+  }
+
   if (action === "accept_latest_resale_offer" || action === "settle_latest_resale_offer") {
     if (!guard.session.roles.includes("creator")) {
       return forbidden("creator role is required");
@@ -180,6 +206,43 @@ export async function POST(
       dropId,
       listing: transitioned.listing,
       offers: transitioned.offers
+    });
+  }
+
+  if (
+    action === "award_highest_auction_bid" ||
+    action === "settle_awarded_auction_bid" ||
+    action === "fallback_awarded_auction_bid"
+  ) {
+    if (!guard.session.roles.includes("creator")) {
+      return forbidden("creator role is required");
+    }
+
+    const resolved =
+      action === "award_highest_auction_bid"
+        ? await commerceBffService.awardCollectAuctionBid({
+            accountId: guard.session.accountId,
+            dropId
+          })
+        : action === "settle_awarded_auction_bid"
+          ? await commerceBffService.settleCollectAuctionBid({
+              accountId: guard.session.accountId,
+              dropId,
+              executionPriceUsd: parsedExecutionPrice.value
+            })
+          : await commerceBffService.fallbackCollectAuctionBid({
+              accountId: guard.session.accountId,
+              dropId
+            });
+
+    if (!resolved) {
+      return badRequest("auction transition rejected");
+    }
+
+    return ok({
+      dropId,
+      listing: resolved.listing,
+      offers: resolved.offers
     });
   }
 
