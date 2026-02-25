@@ -4,19 +4,35 @@ import { rankDropsForTownhall } from "@/lib/townhall/ranking";
 import { DEFAULT_TOWNHALL_FEED_PAGE_SIZE, paginateTownhallFeed } from "@/lib/townhall/feed-pagination";
 import { commerceBffService } from "@/lib/bff/service";
 import type { TownhallDropSocialSnapshot } from "@/lib/domain/contracts";
+import {
+  filterDropsForShowroomMedia,
+  parseTownhallShowroomMediaFilter,
+  parseTownhallShowroomOrdering,
+  type TownhallShowroomMediaFilter,
+  type TownhallShowroomOrdering
+} from "@/lib/townhall/showroom-query";
 
 type TownhallViewer = {
   accountId: string;
   handle: string;
 };
 
-export async function loadTownhallFeedContext() {
+type LoadTownhallFeedContextOptions = {
+  mediaFilter?: TownhallShowroomMediaFilter | string | null;
+  ordering?: TownhallShowroomOrdering | string | null;
+};
+
+export async function loadTownhallFeedContext(options: LoadTownhallFeedContextOptions = {}) {
+  const mediaFilter = parseTownhallShowroomMediaFilter(options.mediaFilter);
+  const ordering = parseTownhallShowroomOrdering(options.ordering);
   const [session, drops] = await Promise.all([getOptionalSession(), gateway.listDrops()]);
+  const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter);
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
-    drops.map((drop) => drop.id)
+    filteredDrops.map((drop) => drop.id)
   );
-  const rankedDrops = rankDropsForTownhall(drops, {
-    telemetryByDropId
+  const rankedDrops = rankDropsForTownhall(filteredDrops, {
+    telemetryByDropId,
+    ordering
   });
   const initialPage = paginateTownhallFeed(rankedDrops, {
     pageSize: DEFAULT_TOWNHALL_FEED_PAGE_SIZE
@@ -32,7 +48,9 @@ export async function loadTownhallFeedContext() {
       socialByDropId: social.byDropId as Record<string, TownhallDropSocialSnapshot>,
       nextCursor: initialPage.nextCursor,
       hasMore: initialPage.hasMore,
-      pageSize: initialPage.pageSize
+      pageSize: initialPage.pageSize,
+      mediaFilter,
+      ordering
     };
   }
 
@@ -51,6 +69,8 @@ export async function loadTownhallFeedContext() {
     socialByDropId: social.byDropId as Record<string, TownhallDropSocialSnapshot>,
     nextCursor: initialPage.nextCursor,
     hasMore: initialPage.hasMore,
-    pageSize: initialPage.pageSize
+    pageSize: initialPage.pageSize,
+    mediaFilter,
+    ordering
   };
 }

@@ -95,3 +95,25 @@ test("proof: townhall feed rejects malformed cursor", async () => {
   );
   assert.equal(response.status, 400);
 });
+
+test("proof: townhall feed supports ordering lanes", async () => {
+  const newestResponse = await getTownhallFeedRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?ordering=newest&limit=4")
+  );
+  assert.equal(newestResponse.status, 200);
+  const newestPayload = await parseJson<FeedPayload>(newestResponse);
+  assert.deepEqual(
+    newestPayload.feed.drops.map((drop) => drop.id),
+    ["stardust", "through-the-lens", "voidrunner", "twilight-whispers"]
+  );
+
+  const collectedResponse = await getTownhallFeedRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?ordering=most_collected&limit=2")
+  );
+  assert.equal(collectedResponse.status, 200);
+  const collectedPayload = await parseJson<FeedPayload>(collectedResponse);
+  assert.deepEqual(
+    collectedPayload.feed.drops.map((drop) => drop.id),
+    ["voidrunner", "stardust"]
+  );
+});

@@ -1,9 +1,35 @@
 import { TownhallFeedScreen } from "@/features/townhall/townhall-feed-screen";
 import { loadTownhallFeedContext } from "../load-feed-context";
 
-export default async function TownhallLivePage() {
-  const { viewer, drops, ownedDropIds, socialByDropId, nextCursor, hasMore, pageSize } =
-    await loadTownhallFeedContext();
+type TownhallLivePageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function firstQueryValue(
+  value: string | string[] | undefined
+): string | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
+export default async function TownhallLivePage({ searchParams }: TownhallLivePageProps) {
+  const params = (await searchParams) ?? {};
+  const {
+    viewer,
+    drops,
+    ownedDropIds,
+    socialByDropId,
+    nextCursor,
+    hasMore,
+    pageSize,
+    ordering
+  } = await loadTownhallFeedContext({
+    mediaFilter: "live",
+    ordering: firstQueryValue(params.ordering)
+  });
   return (
     <TownhallFeedScreen
       mode="live"
@@ -14,6 +40,8 @@ export default async function TownhallLivePage() {
       initialNextCursor={nextCursor}
       initialHasMore={hasMore}
       pageSize={pageSize}
+      showroomMedia="live"
+      showroomOrdering={ordering}
     />
   );
 }

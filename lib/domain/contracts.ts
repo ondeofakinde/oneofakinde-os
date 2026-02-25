@@ -146,7 +146,32 @@ export type TownhallSocialSnapshot = {
   byDropId: Record<string, TownhallDropSocialSnapshot>;
 };
 
-export type TownhallTelemetryEventType = "watch_time" | "completion" | "collect_intent" | "impression";
+export type TownhallTelemetryEventType =
+  | "watch_time"
+  | "completion"
+  | "collect_intent"
+  | "impression"
+  | "showroom_impression"
+  | "drop_opened"
+  | "drop_dwell_time"
+  | "preview_start"
+  | "preview_complete"
+  | "access_start"
+  | "access_complete"
+  | "interaction_like"
+  | "interaction_comment"
+  | "interaction_share"
+  | "interaction_save";
+
+export type TownhallTelemetryMetadata = {
+  source?: "showroom" | "drop";
+  surface?: "townhall" | "watch" | "listen" | "read" | "photos" | "live";
+  mediaFilter?: "all" | "watch" | "listen" | "read" | "photos" | "live";
+  ordering?: "rising" | "newest" | "most_collected";
+  position?: number;
+  channel?: TownhallShareChannel;
+  action?: "open" | "complete" | "start" | "toggle" | "submit";
+};
 
 export type TownhallTelemetrySignals = {
   watchTimeSeconds: number;

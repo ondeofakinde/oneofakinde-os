@@ -8,18 +8,27 @@ import {
   parseTownhallFeedPageSize
 } from "@/lib/townhall/feed-pagination";
 import { rankDropsForTownhall } from "@/lib/townhall/ranking";
+import {
+  filterDropsForShowroomMedia,
+  parseTownhallShowroomMediaFilter,
+  parseTownhallShowroomOrdering
+} from "@/lib/townhall/showroom-query";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const cursor = url.searchParams.get("cursor");
   const pageSize = parseTownhallFeedPageSize(url.searchParams.get("limit"));
+  const mediaFilter = parseTownhallShowroomMediaFilter(url.searchParams.get("media"));
+  const ordering = parseTownhallShowroomOrdering(url.searchParams.get("ordering"));
 
   const [session, drops] = await Promise.all([getRequestSession(request), gateway.listDrops()]);
+  const filteredDrops = filterDropsForShowroomMedia(drops, mediaFilter);
   const telemetryByDropId = await commerceBffService.getTownhallTelemetrySignals(
-    drops.map((drop) => drop.id)
+    filteredDrops.map((drop) => drop.id)
   );
-  const rankedDrops = rankDropsForTownhall(drops, {
-    telemetryByDropId
+  const rankedDrops = rankDropsForTownhall(filteredDrops, {
+    telemetryByDropId,
+    ordering
   });
 
   let page;
@@ -47,6 +56,10 @@ export async function GET(request: Request) {
         }
       : null,
     feed: page,
+    showroom: {
+      mediaFilter,
+      ordering
+    },
     ownedDropIds: (collection?.ownedDrops ?? []).map((entry) => entry.drop.id),
     socialByDropId: social.byDropId as Record<string, TownhallDropSocialSnapshot>
   });

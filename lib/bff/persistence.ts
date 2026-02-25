@@ -4,6 +4,7 @@ import type {
   Drop,
   PurchaseReceipt,
   TownhallShareChannel,
+  TownhallTelemetryMetadata,
   TownhallTelemetryEventType,
   Studio,
   World
@@ -100,6 +101,7 @@ export type TownhallTelemetryEventRecord = {
   eventType: TownhallTelemetryEventType;
   watchTimeSeconds: number;
   completionPercent: number;
+  metadata: TownhallTelemetryMetadata;
   occurredAt: string;
 };
 
@@ -463,6 +465,7 @@ function createSeedDatabase(): BffDatabase {
         eventType: "watch_time",
         watchTimeSeconds: 248,
         completionPercent: 0,
+        metadata: {},
         occurredAt: new Date(now.valueOf() - DAY_MS / 8).toISOString()
       },
       {
@@ -472,6 +475,7 @@ function createSeedDatabase(): BffDatabase {
         eventType: "completion",
         watchTimeSeconds: 0,
         completionPercent: 100,
+        metadata: {},
         occurredAt: new Date(now.valueOf() - DAY_MS / 9).toISOString()
       },
       {
@@ -481,6 +485,7 @@ function createSeedDatabase(): BffDatabase {
         eventType: "collect_intent",
         watchTimeSeconds: 0,
         completionPercent: 0,
+        metadata: {},
         occurredAt: new Date(now.valueOf() - DAY_MS / 10).toISOString()
       }
     ]
@@ -579,9 +584,89 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   );
 }
 
+function normalizeTownhallTelemetryMetadata(value: unknown): TownhallTelemetryMetadata {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const metadata: TownhallTelemetryMetadata = {};
+
+  if (candidate.source === "showroom" || candidate.source === "drop") {
+    metadata.source = candidate.source;
+  }
+
+  if (
+    candidate.surface === "townhall" ||
+    candidate.surface === "watch" ||
+    candidate.surface === "listen" ||
+    candidate.surface === "read" ||
+    candidate.surface === "photos" ||
+    candidate.surface === "live"
+  ) {
+    metadata.surface = candidate.surface;
+  }
+
+  if (
+    candidate.mediaFilter === "all" ||
+    candidate.mediaFilter === "watch" ||
+    candidate.mediaFilter === "listen" ||
+    candidate.mediaFilter === "read" ||
+    candidate.mediaFilter === "photos" ||
+    candidate.mediaFilter === "live"
+  ) {
+    metadata.mediaFilter = candidate.mediaFilter;
+  }
+
+  if (
+    candidate.ordering === "rising" ||
+    candidate.ordering === "newest" ||
+    candidate.ordering === "most_collected"
+  ) {
+    metadata.ordering = candidate.ordering;
+  }
+
+  if (typeof candidate.position === "number" && Number.isFinite(candidate.position)) {
+    metadata.position = Math.max(1, Math.floor(candidate.position));
+  }
+
+  if (
+    candidate.channel === "sms" ||
+    candidate.channel === "internal_dm" ||
+    candidate.channel === "whatsapp" ||
+    candidate.channel === "telegram"
+  ) {
+    metadata.channel = candidate.channel;
+  }
+
+  if (
+    candidate.action === "open" ||
+    candidate.action === "complete" ||
+    candidate.action === "start" ||
+    candidate.action === "toggle" ||
+    candidate.action === "submit"
+  ) {
+    metadata.action = candidate.action;
+  }
+
+  return metadata;
+}
+
+function normalizeTownhallTelemetryEvents(
+  events: TownhallTelemetryEventRecord[]
+): TownhallTelemetryEventRecord[] {
+  return events.map((event) => ({
+    ...event,
+    metadata: normalizeTownhallTelemetryMetadata((event as { metadata?: unknown }).metadata)
+  }));
+}
+
 function normalizeDatabase(input: unknown): BffDatabase | null {
   if (isValidDb(input)) {
-    return input;
+    return {
+      ...input,
+      townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents)
+    };
   }
 
   if (hasLegacyBaseDbShape(input)) {
@@ -601,7 +686,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         ? (candidate.townhallShares as TownhallShareRecord[])
         : [],
       townhallTelemetryEvents: Array.isArray(candidate.townhallTelemetryEvents)
-        ? (candidate.townhallTelemetryEvents as TownhallTelemetryEventRecord[])
+        ? normalizeTownhallTelemetryEvents(
+            candidate.townhallTelemetryEvents as TownhallTelemetryEventRecord[]
+          )
         : []
     };
   }
@@ -827,9 +914,10 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       eventType: TownhallTelemetryEventType;
       watchTimeSeconds: string | number;
       completionPercent: string | number;
+      metadataJson: unknown;
       occurredAt: string;
     }>(
-      'SELECT id, account_id AS "accountId", drop_id AS "dropId", event_type AS "eventType", watch_time_seconds AS "watchTimeSeconds", completion_percent AS "completionPercent", occurred_at AS "occurredAt" FROM bff_townhall_telemetry_events ORDER BY occurred_at DESC'
+      'SELECT id, account_id AS "accountId", drop_id AS "dropId", event_type AS "eventType", watch_time_seconds AS "watchTimeSeconds", completion_percent AS "completionPercent", metadata_json AS "metadataJson", occurred_at AS "occurredAt" FROM bff_townhall_telemetry_events ORDER BY occurred_at DESC'
     )
   ]);
 
@@ -914,6 +1002,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       eventType: row.eventType,
       watchTimeSeconds: Number(row.watchTimeSeconds),
       completionPercent: Number(row.completionPercent),
+      metadata: normalizeTownhallTelemetryMetadata(row.metadataJson),
       occurredAt: row.occurredAt
     }))
   };
@@ -1078,7 +1167,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const event of db.townhallTelemetryEvents) {
     await client.query(
-      "INSERT INTO bff_townhall_telemetry_events (id, account_id, drop_id, event_type, watch_time_seconds, completion_percent, occurred_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      "INSERT INTO bff_townhall_telemetry_events (id, account_id, drop_id, event_type, watch_time_seconds, completion_percent, metadata_json, occurred_at) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)",
       [
         event.id,
         event.accountId,
@@ -1086,6 +1175,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         event.eventType,
         event.watchTimeSeconds,
         event.completionPercent,
+        JSON.stringify(event.metadata ?? {}),
         event.occurredAt
       ]
     );
