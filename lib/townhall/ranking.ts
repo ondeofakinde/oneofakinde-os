@@ -1,4 +1,5 @@
 import type { Drop, TownhallTelemetrySignals } from "@/lib/domain/contracts";
+import type { TownhallOrderMode } from "@/lib/townhall/order";
 
 export type TownhallEngagementSignals = {
   watched: number;
@@ -11,8 +12,20 @@ export type TownhallEngagementSignals = {
 
 type TownhallRankingOptions = {
   now?: Date;
+  orderMode?: TownhallOrderMode;
   signalsByDropId?: Record<string, Partial<TownhallEngagementSignals>>;
   telemetryByDropId?: Record<string, Partial<TownhallTelemetrySignals>>;
+};
+
+type ScoredEntry = {
+  drop: Drop;
+  releaseMs: number;
+  recency: number;
+  engagement: number;
+  telemetry: number;
+  signals: TownhallEngagementSignals;
+  telemetrySignals: TownhallTelemetrySignals;
+  blendedScore: number;
 };
 
 const DAY_MS = 86_400_000;
@@ -133,16 +146,60 @@ function mergeTelemetrySignals(
 }
 
 function telemetryRawScore(signals: TownhallTelemetrySignals): number {
+  return signals.watchTimeSeconds * 0.75 + signals.completions * 600 + signals.collectIntents * 800;
+}
+
+function compareByReleaseAndTitle(a: ScoredEntry, b: ScoredEntry): number {
+  if (b.releaseMs !== a.releaseMs) {
+    return b.releaseMs - a.releaseMs;
+  }
+
+  return a.drop.title.localeCompare(b.drop.title);
+}
+
+function compareByConstitutional(a: ScoredEntry, b: ScoredEntry): number {
+  if (b.blendedScore !== a.blendedScore) {
+    return b.blendedScore - a.blendedScore;
+  }
+
+  return compareByReleaseAndTitle(a, b);
+}
+
+function compareByMostCollected(a: ScoredEntry, b: ScoredEntry): number {
+  if (b.signals.collected !== a.signals.collected) {
+    return b.signals.collected - a.signals.collected;
+  }
+
+  if (b.telemetrySignals.collectIntents !== a.telemetrySignals.collectIntents) {
+    return b.telemetrySignals.collectIntents - a.telemetrySignals.collectIntents;
+  }
+
+  return compareByReleaseAndTitle(a, b);
+}
+
+function watchActivityScore(entry: ScoredEntry): number {
   return (
-    signals.watchTimeSeconds * 0.75 +
-    signals.completions * 600 +
-    signals.collectIntents * 800
+    entry.signals.watched +
+    entry.telemetrySignals.watchTimeSeconds * 10 +
+    entry.telemetrySignals.completions * 2_000
   );
+}
+
+function compareByMostWatched(a: ScoredEntry, b: ScoredEntry): number {
+  const aWatchScore = watchActivityScore(a);
+  const bWatchScore = watchActivityScore(b);
+
+  if (bWatchScore !== aWatchScore) {
+    return bWatchScore - aWatchScore;
+  }
+
+  return compareByReleaseAndTitle(a, b);
 }
 
 export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOptions = {}): Drop[] {
   const now = options.now ?? new Date();
   const nowMs = now.getTime();
+  const orderMode = options.orderMode ?? "constitutional";
 
   const scored = drops.map((drop) => {
     const releaseMs = parseReleaseDate(drop.releaseDate);
@@ -153,36 +210,41 @@ export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOpti
       releaseMs,
       recency: recencyScore(nowMs, releaseMs),
       engagement: engagementRawScore(signals),
-      telemetry: telemetryRawScore(telemetrySignals)
-    };
+      telemetry: telemetryRawScore(telemetrySignals),
+      signals,
+      telemetrySignals,
+      blendedScore: 0
+    } satisfies ScoredEntry;
   });
 
   const maxEngagement = scored.reduce((best, entry) => Math.max(best, entry.engagement), 0);
   const maxTelemetry = scored.reduce((best, entry) => Math.max(best, entry.telemetry), 0);
 
-  return scored
-    .map((entry) => {
-      const engagementScore = maxEngagement > 0 ? entry.engagement / maxEngagement : 0;
-      const telemetryScore = maxTelemetry > 0 ? entry.telemetry / maxTelemetry : 0;
-      const blendedScore =
-        engagementScore * 0.5 +
-        entry.recency * 0.32 +
-        telemetryScore * 0.18;
-      return {
-        ...entry,
-        blendedScore
-      };
-    })
-    .sort((a, b) => {
-      if (b.blendedScore !== a.blendedScore) {
-        return b.blendedScore - a.blendedScore;
-      }
+  const withBlendedScore = scored.map((entry) => {
+    const engagementScore = maxEngagement > 0 ? entry.engagement / maxEngagement : 0;
+    const telemetryScore = maxTelemetry > 0 ? entry.telemetry / maxTelemetry : 0;
+    const blendedScore = engagementScore * 0.5 + entry.recency * 0.32 + telemetryScore * 0.18;
+    return {
+      ...entry,
+      blendedScore
+    } satisfies ScoredEntry;
+  });
 
-      if (b.releaseMs !== a.releaseMs) {
-        return b.releaseMs - a.releaseMs;
-      }
+  const sorted = [...withBlendedScore].sort((a, b) => {
+    if (orderMode === "latest") {
+      return compareByReleaseAndTitle(a, b);
+    }
 
-      return a.drop.title.localeCompare(b.drop.title);
-    })
-    .map((entry) => entry.drop);
+    if (orderMode === "most_collected") {
+      return compareByMostCollected(a, b);
+    }
+
+    if (orderMode === "most_watched") {
+      return compareByMostWatched(a, b);
+    }
+
+    return compareByConstitutional(a, b);
+  });
+
+  return sorted.map((entry) => entry.drop);
 }
