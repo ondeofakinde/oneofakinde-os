@@ -270,6 +270,9 @@ export type TownhallCommentVisibility = "visible" | "hidden";
 export type TownhallComment = {
   id: string;
   dropId: string;
+  parentCommentId: string | null;
+  depth: number;
+  replyCount: number;
   authorHandle: string;
   body: string;
   createdAt: string;
@@ -277,6 +280,9 @@ export type TownhallComment = {
   reportCount: number;
   canModerate: boolean;
   canReport: boolean;
+  canReply: boolean;
+  canAppeal: boolean;
+  appealRequested: boolean;
 };
 
 export type TownhallDropSocialSnapshot = {
@@ -292,6 +298,22 @@ export type TownhallDropSocialSnapshot = {
 
 export type TownhallSocialSnapshot = {
   byDropId: Record<string, TownhallDropSocialSnapshot>;
+};
+
+export type TownhallModerationQueueItem = {
+  dropId: string;
+  dropTitle: string;
+  commentId: string;
+  parentCommentId: string | null;
+  authorHandle: string;
+  body: string;
+  visibility: TownhallCommentVisibility;
+  reportCount: number;
+  reportedAt: string | null;
+  moderatedAt: string | null;
+  appealRequested: boolean;
+  appealRequestedAt: string | null;
+  createdAt: string;
 };
 
 export type TownhallTelemetryEventType =

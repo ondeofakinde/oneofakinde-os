@@ -311,12 +311,14 @@ export function TownhallFeedScreen({
   const [openPanel, setOpenPanel] = useState<TownhallPanel | null>(null);
   const [panelDropId, setPanelDropId] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
+  const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
   const [shareNotice, setShareNotice] = useState("");
   const [shareOrigin, setShareOrigin] = useState("https://oneofakinde-os.vercel.app");
   const [failedPreviewAssetKeys, setFailedPreviewAssetKeys] = useState<string[]>([]);
   const [revealedVideoDropIds, setRevealedVideoDropIds] = useState<string[]>([]);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const commentInputRef = useRef<HTMLInputElement | null>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
   const mediaRefs = useRef<Array<HTMLMediaElement | null>>([]);
   const lastScrollTopRef = useRef(0);
@@ -650,9 +652,21 @@ export function TownhallFeedScreen({
     setOpenPanel(null);
     setPanelDropId(null);
     setCommentDraft("");
+    setReplyToCommentId(null);
     setShareNotice("");
     setIsPlaying(true);
   }, [activeIndex]);
+
+  useEffect(() => {
+    if (openPanel !== "comments" || !panelDropId || !replyToCommentId) {
+      return;
+    }
+
+    const panelComments = socialByDrop[panelDropId]?.comments ?? [];
+    if (!panelComments.some((entry) => entry.id === replyToCommentId && entry.visibility === "visible")) {
+      setReplyToCommentId(null);
+    }
+  }, [openPanel, panelDropId, replyToCommentId, socialByDrop]);
 
   useEffect(() => {
     for (const [index, media] of mediaRefs.current.entries()) {
@@ -674,6 +688,7 @@ export function TownhallFeedScreen({
     if (openPanel === panel && panelDropId === dropId) {
       setOpenPanel(null);
       setPanelDropId(null);
+      setReplyToCommentId(null);
       return;
     }
 
@@ -682,6 +697,9 @@ export function TownhallFeedScreen({
     setOpenPanel(panel);
     setPanelDropId(dropId);
     setShareNotice("");
+    if (panel !== "comments") {
+      setReplyToCommentId(null);
+    }
 
     if (panel === "collect") {
       void postTelemetryEvent(dropId, "collect_intent", {
@@ -1026,7 +1044,10 @@ export function TownhallFeedScreen({
 
     const social = await postSocialMutation(
       `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}`,
-      { body }
+      {
+        body,
+        ...(replyToCommentId ? { parentCommentId: replyToCommentId } : {})
+      }
     );
 
     if (social) {
@@ -1041,6 +1062,14 @@ export function TownhallFeedScreen({
     }
 
     setCommentDraft("");
+    setReplyToCommentId(null);
+  }
+
+  function handleCommentReply(commentId: string) {
+    setReplyToCommentId(commentId);
+    requestAnimationFrame(() => {
+      commentInputRef.current?.focus();
+    });
   }
 
   async function handleCommentReport(dropId: string, commentId: string) {
@@ -1069,6 +1098,20 @@ export function TownhallFeedScreen({
 
     const social = await postSocialMutation(
       `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/${action}`
+    );
+    if (social) {
+      applySocialSnapshot(social);
+    }
+  }
+
+  async function handleCommentAppeal(dropId: string, commentId: string) {
+    if (!viewer) {
+      redirectToSignInForInteraction();
+      return;
+    }
+
+    const social = await postSocialMutation(
+      `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/appeal`
     );
     if (social) {
       applySocialSnapshot(social);
@@ -1223,6 +1266,9 @@ export function TownhallFeedScreen({
             const openCurrentPanel = isActive && panelDropId === drop.id ? openPanel : null;
             const social = socialByDrop[drop.id] ?? defaultDropSocialSnapshot(drop.id);
             const comments = social.comments;
+            const replyingToComment = replyToCommentId
+              ? comments.find((entry) => entry.id === replyToCommentId) ?? null
+              : null;
             const commentCount = social.commentCount;
             const collectStats = buildCollectStats(drop, index);
             const likeCount = social.likeCount;
@@ -1528,12 +1574,26 @@ export function TownhallFeedScreen({
                       </div>
                       <ul className="townhall-comment-list">
                         {comments.map((comment) => (
-                          <li key={comment.id}>
+                          <li
+                            key={comment.id}
+                            className="townhall-comment-item"
+                            style={{ marginLeft: `${Math.min(comment.depth, 3) * 14}px` }}
+                          >
                             <div className="townhall-comment-head">
                               <p>
                                 <strong>@{comment.authorHandle}</strong> · {formatRelativeAge(comment.createdAt)}
                               </p>
                               <div className="townhall-comment-actions">
+                                {comment.canReply && comment.visibility === "visible" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleCommentReply(comment.id);
+                                    }}
+                                  >
+                                    reply
+                                  </button>
+                                ) : null}
                                 {comment.canReport ? (
                                   <button
                                     type="button"
@@ -1542,6 +1602,16 @@ export function TownhallFeedScreen({
                                     }}
                                   >
                                     report
+                                  </button>
+                                ) : null}
+                                {comment.canAppeal ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void handleCommentAppeal(drop.id, comment.id);
+                                    }}
+                                  >
+                                    appeal
                                   </button>
                                 ) : null}
                                 {comment.canModerate ? (
@@ -1560,19 +1630,39 @@ export function TownhallFeedScreen({
                                 ) : null}
                               </div>
                             </div>
+                            {comment.replyCount > 0 ? (
+                              <p className="townhall-comment-replies">{comment.replyCount} repl{comment.replyCount === 1 ? "y" : "ies"}</p>
+                            ) : null}
                             <p className={comment.visibility === "hidden" ? "townhall-comment-hidden" : undefined}>
                               {comment.visibility === "hidden"
                                 ? "comment hidden by moderation."
                                 : comment.body}
                             </p>
+                            {comment.appealRequested ? (
+                              <p className="townhall-comment-appeal-state">appeal pending review</p>
+                            ) : null}
                           </li>
                         ))}
                       </ul>
+                      {replyingToComment ? (
+                        <p className="townhall-comment-reply-target">
+                          replying to @{replyingToComment.authorHandle}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyToCommentId(null);
+                            }}
+                          >
+                            cancel
+                          </button>
+                        </p>
+                      ) : null}
                       <div className="townhall-comment-form">
                         <input
+                          ref={commentInputRef}
                           value={commentDraft}
                           onChange={(event) => setCommentDraft(event.target.value)}
-                          placeholder="write a comment"
+                          placeholder={replyingToComment ? "write a reply" : "write a comment"}
                           aria-label="write comment"
                         />
                         <button
@@ -1581,7 +1671,7 @@ export function TownhallFeedScreen({
                             void handleCommentSubmit(drop.id);
                           }}
                         >
-                          send
+                          {replyingToComment ? "reply" : "send"}
                         </button>
                       </div>
                     </section>

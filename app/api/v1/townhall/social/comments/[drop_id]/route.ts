@@ -1,4 +1,13 @@
-import { badRequest, getRequiredBodyString, getRequiredRouteParam, notFound, ok, safeJson, type RouteContext } from "@/lib/bff/http";
+import {
+  badRequest,
+  getOptionalBodyString,
+  getRequiredBodyString,
+  getRequiredRouteParam,
+  notFound,
+  ok,
+  safeJson,
+  type RouteContext
+} from "@/lib/bff/http";
 import { requireRequestSession } from "@/lib/bff/auth";
 import { commerceBffService } from "@/lib/bff/service";
 
@@ -8,6 +17,7 @@ type CommentRouteParams = {
 
 type CommentBody = {
   body?: string;
+  parentCommentId?: string;
 };
 
 export async function POST(request: Request, context: RouteContext<CommentRouteParams>) {
@@ -26,12 +36,20 @@ export async function POST(request: Request, context: RouteContext<CommentRouteP
   if (!body) {
     return badRequest("comment body is required");
   }
+  const parentCommentId = getOptionalBodyString(
+    payload as Record<string, unknown> | null,
+    "parentCommentId"
+  );
 
-  const social = await commerceBffService.addTownhallComment(guard.session.accountId, dropId, body);
+  const social = await commerceBffService.addTownhallComment(
+    guard.session.accountId,
+    dropId,
+    body,
+    parentCommentId
+  );
   if (!social) {
     return notFound("drop not found");
   }
 
   return ok({ social }, 201);
 }
-

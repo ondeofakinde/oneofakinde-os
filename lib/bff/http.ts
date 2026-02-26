@@ -53,6 +53,20 @@ export function getRequiredBodyString(payload: Record<string, unknown> | null, k
   return normalized || null;
 }
 
+export function getOptionalBodyString(payload: Record<string, unknown> | null, key: string): string | null {
+  const value = payload?.[key];
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized || null;
+}
+
 export async function safeJson<T>(request: Request): Promise<T | null> {
   try {
     return (await request.json()) as T;

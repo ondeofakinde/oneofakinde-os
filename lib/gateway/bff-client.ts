@@ -12,6 +12,8 @@ import type {
   MembershipEntitlement,
   MyCollectionSnapshot,
   PurchaseReceipt,
+  TownhallDropSocialSnapshot,
+  TownhallModerationQueueItem,
   Session,
   Studio,
   World
@@ -339,6 +341,33 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.liveSession;
+    },
+
+    async appealTownhallComment(
+      _accountId: string,
+      dropId: string,
+      commentId: string
+    ): Promise<TownhallDropSocialSnapshot | null> {
+      void _accountId;
+      const response = await requestJson<{ social: TownhallDropSocialSnapshot }>(
+        options,
+        `/api/v1/townhall/social/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/appeal`,
+        {
+          method: "POST"
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.social;
+    },
+
+    async listTownhallModerationQueue(_accountId: string): Promise<TownhallModerationQueueItem[]> {
+      void _accountId;
+      const response = await requestJson<{ queue: TownhallModerationQueueItem[] }>(
+        options,
+        "/api/v1/workshop/moderation/comments"
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.queue;
     },
 
     async getCertificateById(certificateId: string): Promise<Certificate | null> {

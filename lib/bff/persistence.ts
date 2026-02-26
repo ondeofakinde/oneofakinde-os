@@ -111,6 +111,7 @@ export type TownhallCommentRecord = {
   id: string;
   accountId: string;
   dropId: string;
+  parentCommentId: string | null;
   body: string;
   createdAt: string;
   visibility: TownhallCommentVisibility;
@@ -118,6 +119,8 @@ export type TownhallCommentRecord = {
   reportedAt: string | null;
   moderatedAt: string | null;
   moderatedByAccountId: string | null;
+  appealRequestedAt: string | null;
+  appealRequestedByAccountId: string | null;
 };
 
 export type TownhallShareRecord = {
@@ -555,13 +558,16 @@ function createSeedDatabase(): BffDatabase {
         id: "cmt_seed_stardust_1",
         accountId,
         dropId: "stardust",
+        parentCommentId: null,
         body: "this drop keeps getting better each replay.",
         createdAt: new Date(now.valueOf() - DAY_MS / 4).toISOString(),
         visibility: "visible",
         reportCount: 0,
         reportedAt: null,
         moderatedAt: null,
-        moderatedByAccountId: null
+        moderatedByAccountId: null,
+        appealRequestedAt: null,
+        appealRequestedByAccountId: null
       }
     ],
     townhallShares: [
@@ -995,15 +1001,22 @@ function normalizeTownhallCommentVisibility(value: unknown): TownhallCommentVisi
 function normalizeTownhallCommentRecords(events: TownhallCommentRecord[]): TownhallCommentRecord[] {
   return events.map((event) => {
     const candidate = event as Partial<TownhallCommentRecord> & {
+      parentCommentId?: unknown;
       visibility?: unknown;
       reportCount?: unknown;
       reportedAt?: unknown;
       moderatedAt?: unknown;
       moderatedByAccountId?: unknown;
+      appealRequestedAt?: unknown;
+      appealRequestedByAccountId?: unknown;
     };
 
     return {
       ...event,
+      parentCommentId:
+        typeof candidate.parentCommentId === "string" && candidate.parentCommentId.trim()
+          ? candidate.parentCommentId
+          : null,
       visibility: normalizeTownhallCommentVisibility(candidate.visibility),
       reportCount:
         typeof candidate.reportCount === "number" && Number.isFinite(candidate.reportCount)
@@ -1017,6 +1030,15 @@ function normalizeTownhallCommentRecords(events: TownhallCommentRecord[]): Townh
       moderatedByAccountId:
         typeof candidate.moderatedByAccountId === "string" && candidate.moderatedByAccountId.trim()
           ? candidate.moderatedByAccountId
+          : null,
+      appealRequestedAt:
+        typeof candidate.appealRequestedAt === "string" && candidate.appealRequestedAt.trim()
+          ? candidate.appealRequestedAt
+          : null,
+      appealRequestedByAccountId:
+        typeof candidate.appealRequestedByAccountId === "string" &&
+        candidate.appealRequestedByAccountId.trim()
+          ? candidate.appealRequestedByAccountId
           : null
     };
   });
@@ -1296,7 +1318,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       'SELECT account_id AS "accountId", drop_id AS "dropId", liked_at AS "likedAt" FROM bff_townhall_likes ORDER BY liked_at DESC'
     ),
     client.query<TownhallCommentRecord>(
-      'SELECT id, account_id AS "accountId", drop_id AS "dropId", body, created_at AS "createdAt", status AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId" FROM bff_townhall_comments ORDER BY created_at DESC'
+      'SELECT id, account_id AS "accountId", drop_id AS "dropId", parent_comment_id AS "parentCommentId", body, created_at AS "createdAt", status AS "visibility", report_count AS "reportCount", reported_at AS "reportedAt", moderated_at AS "moderatedAt", moderated_by_account_id AS "moderatedByAccountId", appeal_requested_at AS "appealRequestedAt", appeal_requested_by_account_id AS "appealRequestedByAccountId" FROM bff_townhall_comments ORDER BY created_at DESC'
     ),
     client.query<TownhallShareRecord>(
       'SELECT id, account_id AS "accountId", drop_id AS "dropId", channel, shared_at AS "sharedAt" FROM bff_townhall_shares ORDER BY shared_at DESC'
@@ -1639,18 +1661,21 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
 
   for (const comment of db.townhallComments) {
     await client.query(
-      "INSERT INTO bff_townhall_comments (id, account_id, drop_id, body, created_at, status, report_count, reported_at, moderated_at, moderated_by_account_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+      "INSERT INTO bff_townhall_comments (id, account_id, drop_id, parent_comment_id, body, created_at, status, report_count, reported_at, moderated_at, moderated_by_account_id, appeal_requested_at, appeal_requested_by_account_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
       [
         comment.id,
         comment.accountId,
         comment.dropId,
+        comment.parentCommentId,
         comment.body,
         comment.createdAt,
         comment.visibility,
         comment.reportCount,
         comment.reportedAt,
         comment.moderatedAt,
-        comment.moderatedByAccountId
+        comment.moderatedByAccountId,
+        comment.appealRequestedAt,
+        comment.appealRequestedByAccountId
       ]
     );
   }
