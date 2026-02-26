@@ -3,9 +3,11 @@ import type {
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
+  CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
   LibrarySnapshot,
+  LiveSession,
   LiveSessionEligibility,
   MembershipEntitlement,
   MyCollectionSnapshot,
@@ -45,6 +47,11 @@ export interface CommerceGateway {
     accountId: string,
     liveSessionId: string
   ): Promise<LiveSessionEligibility | null>;
+  listWorkshopLiveSessions(accountId: string): Promise<LiveSession[]>;
+  createWorkshopLiveSession(
+    accountId: string,
+    input: CreateWorkshopLiveSessionInput
+  ): Promise<LiveSession | null>;
 
   getCertificateById(certificateId: string): Promise<Certificate | null>;
   getCertificateByReceipt(accountId: string, receiptId: string): Promise<Certificate | null>;

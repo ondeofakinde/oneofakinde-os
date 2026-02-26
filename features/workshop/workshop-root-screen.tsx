@@ -1,6 +1,6 @@
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
-import type { Drop, Session, World } from "@/lib/domain/contracts";
+import type { Drop, LiveSession, Session, World } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
@@ -10,6 +10,9 @@ type WorkshopRootScreenProps = {
   channelSynopsis: string;
   worlds: World[];
   drops: Drop[];
+  liveSessions: LiveSession[];
+  eventNotice: string | null;
+  createLiveSessionAction: (formData: FormData) => Promise<void>;
 };
 
 export function WorkshopRootScreen({
@@ -17,8 +20,14 @@ export function WorkshopRootScreen({
   channelTitle,
   channelSynopsis,
   worlds,
-  drops
+  drops,
+  liveSessions,
+  eventNotice,
+  createLiveSessionAction
 }: WorkshopRootScreenProps) {
+  const worldTitleById = new Map(worlds.map((world) => [world.id, world.title]));
+  const dropTitleById = new Map(drops.map((drop) => [drop.id, drop.title]));
+
   return (
     <AppShell
       title="workshop"
@@ -50,6 +59,132 @@ export function WorkshopRootScreen({
             open townhall
           </Link>
         </div>
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">create live session</p>
+        <p className="slice-copy">
+          sessions created here are discovered in collect gated events and enforce rule-based eligibility.
+        </p>
+        {eventNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {eventNotice}
+          </p>
+        ) : null}
+        <form action={createLiveSessionAction} className="slice-form">
+          <label className="slice-field">
+            title
+            <input
+              name="title"
+              className="slice-input"
+              required
+              placeholder="members salon: dark matter"
+            />
+          </label>
+
+          <label className="slice-field">
+            synopsis
+            <input
+              name="synopsis"
+              className="slice-input"
+              placeholder="session notes and outcomes for eligible collectors."
+            />
+          </label>
+
+          <label className="slice-field">
+            world scope
+            <select name="world_id" className="slice-select" defaultValue="">
+              <option value="">studio-wide</option>
+              {worlds.map((world) => (
+                <option key={world.id} value={world.id}>
+                  {world.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="slice-field">
+            drop scope (optional)
+            <select name="drop_id" className="slice-select" defaultValue="">
+              <option value="">none</option>
+              {drops.map((drop) => (
+                <option key={drop.id} value={drop.id}>
+                  {drop.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="slice-field">
+            starts at
+            <input type="datetime-local" name="starts_at" className="slice-input" required />
+          </label>
+
+          <label className="slice-field">
+            ends at (optional)
+            <input type="datetime-local" name="ends_at" className="slice-input" />
+          </label>
+
+          <label className="slice-field">
+            eligibility rule
+            <select name="eligibility_rule" className="slice-select" defaultValue="membership_active">
+              <option value="public">public</option>
+              <option value="membership_active">membership active</option>
+              <option value="drop_owner">drop owner</option>
+            </select>
+          </label>
+
+          <div className="slice-button-row">
+            <button type="submit" className="slice-button">
+              create live session
+            </button>
+            <Link href={routes.collect()} className="slice-button ghost">
+              open collect gated events
+            </Link>
+          </div>
+        </form>
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">workshop-created live sessions</p>
+        {liveSessions.length === 0 ? (
+          <p className="slice-copy">
+            no live sessions yet. create one above to publish discovery into collect.
+          </p>
+        ) : (
+          <ul className="slice-grid" aria-label="workshop live session list">
+            {liveSessions.map((liveSession) => (
+              <li key={liveSession.id} className="slice-drop-card">
+                <p className="slice-label">{liveSession.studioHandle}</p>
+                <h2 className="slice-title">{liveSession.title}</h2>
+                <p className="slice-copy">{liveSession.synopsis || "no synopsis provided."}</p>
+                <p className="slice-meta">
+                  starts {new Date(liveSession.startsAt).toLocaleString()}
+                  {liveSession.endsAt
+                    ? ` · ends ${new Date(liveSession.endsAt).toLocaleString()}`
+                    : " · no end date"}
+                </p>
+                <p className="slice-meta">
+                  rule: {liveSession.eligibilityRule.replaceAll("_", " ")}
+                  {liveSession.worldId
+                    ? ` · world: ${worldTitleById.get(liveSession.worldId) ?? liveSession.worldId}`
+                    : " · world: studio-wide"}
+                </p>
+                <p className="slice-meta">
+                  drop: {liveSession.dropId ? dropTitleById.get(liveSession.dropId) ?? liveSession.dropId : "none"}
+                </p>
+                <div className="slice-button-row">
+                  <Link href={routes.collect()} className="slice-button alt">
+                    view in collect
+                  </Link>
+                  <Link href={routes.liveHub()} className="slice-button ghost">
+                    open live
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="slice-panel">

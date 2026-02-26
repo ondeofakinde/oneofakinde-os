@@ -11,6 +11,7 @@ import type {
   CollectOffer,
   CollectOfferAction,
   CheckoutPreview,
+  CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
   LibraryDrop,
@@ -219,6 +220,10 @@ function findAccountById(db: BffDatabase, accountId: string): AccountRecord | nu
 
 function findDropById(db: BffDatabase, dropId: string): Drop | null {
   return db.catalog.drops.find((drop) => drop.id === dropId) ?? null;
+}
+
+function findWorldById(db: BffDatabase, worldId: string): World | null {
+  return db.catalog.worlds.find((world) => world.id === worldId) ?? null;
 }
 
 function findOwnershipByDrop(db: BffDatabase, accountId: string, dropId: string) {
@@ -877,6 +882,15 @@ function parseIsoTime(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseIsoTimestamp(value: string): number | null {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
 function isMembershipEntitlementActive(
   entitlement: MembershipEntitlementRecord,
   nowMs = Date.now()
@@ -1060,6 +1074,121 @@ function resolveLiveSessionEligibilityInDatabase(
     eligible: ownsDrop,
     reason: ownsDrop ? "eligible_drop_owner" : "ownership_required",
     matchedEntitlementId: null
+  };
+}
+
+function listWorkshopLiveSessionsInDatabase(
+  db: BffDatabase,
+  account: AccountRecord
+): LiveSession[] {
+  return db.liveSessions
+    .filter((liveSession) => liveSession.studioHandle === account.handle)
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+    .map((liveSession) => toLiveSession(db, liveSession));
+}
+
+function createWorkshopLiveSessionInDatabase(
+  db: BffDatabase,
+  accountId: string,
+  input: CreateWorkshopLiveSessionInput
+): {
+  persist: boolean;
+  result: LiveSession | null;
+} {
+  const account = findAccountById(db, accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const title = input.title.trim();
+  if (!title) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const startsAtMs = parseIsoTimestamp(input.startsAt);
+  if (startsAtMs === null) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  let endsAt: string | null = null;
+  if (input.endsAt) {
+    const endsAtMs = parseIsoTimestamp(input.endsAt);
+    if (endsAtMs === null || endsAtMs <= startsAtMs) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+    endsAt = new Date(endsAtMs).toISOString();
+  }
+
+  let worldId: string | null = input.worldId;
+  if (worldId) {
+    const world = findWorldById(db, worldId);
+    if (!world || world.studioHandle !== account.handle) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+  }
+
+  const dropId: string | null = input.dropId;
+  if (dropId) {
+    const drop = findDropById(db, dropId);
+    if (!drop || drop.studioHandle !== account.handle) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+
+    if (worldId && drop.worldId !== worldId) {
+      return {
+        persist: false,
+        result: null
+      };
+    }
+
+    if (!worldId) {
+      worldId = drop.worldId;
+    }
+  }
+
+  if (input.eligibilityRule === "drop_owner" && !dropId) {
+    return {
+      persist: false,
+      result: null
+    };
+  }
+
+  const record: LiveSessionRecord = {
+    id: `live_workshop_${randomUUID()}`,
+    studioHandle: account.handle,
+    worldId,
+    dropId,
+    title,
+    synopsis: input.synopsis.trim(),
+    startsAt: new Date(startsAtMs).toISOString(),
+    endsAt,
+    mode: "live",
+    eligibilityRule: input.eligibilityRule
+  };
+
+  db.liveSessions.unshift(record);
+
+  return {
+    persist: true,
+    result: toLiveSession(db, record)
   };
 }
 
@@ -1420,6 +1549,30 @@ const gatewayMethods: CommerceGateway = {
         result: resolveLiveSessionEligibilityInDatabase(db, account.id, liveSession)
       };
     });
+  },
+
+  async listWorkshopLiveSessions(accountId: string): Promise<LiveSession[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account || !account.roles.includes("creator")) {
+        return {
+          persist: false,
+          result: []
+        };
+      }
+
+      return {
+        persist: false,
+        result: listWorkshopLiveSessionsInDatabase(db, account)
+      };
+    });
+  },
+
+  async createWorkshopLiveSession(
+    accountId: string,
+    input: CreateWorkshopLiveSessionInput
+  ): Promise<LiveSession | null> {
+    return withDatabase(async (db) => createWorkshopLiveSessionInDatabase(db, accountId, input));
   },
 
   async getCertificateById(certificateId: string): Promise<Certificate | null> {

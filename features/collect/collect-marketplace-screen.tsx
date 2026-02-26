@@ -170,10 +170,11 @@ export function CollectMarketplaceScreen({
         )}
       </section>
 
-      <section className="slice-panel">
-        <p className="slice-label">collect live sessions</p>
+      <section className="slice-panel" id="collect-gated-events">
+        <p className="slice-label">gated events in collect</p>
         <p className="slice-copy">
-          live sessions enforce eligibility by rule: public, membership active, or drop ownership.
+          workshop-created live sessions are discovered here and enforce eligibility by rule:
+          public, membership active, or drop ownership.
         </p>
         {liveSessions.length === 0 ? (
           <p className="slice-meta">no live sessions available.</p>
@@ -198,6 +199,12 @@ export function CollectMarketplaceScreen({
                     {entry.eligibility.eligible
                       ? "eligible"
                       : entry.eligibility.reason.replaceAll("_", " ")}
+                  </p>
+                  <p className="slice-meta">
+                    source:{" "}
+                    {entry.liveSession.id.startsWith("live_workshop_")
+                      ? "workshop-created"
+                      : "catalog-seeded"}
                   </p>
                   <p className="slice-meta">{entry.liveSession.whatYouGet}</p>
                   <div className="slice-button-row">
