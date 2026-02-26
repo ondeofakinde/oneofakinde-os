@@ -2,7 +2,8 @@
 
 import type {
   CreateWorkshopLiveSessionInput,
-  LiveSessionEligibilityRule
+  LiveSessionEligibilityRule,
+  TownhallModerationCaseResolution
 } from "@/lib/domain/contracts";
 import { gateway } from "@/lib/gateway";
 import { requireSessionRoles } from "@/lib/server/session";
@@ -12,6 +13,11 @@ const LIVE_ELIGIBILITY_RULES = new Set<LiveSessionEligibilityRule>([
   "public",
   "membership_active",
   "drop_owner"
+]);
+const MODERATION_RESOLUTIONS = new Set<TownhallModerationCaseResolution>([
+  "hide",
+  "restore",
+  "dismiss"
 ]);
 
 function getRequiredFormString(formData: FormData, key: string): string | null {
@@ -83,5 +89,45 @@ export async function createWorkshopLiveSessionAction(formData: FormData): Promi
 
   redirect(
     `/workshop?event_status=created&event_id=${encodeURIComponent(created.id)}`
+  );
+}
+
+function parseModerationResolution(value: FormDataEntryValue | null): TownhallModerationCaseResolution | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  if (!MODERATION_RESOLUTIONS.has(normalized as TownhallModerationCaseResolution)) {
+    return null;
+  }
+
+  return normalized as TownhallModerationCaseResolution;
+}
+
+export async function resolveWorkshopModerationCaseAction(formData: FormData): Promise<void> {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const dropId = getRequiredFormString(formData, "drop_id");
+  const commentId = getRequiredFormString(formData, "comment_id");
+  const resolution = parseModerationResolution(formData.get("resolution"));
+
+  if (!dropId || !commentId || !resolution) {
+    redirect("/workshop?moderation_status=invalid_input");
+  }
+
+  const result = await gateway.resolveTownhallModerationCase(
+    session.accountId,
+    dropId,
+    commentId,
+    resolution
+  );
+
+  if (!result.ok) {
+    const status =
+      result.reason === "forbidden" ? "forbidden" : "not_found";
+    redirect(`/workshop?moderation_status=${status}`);
+  }
+
+  redirect(
+    `/workshop?moderation_status=resolved&moderation_comment_id=${encodeURIComponent(commentId)}`
   );
 }

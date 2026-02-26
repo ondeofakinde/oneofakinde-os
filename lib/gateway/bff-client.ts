@@ -12,6 +12,8 @@ import type {
   MembershipEntitlement,
   MyCollectionSnapshot,
   PurchaseReceipt,
+  TownhallModerationCaseResolution,
+  TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
   Session,
@@ -368,6 +370,39 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return [];
       return response.payload.queue;
+    },
+
+    async resolveTownhallModerationCase(
+      _accountId: string,
+      dropId: string,
+      commentId: string,
+      resolution: TownhallModerationCaseResolution
+    ): Promise<TownhallModerationCaseResolveResult> {
+      void _accountId;
+      const response = await requestJson<TownhallModerationCaseResolveResult>(
+        options,
+        `/api/v1/workshop/moderation/comments/${encodeURIComponent(dropId)}/${encodeURIComponent(commentId)}/resolve`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            resolution
+          })
+        }
+      );
+      if (!response.payload) {
+        if (response.status === 403) {
+          return {
+            ok: false,
+            reason: "forbidden"
+          };
+        }
+        return {
+          ok: false,
+          reason: "not_found"
+        };
+      }
+
+      return response.payload;
     },
 
     async getCertificateById(certificateId: string): Promise<Certificate | null> {

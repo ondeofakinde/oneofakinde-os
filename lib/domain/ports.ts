@@ -12,6 +12,8 @@ import type {
   MembershipEntitlement,
   MyCollectionSnapshot,
   PurchaseReceipt,
+  TownhallModerationCaseResolution,
+  TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
   Session,
@@ -60,6 +62,12 @@ export interface CommerceGateway {
     commentId: string
   ): Promise<TownhallDropSocialSnapshot | null>;
   listTownhallModerationQueue(accountId: string): Promise<TownhallModerationQueueItem[]>;
+  resolveTownhallModerationCase(
+    accountId: string,
+    dropId: string,
+    commentId: string,
+    resolution: TownhallModerationCaseResolution
+  ): Promise<TownhallModerationCaseResolveResult>;
 
   getCertificateById(certificateId: string): Promise<Certificate | null>;
   getCertificateByReceipt(accountId: string, receiptId: string): Promise<Certificate | null>;

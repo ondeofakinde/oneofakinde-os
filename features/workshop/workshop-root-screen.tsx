@@ -19,7 +19,9 @@ type WorkshopRootScreenProps = {
   liveSessions: LiveSession[];
   moderationQueue: TownhallModerationQueueItem[];
   eventNotice: string | null;
+  moderationNotice: string | null;
   createLiveSessionAction: (formData: FormData) => Promise<void>;
+  resolveModerationAction: (formData: FormData) => Promise<void>;
 };
 
 export function WorkshopRootScreen({
@@ -31,7 +33,9 @@ export function WorkshopRootScreen({
   liveSessions,
   moderationQueue,
   eventNotice,
-  createLiveSessionAction
+  moderationNotice,
+  createLiveSessionAction,
+  resolveModerationAction
 }: WorkshopRootScreenProps) {
   const worldTitleById = new Map(worlds.map((world) => [world.id, world.title]));
   const dropTitleById = new Map(drops.map((drop) => [drop.id, drop.title]));
@@ -197,6 +201,11 @@ export function WorkshopRootScreen({
 
       <section className="slice-panel">
         <p className="slice-label">townhall moderation queue</p>
+        {moderationNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {moderationNotice}
+          </p>
+        ) : null}
         {moderationQueue.length === 0 ? (
           <p className="slice-copy">
             no moderation cases are waiting. reports and creator appeals will appear here.
@@ -224,6 +233,22 @@ export function WorkshopRootScreen({
                     appeal requested {new Date(entry.appealRequestedAt).toLocaleString()}
                   </p>
                 ) : null}
+                <form action={resolveModerationAction} className="slice-button-row">
+                  <input type="hidden" name="drop_id" value={entry.dropId} />
+                  <input type="hidden" name="comment_id" value={entry.commentId} />
+                  {entry.visibility === "hidden" ? (
+                    <button type="submit" name="resolution" value="restore" className="slice-button">
+                      restore comment
+                    </button>
+                  ) : (
+                    <button type="submit" name="resolution" value="hide" className="slice-button">
+                      hide comment
+                    </button>
+                  )}
+                  <button type="submit" name="resolution" value="dismiss" className="slice-button ghost">
+                    dismiss reports
+                  </button>
+                </form>
               </li>
             ))}
           </ul>

@@ -14,6 +14,7 @@ import { POST as postTownhallLikeRoute } from "../../app/api/v1/townhall/social/
 import { POST as postTownhallSaveRoute } from "../../app/api/v1/townhall/social/saves/[drop_id]/route";
 import { POST as postTownhallShareRoute } from "../../app/api/v1/townhall/social/shares/[drop_id]/route";
 import { GET as getWorkshopModerationQueueRoute } from "../../app/api/v1/workshop/moderation/comments/route";
+import { POST as postWorkshopModerationResolveRoute } from "../../app/api/v1/workshop/moderation/comments/[drop_id]/[comment_id]/resolve/route";
 import { commerceBffService } from "../../lib/bff/service";
 import type { TownhallDropSocialSnapshot } from "../../lib/domain/contracts";
 
@@ -244,6 +245,53 @@ test("proof: townhall social actions persist via bff routes", async (t) => {
   assert.ok(queueEntry, "expected appealed comment in moderation queue");
   assert.equal(queueEntry?.reportCount, 1);
   assert.equal(queueEntry?.appealRequested, true);
+
+  const forbiddenResolveResponse = await postWorkshopModerationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/workshop/moderation/comments/${drop.id}/${createdCommentId}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": reporterSession.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "dismiss"
+        })
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(forbiddenResolveResponse.status, 403);
+
+  const resolveResponse = await postWorkshopModerationResolveRoute(
+    new Request(
+      `http://127.0.0.1:3000/api/v1/workshop/moderation/comments/${drop.id}/${createdCommentId}/resolve`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-ook-session-token": creatorSession.sessionToken
+        },
+        body: JSON.stringify({
+          resolution: "dismiss"
+        })
+      }
+    ),
+    withRouteParams({ drop_id: drop.id, comment_id: createdCommentId })
+  );
+  assert.equal(resolveResponse.status, 200);
+  const resolvePayload = await parseJson<{
+    ok: true;
+    queue: Array<{
+      commentId: string;
+    }>;
+  }>(resolveResponse);
+  assert.equal(resolvePayload.ok, true);
+  assert.ok(
+    !resolvePayload.queue.some((entry) => entry.commentId === createdCommentId),
+    "expected dismissed moderation case to leave queue"
+  );
 
   const publicAfterHideResponse = await getTownhallSocialRoute(
     new Request(`http://127.0.0.1:3000/api/v1/townhall/social?drop_ids=${encodeURIComponent(drop.id)}`)

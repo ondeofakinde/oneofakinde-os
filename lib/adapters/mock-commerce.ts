@@ -17,6 +17,8 @@ import type {
   PurchaseReceipt,
   Session,
   Studio,
+  TownhallModerationCaseResolution,
+  TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
   World
@@ -896,6 +898,22 @@ export const commerceGateway: CommerceGateway = {
   async listTownhallModerationQueue(_accountId: string): Promise<TownhallModerationQueueItem[]> {
     void _accountId;
     return [];
+  },
+
+  async resolveTownhallModerationCase(
+    _accountId: string,
+    _dropId: string,
+    _commentId: string,
+    _resolution: TownhallModerationCaseResolution
+  ): Promise<TownhallModerationCaseResolveResult> {
+    void _accountId;
+    void _dropId;
+    void _commentId;
+    void _resolution;
+    return {
+      ok: false,
+      reason: "forbidden"
+    };
   },
 
   async getCertificateById(certificateId: string): Promise<Certificate | null> {
