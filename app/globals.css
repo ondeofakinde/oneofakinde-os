@@ -2440,6 +2440,12 @@ a {
   padding: 0 10px;
 }
 
+.dropmedia-control.active {
+  border-color: #6fa2c2;
+  color: #e7f3fb;
+  background: rgba(28, 50, 66, 0.9);
+}
+
 .dropmedia-control:disabled {
   opacity: 0.55;
 }
@@ -2453,6 +2459,12 @@ a {
 .dropmedia-progress {
   width: 100%;
   accent-color: #7ca8c0;
+}
+
+.dropmedia-quality-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, auto));
+  gap: 6px;
 }
 
 .dropmedia-read-stage {

@@ -16,6 +16,8 @@ function isTelemetryEventType(value: string): value is TownhallTelemetryEventTyp
     "watch_time",
     "completion",
     "collect_intent",
+    "quality_change",
+    "rebuffer",
     "impression",
     "showroom_impression",
     "drop_opened",
