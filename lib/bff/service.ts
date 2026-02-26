@@ -34,6 +34,11 @@ import type {
   TownhallTelemetryMetadata,
   TownhallTelemetryEventType,
   TownhallTelemetrySignals,
+  WorldCollectBundleCollectResult,
+  WorldCollectBundleSnapshot,
+  WorldCollectBundleType,
+  WorldCollectOwnership,
+  WorldCollectUpgradePreview,
   World
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
@@ -43,6 +48,10 @@ import {
   listCollectInventoryByLane,
   resolveCollectListingTypeByDropId
 } from "@/lib/collect/market-lanes";
+import {
+  buildWorldCollectBundleOptions,
+  getActiveWorldCollectOwnership
+} from "@/lib/collect/world-bundles";
 import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
@@ -51,6 +60,7 @@ import {
   type CollectOfferRecord,
   type LiveSessionRecord,
   type MembershipEntitlementRecord,
+  type WorldCollectOwnershipRecord,
   type WatchAccessGrantRecord,
   createAccountFromEmail,
   getDropPriceTotalUsd,
@@ -73,6 +83,7 @@ const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
 const COLLECT_OFFERS_LOG_LIMIT = 50_000;
 const COLLECT_ENFORCEMENT_SIGNAL_LOG_LIMIT = 10_000;
 const COLLECT_INTEGRITY_RECENT_SIGNAL_LIMIT = 100;
+const WORLD_COLLECT_OWNERSHIP_LOG_LIMIT = 20_000;
 const WATCH_ACCESS_GRANTS_LOG_LIMIT = 20_000;
 const WATCH_ACCESS_TOKEN_VERSION = 1 as const;
 const WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS = 300;
@@ -385,6 +396,70 @@ function findDropById(db: BffDatabase, dropId: string): Drop | null {
 
 function findWorldById(db: BffDatabase, worldId: string): World | null {
   return db.catalog.worlds.find((world) => world.id === worldId) ?? null;
+}
+
+function toWorldCollectOwnership(record: WorldCollectOwnershipRecord): WorldCollectOwnership {
+  return {
+    id: record.id,
+    accountId: record.accountId,
+    worldId: record.worldId,
+    bundleType: record.bundleType,
+    status: record.status,
+    purchasedAt: record.purchasedAt,
+    amountPaidUsd: Number(record.amountPaidUsd.toFixed(2)),
+    previousOwnershipCreditUsd: Number(record.previousOwnershipCreditUsd.toFixed(2)),
+    prorationStrategy: record.prorationStrategy,
+    upgradedToBundleType: record.upgradedToBundleType,
+    upgradedAt: record.upgradedAt
+  };
+}
+
+function getWorldCollectOwnershipsForAccount(
+  db: BffDatabase,
+  accountId: string
+): WorldCollectOwnership[] {
+  return db.worldCollectOwnerships
+    .filter((record) => record.accountId === accountId)
+    .map((record) => toWorldCollectOwnership(record))
+    .sort((a, b) => Date.parse(b.purchasedAt) - Date.parse(a.purchasedAt));
+}
+
+function buildWorldCollectBundleSnapshot(
+  db: BffDatabase,
+  accountId: string,
+  world: World
+): WorldCollectBundleSnapshot {
+  const worldDrops = db.catalog.drops.filter((drop) => drop.worldId === world.id);
+  const memberships = db.membershipEntitlements
+    .filter((membership) => membership.accountId === accountId)
+    .map((membership) => toMembershipEntitlement(db, membership));
+  const accountOwnerships = getWorldCollectOwnershipsForAccount(db, accountId);
+  const activeOwnership = getActiveWorldCollectOwnership(accountOwnerships, accountId, world.id);
+  const bundles = buildWorldCollectBundleOptions({
+    world,
+    drops: worldDrops,
+    activeOwnership,
+    memberships
+  });
+
+  return {
+    world,
+    activeOwnership,
+    bundles
+  };
+}
+
+function clampCurrencyAmount(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Number(Math.max(0, value).toFixed(2));
+}
+
+function trimWorldCollectOwnerships(db: BffDatabase): void {
+  if (db.worldCollectOwnerships.length > WORLD_COLLECT_OWNERSHIP_LOG_LIMIT) {
+    db.worldCollectOwnerships.length = WORLD_COLLECT_OWNERSHIP_LOG_LIMIT;
+  }
 }
 
 function findOwnershipByDrop(db: BffDatabase, accountId: string, dropId: string) {
@@ -2647,6 +2722,150 @@ export const commerceBffService = {
       persist: false,
       result: buildCollectDropOffersView(db, dropId, accountId)
     }));
+  },
+
+  async listCollectWorldBundles(accountId: string): Promise<WorldCollectBundleSnapshot[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: []
+        };
+      }
+
+      const snapshots = db.catalog.worlds
+        .map((world) => buildWorldCollectBundleSnapshot(db, account.id, world))
+        .sort((a, b) => a.world.title.localeCompare(b.world.title));
+
+      return {
+        persist: false,
+        result: snapshots
+      };
+    });
+  },
+
+  async getCollectWorldBundlesForWorld(
+    accountId: string,
+    worldId: string
+  ): Promise<WorldCollectBundleSnapshot | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      if (!account || !world) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: buildWorldCollectBundleSnapshot(db, account.id, world)
+      };
+    });
+  },
+
+  async getCollectWorldUpgradePreview(
+    accountId: string,
+    worldId: string,
+    targetBundleType: WorldCollectBundleType
+  ): Promise<WorldCollectUpgradePreview | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const world = findWorldById(db, worldId);
+      if (!account || !world) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const snapshot = buildWorldCollectBundleSnapshot(db, account.id, world);
+      const target = snapshot.bundles.find(
+        (entry) => entry.bundle.bundleType === targetBundleType
+      );
+      if (!target) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: target.upgradePreview
+      };
+    });
+  },
+
+  async collectWorldBundle(input: {
+    accountId: string;
+    worldId: string;
+    bundleType: WorldCollectBundleType;
+  }): Promise<WorldCollectBundleCollectResult | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, input.accountId);
+      const world = findWorldById(db, input.worldId);
+      if (!account || !world) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const snapshot = buildWorldCollectBundleSnapshot(db, account.id, world);
+      const targetOption = snapshot.bundles.find(
+        (entry) => entry.bundle.bundleType === input.bundleType
+      );
+      if (!targetOption || !targetOption.upgradePreview.eligible) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      if (snapshot.activeOwnership) {
+        const existing = db.worldCollectOwnerships.find(
+          (ownership) => ownership.id === snapshot.activeOwnership?.id
+        );
+        if (existing) {
+          existing.status = "upgraded";
+          existing.upgradedToBundleType = targetOption.bundle.bundleType;
+          existing.upgradedAt = nowIso;
+        }
+      }
+
+      const record: WorldCollectOwnershipRecord = {
+        id: `wown_${randomUUID()}`,
+        accountId: account.id,
+        worldId: world.id,
+        bundleType: targetOption.bundle.bundleType,
+        status: "active",
+        purchasedAt: nowIso,
+        amountPaidUsd: clampCurrencyAmount(targetOption.upgradePreview.totalUsd),
+        previousOwnershipCreditUsd: clampCurrencyAmount(
+          targetOption.upgradePreview.previousOwnershipCreditUsd
+        ),
+        prorationStrategy: targetOption.upgradePreview.prorationStrategy,
+        upgradedToBundleType: null,
+        upgradedAt: null
+      };
+
+      db.worldCollectOwnerships.unshift(record);
+      trimWorldCollectOwnerships(db);
+
+      return {
+        persist: true,
+        result: {
+          worldId: world.id,
+          bundleType: record.bundleType,
+          ownership: toWorldCollectOwnership(record),
+          upgradePreview: targetOption.upgradePreview
+        }
+      };
+    });
   },
 
   async getCollectIntegritySnapshot(input?: {

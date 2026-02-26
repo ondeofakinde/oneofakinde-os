@@ -7,7 +7,8 @@ import type {
   CollectListingType,
   CollectMarketLane,
   MembershipEntitlement,
-  Session
+  Session,
+  WorldCollectBundleSnapshot
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import type { Route } from "next";
@@ -19,6 +20,7 @@ type CollectMarketplaceScreenProps = {
   initialLane?: CollectMarketLane;
   memberships: MembershipEntitlement[];
   liveSessions: CollectLiveSessionSnapshot[];
+  worldBundles: WorldCollectBundleSnapshot[];
 };
 
 const LISTING_COPY: Record<
@@ -79,7 +81,8 @@ export function CollectMarketplaceScreen({
   listings,
   initialLane = "all",
   memberships,
-  liveSessions
+  liveSessions,
+  worldBundles
 }: CollectMarketplaceScreenProps) {
   const sales = listings.filter((listing) => listing.listingType === "sale");
   const auctions = listings.filter((listing) => listing.listingType === "auction");
@@ -164,6 +167,49 @@ export function CollectMarketplaceScreen({
                     ? ` · ends ${new Date(membership.endsAt).toLocaleString()}`
                     : " · no end date"}
                 </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">world collect bundles</p>
+        <p className="slice-copy">
+          world collect supports current-only, season-pass-window, and full-world bundles with
+          upgrade credits.
+        </p>
+
+        {worldBundles.length === 0 ? (
+          <p className="slice-meta">no world bundles configured yet.</p>
+        ) : (
+          <ul className="slice-grid" aria-label="world collect bundles">
+            {worldBundles.map((entry) => (
+              <li key={entry.world.id} className="slice-drop-card">
+                <p className="slice-label">{entry.world.title}</p>
+                <h2 className="slice-title">
+                  {entry.activeOwnership
+                    ? `active bundle: ${entry.activeOwnership.bundleType.replaceAll("_", " ")}`
+                    : "no active world bundle"}
+                </h2>
+                <p className="slice-copy">upgrade policy uses previous ownership credit with proration hook.</p>
+                {entry.bundles.map((option) => (
+                  <div key={option.bundle.bundleType} className="slice-detail-row">
+                    <p className="slice-meta">
+                      {option.bundle.bundleType.replaceAll("_", " ")} · {formatUsd(option.bundle.priceUsd)}
+                    </p>
+                    <p className="slice-meta">
+                      next total {formatUsd(option.upgradePreview.totalUsd)} · credit{" "}
+                      {formatUsd(option.upgradePreview.previousOwnershipCreditUsd)} ·{" "}
+                      {option.upgradePreview.prorationStrategy}
+                    </p>
+                    <p className="slice-meta">
+                      {option.upgradePreview.eligible
+                        ? "eligible"
+                        : option.upgradePreview.eligibilityReason.replaceAll("_", " ")}
+                    </p>
+                  </div>
+                ))}
               </li>
             ))}
           </ul>

@@ -185,11 +185,83 @@ export type CollectInventoryListing = {
   latestOfferState: CollectOfferState;
 };
 
+export type WorldCollectBundleType = "current_only" | "season_pass_window" | "full_world";
+
+export type WorldCollectBundleEligibilityRule = "public" | "membership_active";
+
+export type WorldCollectUpgradeProrationStrategy = "placeholder_linear_proration_v1";
+
+export type WorldCollectOwnershipStatus = "active" | "upgraded";
+
+export type WorldCollectUpgradeEligibilityReason =
+  | "eligible"
+  | "membership_required"
+  | "already_owned_target"
+  | "already_owned_full_world"
+  | "invalid_upgrade_path";
+
+export type WorldCollectBundle = {
+  bundleType: WorldCollectBundleType;
+  title: string;
+  synopsis: string;
+  priceUsd: number;
+  currency: "USD";
+  eligibilityRule: WorldCollectBundleEligibilityRule;
+  seasonWindowDays: number | null;
+};
+
+export type WorldCollectOwnership = {
+  id: string;
+  accountId: string;
+  worldId: string;
+  bundleType: WorldCollectBundleType;
+  status: WorldCollectOwnershipStatus;
+  purchasedAt: string;
+  amountPaidUsd: number;
+  previousOwnershipCreditUsd: number;
+  prorationStrategy: WorldCollectUpgradeProrationStrategy;
+  upgradedToBundleType: WorldCollectBundleType | null;
+  upgradedAt: string | null;
+};
+
+export type WorldCollectUpgradePreview = {
+  worldId: string;
+  targetBundleType: WorldCollectBundleType;
+  currentBundleType: WorldCollectBundleType | null;
+  eligible: boolean;
+  eligibilityReason: WorldCollectUpgradeEligibilityReason;
+  previousOwnershipCreditUsd: number;
+  prorationStrategy: WorldCollectUpgradeProrationStrategy;
+  prorationRatio: number;
+  subtotalUsd: number;
+  totalUsd: number;
+  currency: "USD";
+};
+
+export type WorldCollectBundleOption = {
+  bundle: WorldCollectBundle;
+  upgradePreview: WorldCollectUpgradePreview;
+};
+
+export type WorldCollectBundleSnapshot = {
+  world: World;
+  activeOwnership: WorldCollectOwnership | null;
+  bundles: WorldCollectBundleOption[];
+};
+
+export type WorldCollectBundleCollectResult = {
+  worldId: string;
+  bundleType: WorldCollectBundleType;
+  ownership: WorldCollectOwnership;
+  upgradePreview: WorldCollectUpgradePreview;
+};
+
 export type World = {
   id: string;
   title: string;
   synopsis: string;
   studioHandle: string;
+  collectBundles?: WorldCollectBundle[];
 };
 
 export type Studio = {

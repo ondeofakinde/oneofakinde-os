@@ -8,6 +8,9 @@ import type {
   LiveSessionEligibilityRule,
   MembershipEntitlementStatus,
   PurchaseReceipt,
+  WorldCollectBundleType,
+  WorldCollectOwnershipStatus,
+  WorldCollectUpgradeProrationStrategy,
   TownhallCommentVisibility,
   TownhallShareChannel,
   TownhallTelemetryMetadata,
@@ -175,6 +178,20 @@ export type CollectEnforcementSignalRecord = {
   occurredAt: string;
 };
 
+export type WorldCollectOwnershipRecord = {
+  id: string;
+  accountId: string;
+  worldId: string;
+  bundleType: WorldCollectBundleType;
+  status: WorldCollectOwnershipStatus;
+  purchasedAt: string;
+  amountPaidUsd: number;
+  previousOwnershipCreditUsd: number;
+  prorationStrategy: WorldCollectUpgradeProrationStrategy;
+  upgradedToBundleType: WorldCollectBundleType | null;
+  upgradedAt: string | null;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -199,6 +216,7 @@ export type BffDatabase = {
   townhallTelemetryEvents: TownhallTelemetryEventRecord[];
   collectOffers: CollectOfferRecord[];
   collectEnforcementSignals: CollectEnforcementSignalRecord[];
+  worldCollectOwnerships: WorldCollectOwnershipRecord[];
 };
 
 type MutationResult<T> = {
@@ -365,13 +383,71 @@ function createSeedDatabase(): BffDatabase {
       id: "dark-matter",
       title: "dark matter",
       synopsis: "cinematic drops exploring identity and memory.",
-      studioHandle: "oneofakinde"
+      studioHandle: "oneofakinde",
+      collectBundles: [
+        {
+          bundleType: "current_only",
+          title: "dark matter current",
+          synopsis: "access to the current dark matter chapter window.",
+          priceUsd: 4.99,
+          currency: "USD",
+          eligibilityRule: "public",
+          seasonWindowDays: 14
+        },
+        {
+          bundleType: "season_pass_window",
+          title: "dark matter season pass",
+          synopsis: "rolling season access for dark matter releases.",
+          priceUsd: 11.99,
+          currency: "USD",
+          eligibilityRule: "membership_active",
+          seasonWindowDays: 90
+        },
+        {
+          bundleType: "full_world",
+          title: "dark matter full world",
+          synopsis: "full world ownership with future canonical updates.",
+          priceUsd: 18.99,
+          currency: "USD",
+          eligibilityRule: "public",
+          seasonWindowDays: null
+        }
+      ]
     },
     {
       id: "through-the-lens",
       title: "through the lens",
       synopsis: "camera-led drops for real-world atmospheres.",
-      studioHandle: "oneofakinde"
+      studioHandle: "oneofakinde",
+      collectBundles: [
+        {
+          bundleType: "current_only",
+          title: "through the lens current",
+          synopsis: "access to the current through the lens chapter window.",
+          priceUsd: 6.49,
+          currency: "USD",
+          eligibilityRule: "public",
+          seasonWindowDays: 14
+        },
+        {
+          bundleType: "season_pass_window",
+          title: "through the lens season pass",
+          synopsis: "rolling season access for through the lens releases.",
+          priceUsd: 14.99,
+          currency: "USD",
+          eligibilityRule: "membership_active",
+          seasonWindowDays: 90
+        },
+        {
+          bundleType: "full_world",
+          title: "through the lens full world",
+          synopsis: "full world ownership with future canonical updates.",
+          priceUsd: 24.99,
+          currency: "USD",
+          eligibilityRule: "public",
+          seasonWindowDays: null
+        }
+      ]
     }
   ];
 
@@ -657,7 +733,22 @@ function createSeedDatabase(): BffDatabase {
         executionPriceUsd: null
       }
     ],
-    collectEnforcementSignals: []
+    collectEnforcementSignals: [],
+    worldCollectOwnerships: [
+      {
+        id: "wown_seed_dark_matter_current",
+        accountId,
+        worldId: "dark-matter",
+        bundleType: "current_only",
+        status: "active",
+        purchasedAt: new Date(now.valueOf() - DAY_MS * 6).toISOString(),
+        amountPaidUsd: 4.99,
+        previousOwnershipCreditUsd: 0,
+        prorationStrategy: "placeholder_linear_proration_v1",
+        upgradedToBundleType: null,
+        upgradedAt: null
+      }
+    ]
   };
 }
 
@@ -681,7 +772,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     townhallShares: [],
     townhallTelemetryEvents: [],
     collectOffers: [],
-    collectEnforcementSignals: []
+    collectEnforcementSignals: [],
+    worldCollectOwnerships: []
   };
 }
 
@@ -709,7 +801,8 @@ function createEmptyDatabase(): BffDatabase {
     townhallShares: [],
     townhallTelemetryEvents: [],
     collectOffers: [],
-    collectEnforcementSignals: []
+    collectEnforcementSignals: [],
+    worldCollectOwnerships: []
   };
 }
 
@@ -740,7 +833,8 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.townhallShares) &&
     Array.isArray(candidate.townhallTelemetryEvents) &&
     Array.isArray(candidate.collectOffers) &&
-    Array.isArray(candidate.collectEnforcementSignals)
+    Array.isArray(candidate.collectEnforcementSignals) &&
+    Array.isArray(candidate.worldCollectOwnerships)
   );
 }
 
@@ -1049,6 +1143,66 @@ function normalizeCollectEnforcementSignalRecords(
   });
 }
 
+function normalizeWorldCollectBundleType(value: unknown): WorldCollectBundleType {
+  if (value === "current_only" || value === "season_pass_window" || value === "full_world") {
+    return value;
+  }
+  return "current_only";
+}
+
+function normalizeWorldCollectOwnershipStatus(value: unknown): WorldCollectOwnershipStatus {
+  return value === "upgraded" ? "upgraded" : "active";
+}
+
+function normalizeWorldCollectOwnershipRecords(
+  records: WorldCollectOwnershipRecord[]
+): WorldCollectOwnershipRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<WorldCollectOwnershipRecord> & {
+      bundleType?: unknown;
+      status?: unknown;
+      purchasedAt?: unknown;
+      amountPaidUsd?: unknown;
+      previousOwnershipCreditUsd?: unknown;
+      prorationStrategy?: unknown;
+      upgradedToBundleType?: unknown;
+      upgradedAt?: unknown;
+    };
+
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `wown_${randomUUID()}`,
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      worldId: typeof candidate.worldId === "string" ? candidate.worldId : "",
+      bundleType: normalizeWorldCollectBundleType(candidate.bundleType),
+      status: normalizeWorldCollectOwnershipStatus(candidate.status),
+      purchasedAt:
+        typeof candidate.purchasedAt === "string" && candidate.purchasedAt.trim()
+          ? candidate.purchasedAt
+          : new Date().toISOString(),
+      amountPaidUsd:
+        typeof candidate.amountPaidUsd === "number" && Number.isFinite(candidate.amountPaidUsd)
+          ? Number(candidate.amountPaidUsd.toFixed(2))
+          : 0,
+      previousOwnershipCreditUsd:
+        typeof candidate.previousOwnershipCreditUsd === "number" &&
+        Number.isFinite(candidate.previousOwnershipCreditUsd)
+          ? Number(candidate.previousOwnershipCreditUsd.toFixed(2))
+          : 0,
+      prorationStrategy: "placeholder_linear_proration_v1",
+      upgradedToBundleType:
+        candidate.upgradedToBundleType === "current_only" ||
+        candidate.upgradedToBundleType === "season_pass_window" ||
+        candidate.upgradedToBundleType === "full_world"
+          ? candidate.upgradedToBundleType
+          : null,
+      upgradedAt:
+        typeof candidate.upgradedAt === "string" && candidate.upgradedAt.trim()
+          ? candidate.upgradedAt
+          : null
+    };
+  });
+}
+
 function normalizeTownhallCommentVisibility(value: unknown): TownhallCommentVisibility {
   return value === "hidden" ? "hidden" : "visible";
 }
@@ -1134,7 +1288,8 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       collectOffers: normalizeCollectOfferRecords(input.collectOffers),
       collectEnforcementSignals: normalizeCollectEnforcementSignalRecords(
         input.collectEnforcementSignals
-      )
+      ),
+      worldCollectOwnerships: normalizeWorldCollectOwnershipRecords(input.worldCollectOwnerships)
     };
   }
 
@@ -1176,6 +1331,11 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       collectEnforcementSignals: Array.isArray(candidate.collectEnforcementSignals)
         ? normalizeCollectEnforcementSignalRecords(
             candidate.collectEnforcementSignals as CollectEnforcementSignalRecord[]
+          )
+        : [],
+      worldCollectOwnerships: Array.isArray(candidate.worldCollectOwnerships)
+        ? normalizeWorldCollectOwnershipRecords(
+            candidate.worldCollectOwnerships as WorldCollectOwnershipRecord[]
           )
         : []
     };
@@ -1345,7 +1505,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallSharesResult,
     townhallTelemetryEventsResult,
     collectOffersResult,
-    collectEnforcementSignalsResult
+    collectEnforcementSignalsResult,
+    worldCollectOwnershipsResult
   ] = await Promise.all([
     client.query<{ key: string; value: string }>("SELECT key, value FROM bff_meta"),
     client.query<{ data: unknown }>("SELECT data FROM bff_catalog_drops ORDER BY id ASC"),
@@ -1458,6 +1619,21 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       occurredAt: string;
     }>(
       'SELECT id, signal_type AS "signalType", drop_id AS "dropId", offer_id AS "offerId", account_id AS "accountId", reason, occurred_at AS "occurredAt" FROM bff_collect_enforcement_signals ORDER BY occurred_at DESC'
+    ),
+    client.query<{
+      id: string;
+      accountId: string;
+      worldId: string;
+      bundleType: WorldCollectBundleType;
+      status: WorldCollectOwnershipStatus;
+      purchasedAt: string;
+      amountPaidUsd: string | number;
+      previousOwnershipCreditUsd: string | number;
+      prorationStrategy: WorldCollectUpgradeProrationStrategy;
+      upgradedToBundleType: WorldCollectBundleType | null;
+      upgradedAt: string | null;
+    }>(
+      'SELECT id, account_id AS "accountId", world_id AS "worldId", bundle_type AS "bundleType", status, purchased_at AS "purchasedAt", amount_paid_usd AS "amountPaidUsd", previous_ownership_credit_usd AS "previousOwnershipCreditUsd", proration_strategy AS "prorationStrategy", upgraded_to_bundle_type AS "upgradedToBundleType", upgraded_at AS "upgradedAt" FROM bff_world_collect_ownerships ORDER BY purchased_at DESC'
     )
   ]);
 
@@ -1482,7 +1658,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallSharesResult.rowCount === 0 &&
     townhallTelemetryEventsResult.rowCount === 0 &&
     collectOffersResult.rowCount === 0 &&
-    collectEnforcementSignalsResult.rowCount === 0;
+    collectEnforcementSignalsResult.rowCount === 0 &&
+    worldCollectOwnershipsResult.rowCount === 0;
 
   if (isEmpty) {
     return null;
@@ -1575,6 +1752,21 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ),
     collectEnforcementSignals: normalizeCollectEnforcementSignalRecords(
       collectEnforcementSignalsResult.rows
+    ),
+    worldCollectOwnerships: normalizeWorldCollectOwnershipRecords(
+      worldCollectOwnershipsResult.rows.map((row) => ({
+        id: row.id,
+        accountId: row.accountId,
+        worldId: row.worldId,
+        bundleType: row.bundleType,
+        status: row.status,
+        purchasedAt: row.purchasedAt,
+        amountPaidUsd: Number(row.amountPaidUsd),
+        previousOwnershipCreditUsd: Number(row.previousOwnershipCreditUsd),
+        prorationStrategy: row.prorationStrategy,
+        upgradedToBundleType: row.upgradedToBundleType,
+        upgradedAt: row.upgradedAt
+      }))
     )
   };
 }
@@ -1584,6 +1776,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     TRUNCATE TABLE
       bff_townhall_telemetry_events,
       bff_collect_enforcement_signals,
+      bff_world_collect_ownerships,
       bff_collect_offers,
       bff_live_sessions,
       bff_membership_entitlements,
@@ -1848,6 +2041,25 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         signal.accountId,
         signal.reason,
         signal.occurredAt
+      ]
+    );
+  }
+
+  for (const ownership of db.worldCollectOwnerships) {
+    await client.query(
+      "INSERT INTO bff_world_collect_ownerships (id, account_id, world_id, bundle_type, status, purchased_at, amount_paid_usd, previous_ownership_credit_usd, proration_strategy, upgraded_to_bundle_type, upgraded_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+      [
+        ownership.id,
+        ownership.accountId,
+        ownership.worldId,
+        ownership.bundleType,
+        ownership.status,
+        ownership.purchasedAt,
+        ownership.amountPaidUsd,
+        ownership.previousOwnershipCreditUsd,
+        ownership.prorationStrategy,
+        ownership.upgradedToBundleType,
+        ownership.upgradedAt
       ]
     );
   }
