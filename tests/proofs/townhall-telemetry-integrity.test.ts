@@ -58,6 +58,30 @@ test("proof: non-scoring telemetry events persist without distorting ranking sig
         action: "submit",
         position: 1
       }
+    },
+    {
+      dropId: drop.id,
+      eventType: "quality_change",
+      metadata: {
+        source: "drop",
+        surface: "watch",
+        action: "toggle",
+        qualityMode: "auto",
+        qualityLevel: "medium",
+        qualityReason: "auto_step_down_stalled"
+      }
+    },
+    {
+      dropId: drop.id,
+      eventType: "rebuffer",
+      metadata: {
+        source: "drop",
+        surface: "watch",
+        action: "toggle",
+        qualityMode: "auto",
+        qualityLevel: "medium",
+        rebufferReason: "stalled"
+      }
     }
   ];
 
@@ -89,8 +113,12 @@ test("proof: non-scoring telemetry events persist without distorting ranking sig
   };
 
   const events = raw.townhallTelemetryEvents.filter((entry) => entry.dropId === drop.id);
-  assert.equal(events.length, 6);
+  assert.equal(events.length, 8);
   const interaction = events.find((entry) => entry.eventType === "interaction_comment");
   assert.equal(interaction?.metadata?.action, "submit");
+  const qualityChange = events.find((entry) => entry.eventType === "quality_change");
+  assert.equal(qualityChange?.metadata?.qualityLevel, "medium");
+  const rebuffer = events.find((entry) => entry.eventType === "rebuffer");
+  assert.equal(rebuffer?.metadata?.rebufferReason, "stalled");
   assert.ok(!("ignoredField" in (events.find((entry) => entry.eventType === "showroom_impression")?.metadata ?? {})));
 });

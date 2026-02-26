@@ -51,6 +51,28 @@ test("proof: watch telemetry logs persist for resume + completion lifecycle", as
       }
     },
     {
+      eventType: "quality_change",
+      metadata: {
+        source: "drop",
+        surface: "watch",
+        action: "toggle",
+        qualityMode: "auto",
+        qualityLevel: "medium",
+        qualityReason: "auto_step_down_stalled"
+      }
+    },
+    {
+      eventType: "rebuffer",
+      metadata: {
+        source: "drop",
+        surface: "watch",
+        action: "toggle",
+        qualityMode: "auto",
+        qualityLevel: "medium",
+        rebufferReason: "stalled"
+      }
+    },
+    {
       eventType: "completion",
       completionPercent: 100,
       metadata: {
@@ -104,6 +126,10 @@ test("proof: watch telemetry logs persist for resume + completion lifecycle", as
         source?: string;
         surface?: string;
         action?: string;
+        qualityMode?: string;
+        qualityLevel?: string;
+        qualityReason?: string;
+        rebufferReason?: string;
       };
     }>;
   };
@@ -123,6 +149,24 @@ test("proof: watch telemetry logs persist for resume + completion lifecycle", as
   assert.ok(
     watchEvents.some((entry) => entry.eventType === "watch_time" && entry.watchTimeSeconds === 27.4),
     "expected watch watch_time telemetry event"
+  );
+  assert.ok(
+    watchEvents.some(
+      (entry) =>
+        entry.eventType === "quality_change" &&
+        entry.metadata?.qualityLevel === "medium" &&
+        entry.metadata?.qualityReason === "auto_step_down_stalled"
+    ),
+    "expected watch quality_change telemetry event"
+  );
+  assert.ok(
+    watchEvents.some(
+      (entry) =>
+        entry.eventType === "rebuffer" &&
+        entry.metadata?.qualityLevel === "medium" &&
+        entry.metadata?.rebufferReason === "stalled"
+    ),
+    "expected watch rebuffer telemetry event"
   );
   assert.ok(
     watchEvents.some((entry) => entry.eventType === "completion" && entry.completionPercent === 100),

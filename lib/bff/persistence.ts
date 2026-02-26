@@ -835,6 +835,39 @@ function normalizeTownhallTelemetryMetadata(value: unknown): TownhallTelemetryMe
     metadata.action = candidate.action;
   }
 
+  if (
+    candidate.qualityMode === "auto" ||
+    candidate.qualityMode === "high" ||
+    candidate.qualityMode === "medium" ||
+    candidate.qualityMode === "low"
+  ) {
+    metadata.qualityMode = candidate.qualityMode;
+  }
+
+  if (
+    candidate.qualityLevel === "high" ||
+    candidate.qualityLevel === "medium" ||
+    candidate.qualityLevel === "low"
+  ) {
+    metadata.qualityLevel = candidate.qualityLevel;
+  }
+
+  if (
+    candidate.qualityReason === "manual_select" ||
+    candidate.qualityReason === "auto_step_down_stalled" ||
+    candidate.qualityReason === "auto_step_down_error"
+  ) {
+    metadata.qualityReason = candidate.qualityReason;
+  }
+
+  if (
+    candidate.rebufferReason === "waiting" ||
+    candidate.rebufferReason === "stalled" ||
+    candidate.rebufferReason === "error"
+  ) {
+    metadata.rebufferReason = candidate.rebufferReason;
+  }
+
   return metadata;
 }
 

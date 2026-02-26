@@ -1,9 +1,21 @@
 "use client";
 
 import { formatUsd } from "@/features/shared/format";
-import { type Certificate, type Drop, type PurchaseReceipt, type Session } from "@/lib/domain/contracts";
+import type {
+  Certificate,
+  Drop,
+  PurchaseReceipt,
+  Session,
+  WatchQualityLevel,
+  WatchQualityMode
+} from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
+import {
+  resolveHighestQualityLevel,
+  resolveNextLowerQualityLevel,
+  resolveWatchQualityLadder
+} from "@/lib/watch/quality-ladder";
 import {
   clearWatchResumeSeconds,
   hasWatchReachedCompletion,
@@ -21,7 +33,19 @@ type DropWatchModeProps = {
   certificate: Certificate | null;
 };
 
-type WatchTelemetryEventType = "watch_time" | "completion" | "access_start" | "access_complete";
+type WatchTelemetryEventType =
+  | "watch_time"
+  | "completion"
+  | "access_start"
+  | "access_complete"
+  | "quality_change"
+  | "rebuffer";
+
+type QualityChangeReason = "manual_select" | "auto_step_down_stalled" | "auto_step_down_error";
+type RebufferReason = "waiting" | "stalled" | "error";
+
+const QUALITY_OPTIONS: WatchQualityMode[] = ["auto", "high", "medium", "low"];
+const REBUFFER_LOG_THROTTLE_MS = 1500;
 
 function modeClass(active: boolean): string {
   return `dropmedia-mode-link ${active ? "active" : ""}`;
@@ -44,6 +68,10 @@ async function postWatchTelemetry(input: {
   watchTimeSeconds?: number;
   completionPercent?: number;
   action?: "start" | "complete" | "toggle";
+  qualityMode?: WatchQualityMode;
+  qualityLevel?: WatchQualityLevel;
+  qualityReason?: QualityChangeReason;
+  rebufferReason?: RebufferReason;
 }): Promise<void> {
   const body = {
     dropId: input.dropId,
@@ -57,7 +85,11 @@ async function postWatchTelemetry(input: {
     metadata: {
       source: "drop" as const,
       surface: "watch" as const,
-      ...(input.action ? { action: input.action } : {})
+      ...(input.action ? { action: input.action } : {}),
+      ...(input.qualityMode ? { qualityMode: input.qualityMode } : {}),
+      ...(input.qualityLevel ? { qualityLevel: input.qualityLevel } : {}),
+      ...(input.qualityReason ? { qualityReason: input.qualityReason } : {}),
+      ...(input.rebufferReason ? { rebufferReason: input.rebufferReason } : {})
     }
   };
 
@@ -78,11 +110,27 @@ async function postWatchTelemetry(input: {
 export function DropWatchMode({ session, drop, receipt, certificate }: DropWatchModeProps) {
   const resolvedPreview = useMemo(() => resolveDropPreview(drop, "watch"), [drop]);
   const previewAsset = resolvedPreview.asset;
-  const videoSource = previewAsset.type === "video" ? previewAsset.src ?? null : null;
   const posterSource =
     previewAsset.posterSrc ??
     (previewAsset.type === "image" ? previewAsset.src ?? null : null);
-  const hasVideoSource = Boolean(videoSource);
+
+  const qualityLadder = useMemo(() => resolveWatchQualityLadder(drop), [drop]);
+  const initialAutoLevel = useMemo(
+    () => resolveHighestQualityLevel(qualityLadder.availableLevels),
+    [qualityLadder.availableLevels]
+  );
+
+  const [selectedQualityMode, setSelectedQualityMode] = useState<WatchQualityMode>("auto");
+  const [autoQualityLevel, setAutoQualityLevel] = useState<WatchQualityLevel>(initialAutoLevel);
+  const activeQualityLevel =
+    selectedQualityMode === "auto" ? autoQualityLevel : selectedQualityMode;
+  const activeVideoSource = qualityLadder.sourcesByLevel[activeQualityLevel];
+  const hasVideoSource = Boolean(activeVideoSource);
+  const qualityLabel =
+    selectedQualityMode === "auto"
+      ? `quality auto (${activeQualityLevel})`
+      : `quality ${selectedQualityMode}`;
+  const videoRenderKey = `${drop.id}:${activeQualityLevel}:${activeVideoSource ?? "none"}`;
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const resumeRestoredRef = useRef(false);
@@ -91,6 +139,9 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
   const completionLoggedRef = useRef(false);
   const lastObservedSecondsRef = useRef<number | null>(null);
   const bufferedWatchSecondsRef = useRef(0);
+  const pendingSeekRef = useRef<number | null>(null);
+  const shouldAutoplayAfterQualityShiftRef = useRef(false);
+  const lastRebufferAtRef = useRef(0);
 
   const [durationSeconds, setDurationSeconds] = useState<number>(0);
   const [currentSeconds, setCurrentSeconds] = useState<number>(0);
@@ -121,9 +172,11 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
     void postWatchTelemetry({
       dropId: drop.id,
       eventType: "access_start",
-      action: "start"
+      action: "start",
+      qualityMode: selectedQualityMode,
+      qualityLevel: activeQualityLevel
     });
-  }, [drop.id]);
+  }, [activeQualityLevel, drop.id, selectedQualityMode]);
 
   const markCompletion = useCallback(
     (completionPercent: number) => {
@@ -139,7 +192,9 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
         dropId: drop.id,
         eventType: "completion",
         completionPercent,
-        action: "complete"
+        action: "complete",
+        qualityMode: selectedQualityMode,
+        qualityLevel: activeQualityLevel
       });
 
       if (!accessCompletedRef.current) {
@@ -148,11 +203,74 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
           dropId: drop.id,
           eventType: "access_complete",
           completionPercent,
-          action: "complete"
+          action: "complete",
+          qualityMode: selectedQualityMode,
+          qualityLevel: activeQualityLevel
         });
       }
     },
-    [drop.id, flushWatchTelemetry]
+    [activeQualityLevel, drop.id, flushWatchTelemetry, selectedQualityMode]
+  );
+
+  const emitRebufferTelemetry = useCallback(
+    (rebufferReason: RebufferReason) => {
+      const now = Date.now();
+      if (now - lastRebufferAtRef.current < REBUFFER_LOG_THROTTLE_MS) {
+        return;
+      }
+
+      lastRebufferAtRef.current = now;
+      void postWatchTelemetry({
+        dropId: drop.id,
+        eventType: "rebuffer",
+        action: "toggle",
+        qualityMode: selectedQualityMode,
+        qualityLevel: activeQualityLevel,
+        rebufferReason
+      });
+    },
+    [activeQualityLevel, drop.id, selectedQualityMode]
+  );
+
+  const stepDownQualityForAuto = useCallback(
+    (qualityReason: Extract<QualityChangeReason, "auto_step_down_stalled" | "auto_step_down_error">) => {
+      if (selectedQualityMode !== "auto") {
+        return false;
+      }
+
+      const nextLevel = resolveNextLowerQualityLevel(autoQualityLevel, qualityLadder.availableLevels);
+      if (!nextLevel || nextLevel === autoQualityLevel) {
+        return false;
+      }
+
+      const media = videoRef.current;
+      const preserveSeconds = media ? media.currentTime : readWatchResumeSeconds(drop.id);
+      pendingSeekRef.current = preserveSeconds;
+      shouldAutoplayAfterQualityShiftRef.current = media ? !media.paused : true;
+      writeWatchResumeSeconds(drop.id, preserveSeconds, media?.duration ?? durationSeconds);
+
+      setAutoQualityLevel(nextLevel);
+      setCurrentSeconds(preserveSeconds);
+      setDurationSeconds(media && Number.isFinite(media.duration) ? media.duration : durationSeconds);
+      lastObservedSecondsRef.current = preserveSeconds;
+
+      void postWatchTelemetry({
+        dropId: drop.id,
+        eventType: "quality_change",
+        action: "toggle",
+        qualityMode: "auto",
+        qualityLevel: nextLevel,
+        qualityReason
+      });
+      return true;
+    },
+    [
+      autoQualityLevel,
+      drop.id,
+      durationSeconds,
+      qualityLadder.availableLevels,
+      selectedQualityMode
+    ]
   );
 
   useEffect(() => {
@@ -162,12 +280,23 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
     completionLoggedRef.current = false;
     lastObservedSecondsRef.current = null;
     bufferedWatchSecondsRef.current = 0;
+    pendingSeekRef.current = null;
+    shouldAutoplayAfterQualityShiftRef.current = false;
+    lastRebufferAtRef.current = 0;
     setDurationSeconds(0);
     setCurrentSeconds(0);
     setIsPlaying(false);
     setIsMuted(true);
     setVolume(0.65);
-  }, [drop.id, videoSource]);
+    setSelectedQualityMode("auto");
+    setAutoQualityLevel(initialAutoLevel);
+  }, [drop.id, initialAutoLevel]);
+
+  useEffect(() => {
+    if (selectedQualityMode !== "auto" && !qualityLadder.availableLevels.includes(selectedQualityMode)) {
+      setSelectedQualityMode("auto");
+    }
+  }, [qualityLadder.availableLevels, selectedQualityMode]);
 
   useEffect(
     () => () => {
@@ -188,9 +317,10 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
       <section className="dropmedia-stage" aria-label="watch playback stage">
         {hasVideoSource ? (
           <video
+            key={videoRenderKey}
             ref={videoRef}
             className="dropmedia-watch-video"
-            src={videoSource ?? undefined}
+            src={activeVideoSource ?? undefined}
             poster={posterSource ?? undefined}
             muted={isMuted}
             playsInline
@@ -201,7 +331,13 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
               setDurationSeconds(Number.isFinite(media.duration) ? media.duration : 0);
               setVolume(media.volume);
 
-              if (!resumeRestoredRef.current) {
+              if (pendingSeekRef.current !== null) {
+                const seekTo = pendingSeekRef.current;
+                pendingSeekRef.current = null;
+                media.currentTime = seekTo;
+                setCurrentSeconds(seekTo);
+                lastObservedSecondsRef.current = seekTo;
+              } else if (!resumeRestoredRef.current) {
                 resumeRestoredRef.current = true;
                 const resumeSeconds = readWatchResumeSeconds(drop.id);
                 if (resumeSeconds > 0) {
@@ -209,6 +345,12 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
                   setCurrentSeconds(resumeSeconds);
                   lastObservedSecondsRef.current = resumeSeconds;
                 }
+              }
+
+              if (shouldAutoplayAfterQualityShiftRef.current) {
+                shouldAutoplayAfterQualityShiftRef.current = false;
+                markAccessStarted();
+                void media.play();
               }
             }}
             onPlay={() => {
@@ -221,6 +363,21 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
               setCurrentSeconds(media.currentTime);
               flushWatchTelemetry();
               writeWatchResumeSeconds(drop.id, media.currentTime, media.duration);
+            }}
+            onWaiting={() => {
+              emitRebufferTelemetry("waiting");
+              void stepDownQualityForAuto("auto_step_down_stalled");
+            }}
+            onStalled={() => {
+              emitRebufferTelemetry("stalled");
+              void stepDownQualityForAuto("auto_step_down_stalled");
+            }}
+            onError={() => {
+              emitRebufferTelemetry("error");
+              const steppedDown = stepDownQualityForAuto("auto_step_down_error");
+              if (!steppedDown) {
+                setIsPlaying(false);
+              }
             }}
             onVolumeChange={(event) => {
               const media = event.currentTarget;
@@ -291,7 +448,9 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
             {drop.seasonLabel} · {drop.episodeLabel}
           </p>
           <p className="dropmedia-copy">{drop.synopsis}</p>
-          <p className="dropmedia-copy">watch progress and resume are preserved per drop.</p>
+          <p className="dropmedia-copy">
+            watch progress, quality fallback, and rebuffer logs are preserved for this drop.
+          </p>
 
           <section className="dropmedia-listen-controls" aria-label="watch controls">
             <button
@@ -425,6 +584,60 @@ export function DropWatchMode({ session, drop, receipt, certificate }: DropWatch
             }}
             disabled={!hasVideoSource}
           />
+
+          <p className="dropmedia-progress-label">{qualityLabel}</p>
+          <section className="dropmedia-quality-controls" aria-label="watch quality controls">
+            {QUALITY_OPTIONS.map((qualityMode) => {
+              const isAvailable =
+                qualityMode === "auto" || qualityLadder.availableLevels.includes(qualityMode);
+              const isActive = selectedQualityMode === qualityMode;
+
+              return (
+                <button
+                  key={qualityMode}
+                  type="button"
+                  className={`dropmedia-control ${isActive ? "active" : ""}`}
+                  disabled={!isAvailable}
+                  onClick={() => {
+                    if (!isAvailable || selectedQualityMode === qualityMode) {
+                      return;
+                    }
+
+                    const media = videoRef.current;
+                    const preserveSeconds = media ? media.currentTime : readWatchResumeSeconds(drop.id);
+                    pendingSeekRef.current = preserveSeconds;
+                    shouldAutoplayAfterQualityShiftRef.current = media ? !media.paused : true;
+                    writeWatchResumeSeconds(
+                      drop.id,
+                      preserveSeconds,
+                      media?.duration ?? durationSeconds
+                    );
+                    setCurrentSeconds(preserveSeconds);
+                    lastObservedSecondsRef.current = preserveSeconds;
+
+                    if (qualityMode === "auto") {
+                      setAutoQualityLevel(resolveHighestQualityLevel(qualityLadder.availableLevels));
+                    }
+
+                    setSelectedQualityMode(qualityMode);
+                    void postWatchTelemetry({
+                      dropId: drop.id,
+                      eventType: "quality_change",
+                      action: "toggle",
+                      qualityMode,
+                      qualityLevel:
+                        qualityMode === "auto"
+                          ? resolveHighestQualityLevel(qualityLadder.availableLevels)
+                          : qualityMode,
+                      qualityReason: "manual_select"
+                    });
+                  }}
+                >
+                  {qualityMode}
+                </button>
+              );
+            })}
+          </section>
 
           {!hasVideoSource ? (
             <p className="dropmedia-copy">watch preview source is unavailable for this drop.</p>

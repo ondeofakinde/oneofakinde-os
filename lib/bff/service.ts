@@ -113,6 +113,8 @@ const TOWNHALL_TELEMETRY_EVENT_SET = new Set<TownhallTelemetryEventType>([
   "watch_time",
   "completion",
   "collect_intent",
+  "quality_change",
+  "rebuffer",
   "impression",
   "showroom_impression",
   "drop_opened",
@@ -591,6 +593,39 @@ function normalizeTownhallTelemetryMetadata(
     value.action === "submit"
   ) {
     metadata.action = value.action;
+  }
+
+  if (
+    value.qualityMode === "auto" ||
+    value.qualityMode === "high" ||
+    value.qualityMode === "medium" ||
+    value.qualityMode === "low"
+  ) {
+    metadata.qualityMode = value.qualityMode;
+  }
+
+  if (
+    value.qualityLevel === "high" ||
+    value.qualityLevel === "medium" ||
+    value.qualityLevel === "low"
+  ) {
+    metadata.qualityLevel = value.qualityLevel;
+  }
+
+  if (
+    value.qualityReason === "manual_select" ||
+    value.qualityReason === "auto_step_down_stalled" ||
+    value.qualityReason === "auto_step_down_error"
+  ) {
+    metadata.qualityReason = value.qualityReason;
+  }
+
+  if (
+    value.rebufferReason === "waiting" ||
+    value.rebufferReason === "stalled" ||
+    value.rebufferReason === "error"
+  ) {
+    metadata.rebufferReason = value.rebufferReason;
   }
 
   return metadata;

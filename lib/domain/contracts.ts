@@ -13,12 +13,16 @@ export type DropPreviewMode = "watch" | "listen" | "read" | "photos" | "live";
 
 export type DropPreviewAssetType = "video" | "audio" | "image" | "text";
 
+export type WatchQualityLevel = "high" | "medium" | "low";
+export type WatchQualityMode = "auto" | WatchQualityLevel;
+
 export type DropPreviewAsset = {
   type: DropPreviewAssetType;
   src?: string;
   posterSrc?: string;
   alt?: string;
   text?: string;
+  watchQualitySources?: Partial<Record<WatchQualityLevel, string>>;
 };
 
 export type DropPreviewMap = Partial<Record<DropPreviewMode, DropPreviewAsset>>;
@@ -332,6 +336,8 @@ export type TownhallTelemetryEventType =
   | "watch_time"
   | "completion"
   | "collect_intent"
+  | "quality_change"
+  | "rebuffer"
   | "impression"
   | "showroom_impression"
   | "drop_opened"
@@ -353,6 +359,10 @@ export type TownhallTelemetryMetadata = {
   position?: number;
   channel?: TownhallShareChannel;
   action?: "open" | "complete" | "start" | "toggle" | "submit";
+  qualityMode?: WatchQualityMode;
+  qualityLevel?: WatchQualityLevel;
+  qualityReason?: "manual_select" | "auto_step_down_stalled" | "auto_step_down_error";
+  rebufferReason?: "waiting" | "stalled" | "error";
 };
 
 export type TownhallTelemetrySignals = {
