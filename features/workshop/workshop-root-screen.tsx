@@ -1,6 +1,12 @@
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
-import type { Drop, LiveSession, Session, World } from "@/lib/domain/contracts";
+import type {
+  Drop,
+  LiveSession,
+  Session,
+  TownhallModerationQueueItem,
+  World
+} from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 
@@ -11,6 +17,7 @@ type WorkshopRootScreenProps = {
   worlds: World[];
   drops: Drop[];
   liveSessions: LiveSession[];
+  moderationQueue: TownhallModerationQueueItem[];
   eventNotice: string | null;
   createLiveSessionAction: (formData: FormData) => Promise<void>;
 };
@@ -22,6 +29,7 @@ export function WorkshopRootScreen({
   worlds,
   drops,
   liveSessions,
+  moderationQueue,
   eventNotice,
   createLiveSessionAction
 }: WorkshopRootScreenProps) {
@@ -181,6 +189,41 @@ export function WorkshopRootScreen({
                     open live
                   </Link>
                 </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">townhall moderation queue</p>
+        {moderationQueue.length === 0 ? (
+          <p className="slice-copy">
+            no moderation cases are waiting. reports and creator appeals will appear here.
+          </p>
+        ) : (
+          <ul className="slice-grid" aria-label="townhall moderation queue">
+            {moderationQueue.map((entry) => (
+              <li key={entry.commentId} className="slice-drop-card">
+                <p className="slice-label">{entry.dropTitle}</p>
+                <h2 className="slice-title">@{entry.authorHandle}</h2>
+                <p className="slice-copy">{entry.body}</p>
+                <p className="slice-meta">
+                  reports: {entry.reportCount}
+                  {entry.appealRequested ? " · appeal requested" : ""}
+                </p>
+                <p className="slice-meta">
+                  {entry.visibility === "hidden" ? "hidden" : "visible"} · created{" "}
+                  {new Date(entry.createdAt).toLocaleString()}
+                </p>
+                {entry.reportedAt ? (
+                  <p className="slice-meta">last report {new Date(entry.reportedAt).toLocaleString()}</p>
+                ) : null}
+                {entry.appealRequestedAt ? (
+                  <p className="slice-meta">
+                    appeal requested {new Date(entry.appealRequestedAt).toLocaleString()}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
