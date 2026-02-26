@@ -2356,6 +2356,15 @@ a {
   background-repeat: no-repeat;
 }
 
+.dropmedia-watch-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #020406;
+}
+
 .dropmedia-social-rail {
   position: absolute;
   right: 10px;

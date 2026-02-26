@@ -4,6 +4,7 @@ import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { DropListenMode } from "./drop-listen-mode";
 import { DropReadMode } from "./drop-read-mode";
+import { DropWatchMode } from "./drop-watch-mode";
 
 type ConsumeMode = "watch" | "listen" | "read" | "photos";
 
@@ -93,7 +94,14 @@ export function DropConsumeScreen({
             </div>
           </section>
         ) : (
-          mode === "listen" ? (
+          mode === "watch" ? (
+            <DropWatchMode
+              session={session}
+              drop={drop}
+              receipt={receipt}
+              certificate={certificate}
+            />
+          ) : mode === "listen" ? (
             <DropListenMode
               session={session}
               drop={drop}
@@ -141,7 +149,7 @@ export function DropConsumeScreen({
                   <p className="dropmedia-copy">{copy.intro}</p>
 
                   <div className="dropmedia-mode-row" aria-label="consume mode switcher">
-                    <Link href={modeHref("watch", drop.id)} className={modeClass(mode === "watch")}>
+                    <Link href={modeHref("watch", drop.id)} className={modeClass(false)}>
                       watch
                     </Link>
                     <Link href={modeHref("listen", drop.id)} className={modeClass(false)}>
@@ -150,7 +158,7 @@ export function DropConsumeScreen({
                     <Link href={modeHref("read", drop.id)} className={modeClass(false)}>
                       read
                     </Link>
-                    <Link href={modeHref("photos", drop.id)} className={modeClass(mode === "photos")}>
+                    <Link href={modeHref("photos", drop.id)} className={modeClass(true)}>
                       photos
                     </Link>
                   </div>
