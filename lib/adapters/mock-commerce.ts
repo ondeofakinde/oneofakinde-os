@@ -95,7 +95,36 @@ function createInitialStore(): MockStore {
         id: "dark-matter",
         title: "dark matter",
         synopsis: "cinematic drops exploring identity and memory.",
-        studioHandle: "oneofakinde"
+        studioHandle: "oneofakinde",
+        collectBundles: [
+          {
+            bundleType: "current_only",
+            title: "dark matter current",
+            synopsis: "access to the current dark matter chapter window.",
+            priceUsd: 4.99,
+            currency: "USD",
+            eligibilityRule: "public",
+            seasonWindowDays: 14
+          },
+          {
+            bundleType: "season_pass_window",
+            title: "dark matter season pass",
+            synopsis: "rolling season access for dark matter releases.",
+            priceUsd: 11.99,
+            currency: "USD",
+            eligibilityRule: "membership_active",
+            seasonWindowDays: 90
+          },
+          {
+            bundleType: "full_world",
+            title: "dark matter full world",
+            synopsis: "full world ownership with future canonical updates.",
+            priceUsd: 18.99,
+            currency: "USD",
+            eligibilityRule: "public",
+            seasonWindowDays: null
+          }
+        ]
       }
     ],
     [
@@ -104,7 +133,36 @@ function createInitialStore(): MockStore {
         id: "through-the-lens",
         title: "through the lens",
         synopsis: "camera-led drops for real-world atmospheres.",
-        studioHandle: "oneofakinde"
+        studioHandle: "oneofakinde",
+        collectBundles: [
+          {
+            bundleType: "current_only",
+            title: "through the lens current",
+            synopsis: "access to the current through the lens chapter window.",
+            priceUsd: 6.49,
+            currency: "USD",
+            eligibilityRule: "public",
+            seasonWindowDays: 14
+          },
+          {
+            bundleType: "season_pass_window",
+            title: "through the lens season pass",
+            synopsis: "rolling season access for through the lens releases.",
+            priceUsd: 14.99,
+            currency: "USD",
+            eligibilityRule: "membership_active",
+            seasonWindowDays: 90
+          },
+          {
+            bundleType: "full_world",
+            title: "through the lens full world",
+            synopsis: "full world ownership with future canonical updates.",
+            priceUsd: 24.99,
+            currency: "USD",
+            eligibilityRule: "public",
+            seasonWindowDays: null
+          }
+        ]
       }
     ]
   ]);
