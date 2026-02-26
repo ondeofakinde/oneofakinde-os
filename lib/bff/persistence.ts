@@ -396,6 +396,8 @@ function createSeedDatabase(): BffDatabase {
       synopsis: "through the dark, stardust traces identity in motion.",
       releaseDate: "2026-02-16",
       priceUsd: 1.99,
+      studioPinRank: 1,
+      worldOrderIndex: 1,
       previewMedia: seedPreviewMediaForDrop("stardust")
     },
     {
@@ -409,6 +411,7 @@ function createSeedDatabase(): BffDatabase {
       synopsis: "an ambient chapter where memory and water share a horizon.",
       releaseDate: "2026-02-10",
       priceUsd: 3.49,
+      worldOrderIndex: 3,
       previewMedia: seedPreviewMediaForDrop("twilight-whispers")
     },
     {
@@ -422,6 +425,8 @@ function createSeedDatabase(): BffDatabase {
       synopsis: "a lone signal crosses worlds and leaves a live trail.",
       releaseDate: "2026-02-12",
       priceUsd: 9.99,
+      studioPinRank: 3,
+      worldOrderIndex: 2,
       previewMedia: seedPreviewMediaForDrop("voidrunner")
     },
     {
@@ -435,6 +440,8 @@ function createSeedDatabase(): BffDatabase {
       synopsis: "a quiet table becomes a live scene with layered stories.",
       releaseDate: "2026-02-14",
       priceUsd: 12,
+      studioPinRank: 2,
+      worldOrderIndex: 1,
       previewMedia: seedPreviewMediaForDrop("through-the-lens")
     }
   ];
@@ -1236,6 +1243,8 @@ function parseDropJson(value: unknown): Drop {
     synopsis: String(parsed.synopsis ?? ""),
     releaseDate: String(parsed.releaseDate ?? ""),
     priceUsd: Number(parsed.priceUsd ?? 0),
+    studioPinRank: parseOptionalPositiveInt(parsed.studioPinRank),
+    worldOrderIndex: parseOptionalPositiveInt(parsed.worldOrderIndex),
     previewMedia:
       parsed.previewMedia && Object.keys(parsed.previewMedia).length > 0
         ? parsed.previewMedia
@@ -1243,6 +1252,16 @@ function parseDropJson(value: unknown): Drop {
   };
 
   return normalized;
+}
+
+function parseOptionalPositiveInt(value: unknown): number | undefined {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  const intValue = Math.trunc(parsed);
+  return intValue > 0 ? intValue : undefined;
 }
 
 function parseWorldJson(value: unknown): World {

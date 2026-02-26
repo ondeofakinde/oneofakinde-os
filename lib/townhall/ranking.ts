@@ -1,4 +1,5 @@
 import type { Drop, TownhallTelemetrySignals } from "@/lib/domain/contracts";
+import { studioPinBoostForTownhall } from "@/lib/catalog/drop-curation";
 import type { TownhallShowroomOrdering } from "@/lib/townhall/showroom-query";
 
 export type TownhallEngagementSignals = {
@@ -158,7 +159,8 @@ export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOpti
       collected: signals.collected,
       recency: recencyScore(nowMs, releaseMs),
       engagement: engagementRawScore(signals),
-      telemetry: telemetryRawScore(telemetrySignals)
+      telemetry: telemetryRawScore(telemetrySignals),
+      studioPinBoost: studioPinBoostForTownhall(drop)
     };
   });
 
@@ -172,7 +174,8 @@ export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOpti
       const blendedScore =
         engagementScore * 0.5 +
         entry.recency * 0.32 +
-        telemetryScore * 0.18;
+        telemetryScore * 0.18 +
+        entry.studioPinBoost;
       return {
         ...entry,
         blendedScore

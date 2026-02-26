@@ -38,6 +38,8 @@ export type Drop = {
   synopsis: string;
   releaseDate: string;
   priceUsd: number;
+  studioPinRank?: number;
+  worldOrderIndex?: number;
   previewMedia?: DropPreviewMap;
 };
 

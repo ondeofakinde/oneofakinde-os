@@ -24,6 +24,7 @@ import type {
   World
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
+import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { seedPreviewMediaForDrop } from "@/lib/townhall/seed-preview-media";
 import { randomUUID } from "node:crypto";
 
@@ -134,6 +135,8 @@ function createInitialStore(): MockStore {
         synopsis: "through the dark, stardust traces identity in motion.",
         releaseDate: "2026-02-16",
         priceUsd: 1.99,
+        studioPinRank: 1,
+        worldOrderIndex: 1,
         previewMedia: seedPreviewMediaForDrop("stardust")
       }
     ],
@@ -150,6 +153,7 @@ function createInitialStore(): MockStore {
         synopsis: "an ambient chapter where memory and water share a horizon.",
         releaseDate: "2026-02-10",
         priceUsd: 3.49,
+        worldOrderIndex: 3,
         previewMedia: seedPreviewMediaForDrop("twilight-whispers")
       }
     ],
@@ -166,6 +170,8 @@ function createInitialStore(): MockStore {
         synopsis: "a lone signal crosses worlds and leaves a live trail.",
         releaseDate: "2026-02-12",
         priceUsd: 9.99,
+        studioPinRank: 3,
+        worldOrderIndex: 2,
         previewMedia: seedPreviewMediaForDrop("voidrunner")
       }
     ],
@@ -182,6 +188,8 @@ function createInitialStore(): MockStore {
         synopsis: "a quiet table becomes a live scene with layered stories.",
         releaseDate: "2026-02-14",
         priceUsd: 12,
+        studioPinRank: 2,
+        worldOrderIndex: 1,
         previewMedia: seedPreviewMediaForDrop("through-the-lens")
       }
     ]
@@ -664,7 +672,7 @@ export const commerceGateway: CommerceGateway = {
   },
 
   async listDropsByWorldId(worldId: string): Promise<Drop[]> {
-    return (await this.listDrops()).filter((drop) => drop.worldId === worldId);
+    return sortDropsForWorldSurface((await this.listDrops()).filter((drop) => drop.worldId === worldId));
   },
 
   async getStudioByHandle(handle: string): Promise<Studio | null> {
@@ -672,7 +680,9 @@ export const commerceGateway: CommerceGateway = {
   },
 
   async listDropsByStudioHandle(handle: string): Promise<Drop[]> {
-    return (await this.listDrops()).filter((drop) => drop.studioHandle === handle);
+    return sortDropsForStudioSurface(
+      (await this.listDrops()).filter((drop) => drop.studioHandle === handle)
+    );
   },
 
   async getDropById(dropId: string): Promise<Drop | null> {

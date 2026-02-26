@@ -1,5 +1,6 @@
 import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
+import { sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import type { Drop, Session, World } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
 import Link from "next/link";
@@ -11,6 +12,8 @@ type WorldDropsScreenProps = {
 };
 
 export function WorldDropsScreen({ world, drops, session }: WorldDropsScreenProps) {
+  const orderedDrops = sortDropsForWorldSurface(drops);
+
   return (
     <AppShell
       title="drops in this world"
@@ -30,9 +33,11 @@ export function WorldDropsScreen({ world, drops, session }: WorldDropsScreenProp
           <p className="slice-copy">no drops available in this world yet.</p>
         ) : (
           <ul className="slice-grid" aria-label="drops in this world list">
-            {drops.map((drop) => (
+            {orderedDrops.map((drop) => (
               <li key={drop.id} className="slice-drop-card">
-                <p className="slice-label">{drop.seasonLabel}</p>
+                <p className="slice-label">
+                  {drop.worldOrderIndex ? `world order #${drop.worldOrderIndex}` : drop.seasonLabel}
+                </p>
                 <h2 className="slice-title">{drop.title}</h2>
                 <p className="slice-copy">{drop.synopsis}</p>
                 <p className="slice-meta">{formatUsd(drop.priceUsd)}</p>

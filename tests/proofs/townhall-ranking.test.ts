@@ -207,3 +207,39 @@ test("townhall ranking supports most collected ordering lane", () => {
     ["high", "mid", "low"]
   );
 });
+
+test("townhall ranking gives studio pinned drops a rising boost", () => {
+  const drops = [
+    {
+      ...makeDrop("unpinned-high", "2026-02-18"),
+      worldOrderIndex: 1
+    },
+    {
+      ...makeDrop("pinned", "2026-02-15"),
+      studioPinRank: 1,
+      worldOrderIndex: 2
+    }
+  ];
+
+  const balancedSignals = {
+    watched: 20_000,
+    collected: 1_500,
+    liked: 6_000,
+    shared: 700,
+    commented: 550,
+    saved: 2_000
+  };
+
+  const ranked = rankDropsForTownhall(drops, {
+    now: new Date("2026-02-20T00:00:00.000Z"),
+    signalsByDropId: {
+      "unpinned-high": {
+        ...balancedSignals,
+        watched: balancedSignals.watched + 250
+      },
+      pinned: balancedSignals
+    }
+  });
+
+  assert.equal(ranked[0]?.id, "pinned");
+});
