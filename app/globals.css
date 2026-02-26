@@ -2405,6 +2405,116 @@ a {
   accent-color: #7ca8c0;
 }
 
+.dropmedia-read-stage {
+  min-height: 620px;
+}
+
+.dropmedia-read-content {
+  right: 14px;
+  gap: 10px;
+}
+
+.dropmedia-read-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: #adc1cf;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dropmedia-read-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(24, 38, 48, 0.88);
+  overflow: hidden;
+}
+
+.dropmedia-read-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7ca8c0 0%, #3e6883 100%);
+}
+
+.dropmedia-read-layout {
+  border: 1px solid #2c3c47;
+  border-radius: 14px;
+  background: rgba(5, 9, 13, 0.76);
+  display: grid;
+  grid-template-columns: minmax(130px, 0.36fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+
+.dropmedia-read-toc p {
+  margin: 0 0 8px;
+  color: #94aebe;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dropmedia-read-toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.dropmedia-read-toc button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #30414d;
+  border-radius: 10px;
+  background: rgba(10, 15, 20, 0.72);
+  color: #b8cad6;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  padding: 7px 8px;
+}
+
+.dropmedia-read-toc button.active {
+  border-color: #4f7a97;
+  color: #e2f2fd;
+  background: rgba(27, 47, 61, 0.84);
+}
+
+.dropmedia-read-article {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: grid;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+
+.dropmedia-read-article::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropmedia-read-article::-webkit-scrollbar-thumb {
+  background: rgba(94, 124, 143, 0.6);
+  border-radius: 999px;
+}
+
+.dropmedia-read-section h2 {
+  margin: 0 0 6px;
+  color: #e5f0f7;
+  font-size: 0.92rem;
+}
+
+.dropmedia-read-section p {
+  margin: 0;
+  color: #c1d0db;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .dropmedia-mode-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2539,6 +2649,14 @@ a {
 
   .dropmedia-content {
     right: 56px;
+  }
+
+  .dropmedia-read-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dropmedia-read-article {
+    max-height: 200px;
   }
 
   .dropflow-title,

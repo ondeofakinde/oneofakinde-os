@@ -3,6 +3,7 @@ import type { Certificate, Drop, PurchaseReceipt, Session } from "@/lib/domain/c
 import { routes } from "@/lib/routes";
 import Link from "next/link";
 import { DropListenMode } from "./drop-listen-mode";
+import { DropReadMode } from "./drop-read-mode";
 
 type ConsumeMode = "watch" | "listen" | "read" | "photos";
 
@@ -97,6 +98,13 @@ export function DropConsumeScreen({
               receipt={receipt}
               certificate={certificate}
             />
+          ) : mode === "read" ? (
+            <DropReadMode
+              session={session}
+              drop={drop}
+              receipt={receipt}
+              certificate={certificate}
+            />
           ) : (
             <>
               <section className="dropmedia-stage" aria-label="active consume stage">
@@ -136,7 +144,7 @@ export function DropConsumeScreen({
                     <Link href={modeHref("listen", drop.id)} className={modeClass(false)}>
                       listen
                     </Link>
-                    <Link href={modeHref("read", drop.id)} className={modeClass(mode === "read")}>
+                    <Link href={modeHref("read", drop.id)} className={modeClass(false)}>
                       read
                     </Link>
                     <Link href={modeHref("photos", drop.id)} className={modeClass(mode === "photos")}>
