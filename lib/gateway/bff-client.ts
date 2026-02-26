@@ -3,9 +3,11 @@ import type {
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
+  CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
   LibrarySnapshot,
+  LiveSession,
   LiveSessionEligibility,
   MembershipEntitlement,
   MyCollectionSnapshot,
@@ -310,6 +312,33 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.eligibility;
+    },
+
+    async listWorkshopLiveSessions(_accountId: string): Promise<LiveSession[]> {
+      void _accountId;
+      const response = await requestJson<{ liveSessions: LiveSession[] }>(
+        options,
+        "/api/v1/workshop/live-sessions"
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.liveSessions;
+    },
+
+    async createWorkshopLiveSession(
+      _accountId: string,
+      input: CreateWorkshopLiveSessionInput
+    ): Promise<LiveSession | null> {
+      void _accountId;
+      const response = await requestJson<{ liveSession: LiveSession }>(
+        options,
+        "/api/v1/workshop/live-sessions",
+        {
+          method: "POST",
+          body: JSON.stringify(input)
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.liveSession;
     },
 
     async getCertificateById(certificateId: string): Promise<Certificate | null> {

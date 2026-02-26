@@ -4,6 +4,7 @@ import type {
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
+  CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
   LibraryDrop,
@@ -564,6 +565,85 @@ function resolveLiveEligibility(accountId: string, liveSession: LiveSessionRecor
   };
 }
 
+function parseIsoTimestamp(input: string): number | null {
+  const parsed = Date.parse(input);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function createWorkshopLiveSessionRecord(
+  accountId: string,
+  input: CreateWorkshopLiveSessionInput
+): LiveSessionRecord | null {
+  const account = store.accounts.get(accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return null;
+  }
+
+  const title = input.title.trim();
+  if (!title) {
+    return null;
+  }
+
+  const startsAtMs = parseIsoTimestamp(input.startsAt);
+  if (startsAtMs === null) {
+    return null;
+  }
+
+  let endsAt: string | null = null;
+  if (input.endsAt) {
+    const endsAtMs = parseIsoTimestamp(input.endsAt);
+    if (endsAtMs === null || endsAtMs <= startsAtMs) {
+      return null;
+    }
+    endsAt = new Date(endsAtMs).toISOString();
+  }
+
+  let worldId: string | null = input.worldId ?? null;
+  if (worldId) {
+    const world = store.worlds.get(worldId);
+    if (!world || world.studioHandle !== account.handle) {
+      return null;
+    }
+  }
+
+  const dropId: string | null = input.dropId ?? null;
+  if (dropId) {
+    const drop = store.drops.get(dropId);
+    if (!drop || drop.studioHandle !== account.handle) {
+      return null;
+    }
+
+    if (worldId && drop.worldId !== worldId) {
+      return null;
+    }
+
+    if (!worldId) {
+      worldId = drop.worldId;
+    }
+  }
+
+  if (input.eligibilityRule === "drop_owner" && !dropId) {
+    return null;
+  }
+
+  return {
+    id: `live_workshop_${randomUUID()}`,
+    studioHandle: account.handle,
+    worldId,
+    dropId,
+    title,
+    synopsis: input.synopsis.trim(),
+    startsAt: new Date(startsAtMs).toISOString(),
+    endsAt,
+    mode: "live",
+    eligibilityRule: input.eligibilityRule
+  };
+}
+
 export const commerceGateway: CommerceGateway = {
   async listDrops(): Promise<Drop[]> {
     return [...store.drops.values()].sort(
@@ -773,6 +853,31 @@ export const commerceGateway: CommerceGateway = {
     }
 
     return resolveLiveEligibility(accountId, liveSession);
+  },
+
+  async listWorkshopLiveSessions(accountId: string): Promise<LiveSession[]> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return [];
+    }
+
+    return store.liveSessions
+      .filter((liveSession) => liveSession.studioHandle === account.handle)
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+      .map(toLiveSession);
+  },
+
+  async createWorkshopLiveSession(
+    accountId: string,
+    input: CreateWorkshopLiveSessionInput
+  ): Promise<LiveSession | null> {
+    const created = createWorkshopLiveSessionRecord(accountId, input);
+    if (!created) {
+      return null;
+    }
+
+    store.liveSessions.unshift(created);
+    return toLiveSession(created);
   },
 
   async getCertificateById(certificateId: string): Promise<Certificate | null> {

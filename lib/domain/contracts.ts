@@ -67,6 +67,16 @@ export type LiveSession = {
   whatYouGet: string;
 };
 
+export type CreateWorkshopLiveSessionInput = {
+  title: string;
+  synopsis: string;
+  worldId: string | null;
+  dropId: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  eligibilityRule: LiveSessionEligibilityRule;
+};
+
 export type LiveSessionEligibilityReason =
   | "eligible_public"
   | "eligible_membership_active"
