@@ -16,6 +16,8 @@ export default async function DropReadPage({ params }: DropReadPageProps) {
     notFound();
   }
 
+  const worldDrops = await gateway.listDropsByWorldId(drop.worldId);
+
   const hasEntitlement = await gateway.hasDropEntitlement(session.accountId, id);
   const collection = hasEntitlement
     ? await gateway.getMyCollection(session.accountId)
@@ -37,6 +39,7 @@ export default async function DropReadPage({ params }: DropReadPageProps) {
       mode="read"
       session={session}
       drop={drop}
+      worldDrops={worldDrops}
       hasEntitlement={hasEntitlement}
       receipt={receipt}
       certificate={certificate}
