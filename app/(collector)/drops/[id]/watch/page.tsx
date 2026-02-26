@@ -1,4 +1,5 @@
 import { DropConsumeScreen } from "@/features/drops/drop-consume-screen";
+import { commerceBffService } from "@/lib/bff/service";
 import { gateway } from "@/lib/gateway";
 import { requireSession } from "@/lib/server/session";
 import { notFound } from "next/navigation";
@@ -17,8 +18,40 @@ export default async function DropWatchPage({ params }: DropWatchPageProps) {
   }
 
   const hasEntitlement = await gateway.hasDropEntitlement(session.accountId, id);
+  let hasWatchAccess = false;
 
-  const collection = hasEntitlement
+  if (hasEntitlement) {
+    const watchAccessToken = await commerceBffService.createWatchAccessToken(
+      session.accountId,
+      id
+    );
+
+    if (watchAccessToken) {
+      const consumeResult = await commerceBffService.consumeWatchAccessToken({
+        accountId: session.accountId,
+        dropId: id,
+        token: watchAccessToken.token
+      });
+      hasWatchAccess = consumeResult.granted;
+
+      if (consumeResult.granted) {
+        await commerceBffService.recordTownhallTelemetryEvent({
+          accountId: session.accountId,
+          dropId: id,
+          eventType: "access_start",
+          metadata: {
+            source: "drop",
+            surface: "watch",
+            action: "open"
+          }
+        });
+      }
+    }
+  }
+
+  const hasWatchEntitlement = hasEntitlement && hasWatchAccess;
+
+  const collection = hasWatchEntitlement
     ? await gateway.getMyCollection(session.accountId)
     : null;
 
@@ -38,7 +71,7 @@ export default async function DropWatchPage({ params }: DropWatchPageProps) {
       mode="watch"
       session={session}
       drop={drop}
-      hasEntitlement={hasEntitlement}
+      hasEntitlement={hasWatchEntitlement}
       receipt={receipt}
       certificate={certificate}
     />
