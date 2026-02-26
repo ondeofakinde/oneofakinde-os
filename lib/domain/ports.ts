@@ -1,10 +1,13 @@
 import type {
   Certificate,
+  CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
   CreateSessionInput,
   Drop,
   LibrarySnapshot,
+  LiveSessionEligibility,
+  MembershipEntitlement,
   MyCollectionSnapshot,
   PurchaseReceipt,
   Session,
@@ -36,6 +39,12 @@ export interface CommerceGateway {
   getLibrary(accountId: string): Promise<LibrarySnapshot | null>;
   getReceipt(accountId: string, receiptId: string): Promise<PurchaseReceipt | null>;
   hasDropEntitlement(accountId: string, dropId: string): Promise<boolean>;
+  listMembershipEntitlements(accountId: string): Promise<MembershipEntitlement[]>;
+  listCollectLiveSessions(accountId: string): Promise<CollectLiveSessionSnapshot[]>;
+  getCollectLiveSessionEligibility(
+    accountId: string,
+    liveSessionId: string
+  ): Promise<LiveSessionEligibility | null>;
 
   getCertificateById(certificateId: string): Promise<Certificate | null>;
   getCertificateByReceipt(accountId: string, receiptId: string): Promise<Certificate | null>;

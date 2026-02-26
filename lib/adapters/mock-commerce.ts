@@ -1,12 +1,16 @@
 import type {
   AccountRole,
   Certificate,
+  CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
   CreateSessionInput,
   Drop,
   LibraryDrop,
   LibrarySnapshot,
+  LiveSession,
+  LiveSessionEligibility,
+  MembershipEntitlement,
   MyCollectionSnapshot,
   OwnedDrop,
   PurchaseReceipt,
@@ -30,6 +34,10 @@ type CertificateRecord = Certificate & {
   ownerAccountId: string;
 };
 
+type MembershipEntitlementRecord = Omit<MembershipEntitlement, "whatYouGet" | "isActive">;
+
+type LiveSessionRecord = Omit<LiveSession, "whatYouGet">;
+
 type MockStore = {
   drops: Map<string, Drop>;
   worlds: Map<string, World>;
@@ -42,6 +50,8 @@ type MockStore = {
   receiptsByAccount: Map<string, PurchaseReceipt[]>;
   certificatesById: Map<string, CertificateRecord>;
   pendingPayments: Map<string, { accountId: string; dropId: string }>;
+  membershipEntitlements: MembershipEntitlementRecord[];
+  liveSessions: LiveSessionRecord[];
 };
 
 const PROCESSING_FEE_USD = 1.99;
@@ -180,6 +190,45 @@ function createInitialStore(): MockStore {
   const receiptsByAccount = new Map<string, PurchaseReceipt[]>();
   const certificatesById = new Map<string, CertificateRecord>();
   const pendingPayments = new Map<string, { accountId: string; dropId: string }>();
+  const membershipEntitlements: MembershipEntitlementRecord[] = [];
+  const liveSessions: LiveSessionRecord[] = [
+    {
+      id: "live_dark_matter_open_studio",
+      studioHandle: "oneofakinde",
+      worldId: "dark-matter",
+      dropId: null,
+      title: "dark matter open studio",
+      synopsis: "public live studio walk-through.",
+      startsAt: "2026-02-17T12:00:00.000Z",
+      endsAt: null,
+      mode: "live",
+      eligibilityRule: "public"
+    },
+    {
+      id: "live_dark_matter_members_salons",
+      studioHandle: "oneofakinde",
+      worldId: "dark-matter",
+      dropId: null,
+      title: "members salon: dark matter",
+      synopsis: "members-only session for current world collectors.",
+      startsAt: "2026-02-18T12:00:00.000Z",
+      endsAt: null,
+      mode: "live",
+      eligibilityRule: "membership_active"
+    },
+    {
+      id: "live_stardust_collectors_qna",
+      studioHandle: "oneofakinde",
+      worldId: "dark-matter",
+      dropId: "stardust",
+      title: "stardust collectors q&a",
+      synopsis: "collector session unlocked by stardust ownership.",
+      startsAt: "2026-02-19T12:00:00.000Z",
+      endsAt: null,
+      mode: "live",
+      eligibilityRule: "drop_owner"
+    }
+  ];
 
   const accountId = "acct_collector_demo";
   const account: AccountRecord = {
@@ -193,6 +242,15 @@ function createInitialStore(): MockStore {
   accounts.set(accountId, account);
   accountsByEmailRole.set("collector@oneofakinde.com:collector", accountId);
   savedDropIdsByAccount.set(accountId, ["twilight-whispers", "through-the-lens", "voidrunner"]);
+  membershipEntitlements.push({
+    id: "mship_seed_dark_matter",
+    accountId,
+    studioHandle: "oneofakinde",
+    worldId: "dark-matter",
+    status: "active",
+    startedAt: "2026-02-02T12:00:00.000Z",
+    endsAt: "2026-03-18T12:00:00.000Z"
+  });
 
   const seededDrop = drops.get("stardust");
   if (seededDrop) {
@@ -239,7 +297,9 @@ function createInitialStore(): MockStore {
     savedDropIdsByAccount,
     receiptsByAccount,
     certificatesById,
-    pendingPayments
+    pendingPayments,
+    membershipEntitlements,
+    liveSessions
   };
 }
 
@@ -350,6 +410,158 @@ function grantOwnership({
   store.certificatesById.set(certificate.id, certificate);
 
   return ownedDrop;
+}
+
+function isMembershipActive(entitlement: MembershipEntitlementRecord, nowMs = Date.now()): boolean {
+  if (entitlement.status !== "active") {
+    return false;
+  }
+
+  const startedAt = Date.parse(entitlement.startedAt);
+  if (Number.isFinite(startedAt) && startedAt > nowMs) {
+    return false;
+  }
+
+  if (!entitlement.endsAt) {
+    return true;
+  }
+
+  const endsAt = Date.parse(entitlement.endsAt);
+  if (!Number.isFinite(endsAt)) {
+    return false;
+  }
+
+  return endsAt >= nowMs;
+}
+
+function toMembershipWhatYouGet(entitlement: MembershipEntitlementRecord): string {
+  if (entitlement.worldId) {
+    const world = store.worlds.get(entitlement.worldId);
+    if (world) {
+      return `${world.title} membership access in collect and live session eligibility.`;
+    }
+  }
+
+  return `${entitlement.studioHandle} membership access across eligible live sessions.`;
+}
+
+function toMembershipEntitlement(entitlement: MembershipEntitlementRecord): MembershipEntitlement {
+  return {
+    id: entitlement.id,
+    accountId: entitlement.accountId,
+    studioHandle: entitlement.studioHandle,
+    worldId: entitlement.worldId,
+    status: entitlement.status,
+    startedAt: entitlement.startedAt,
+    endsAt: entitlement.endsAt,
+    whatYouGet: toMembershipWhatYouGet(entitlement),
+    isActive: isMembershipActive(entitlement)
+  };
+}
+
+function toLiveSessionWhatYouGet(liveSession: LiveSessionRecord): string {
+  if (liveSession.eligibilityRule === "public") {
+    return "public live session access.";
+  }
+
+  if (liveSession.eligibilityRule === "membership_active") {
+    if (liveSession.worldId) {
+      const world = store.worlds.get(liveSession.worldId);
+      if (world) {
+        return `active membership required for ${world.title}.`;
+      }
+    }
+
+    return `active membership required for ${liveSession.studioHandle}.`;
+  }
+
+  if (liveSession.dropId) {
+    const drop = store.drops.get(liveSession.dropId);
+    if (drop) {
+      return `${drop.title} ownership required to join.`;
+    }
+  }
+
+  return "drop ownership required to join.";
+}
+
+function toLiveSession(liveSession: LiveSessionRecord): LiveSession {
+  return {
+    id: liveSession.id,
+    studioHandle: liveSession.studioHandle,
+    worldId: liveSession.worldId,
+    dropId: liveSession.dropId,
+    title: liveSession.title,
+    synopsis: liveSession.synopsis,
+    startsAt: liveSession.startsAt,
+    endsAt: liveSession.endsAt,
+    mode: "live",
+    eligibilityRule: liveSession.eligibilityRule,
+    whatYouGet: toLiveSessionWhatYouGet(liveSession)
+  };
+}
+
+function resolveLiveEligibility(accountId: string, liveSession: LiveSessionRecord): LiveSessionEligibility {
+  const account = store.accounts.get(accountId);
+  if (!account) {
+    return {
+      liveSessionId: liveSession.id,
+      rule: liveSession.eligibilityRule,
+      eligible: false,
+      reason: "session_required",
+      matchedEntitlementId: null
+    };
+  }
+
+  if (liveSession.eligibilityRule === "public") {
+    return {
+      liveSessionId: liveSession.id,
+      rule: liveSession.eligibilityRule,
+      eligible: true,
+      reason: "eligible_public",
+      matchedEntitlementId: null
+    };
+  }
+
+  if (liveSession.eligibilityRule === "membership_active") {
+    const match = store.membershipEntitlements.find((entitlement) => {
+      if (entitlement.accountId !== account.id) return false;
+      if (entitlement.studioHandle !== liveSession.studioHandle) return false;
+      if (!isMembershipActive(entitlement)) return false;
+      if (!liveSession.worldId) return entitlement.worldId === null;
+      return entitlement.worldId === null || entitlement.worldId === liveSession.worldId;
+    });
+
+    if (match) {
+      return {
+        liveSessionId: liveSession.id,
+        rule: liveSession.eligibilityRule,
+        eligible: true,
+        reason: "eligible_membership_active",
+        matchedEntitlementId: match.id
+      };
+    }
+
+    return {
+      liveSessionId: liveSession.id,
+      rule: liveSession.eligibilityRule,
+      eligible: false,
+      reason: "membership_required",
+      matchedEntitlementId: null
+    };
+  }
+
+  const ownsDrop =
+    !!liveSession.dropId &&
+    getOwnedDrops(account.id).some((ownership) => ownership.drop.id === liveSession.dropId);
+
+  return {
+    liveSessionId: liveSession.id,
+    rule: liveSession.eligibilityRule,
+    eligible: ownsDrop,
+    reason: ownsDrop ? "eligible_drop_owner" : "ownership_required",
+    matchedEntitlementId: null
+  };
 }
 
 export const commerceGateway: CommerceGateway = {
@@ -533,6 +745,34 @@ export const commerceGateway: CommerceGateway = {
   async hasDropEntitlement(accountId: string, dropId: string): Promise<boolean> {
     const ownedDrops = getOwnedDrops(accountId);
     return ownedDrops.some((entry) => entry.drop.id === dropId);
+  },
+
+  async listMembershipEntitlements(accountId: string): Promise<MembershipEntitlement[]> {
+    return store.membershipEntitlements
+      .filter((entitlement) => entitlement.accountId === accountId)
+      .map(toMembershipEntitlement)
+      .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
+  },
+
+  async listCollectLiveSessions(accountId: string): Promise<CollectLiveSessionSnapshot[]> {
+    return [...store.liveSessions]
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+      .map((liveSession) => ({
+        liveSession: toLiveSession(liveSession),
+        eligibility: resolveLiveEligibility(accountId, liveSession)
+      }));
+  },
+
+  async getCollectLiveSessionEligibility(
+    accountId: string,
+    liveSessionId: string
+  ): Promise<LiveSessionEligibility | null> {
+    const liveSession = store.liveSessions.find((entry) => entry.id === liveSessionId);
+    if (!liveSession) {
+      return null;
+    }
+
+    return resolveLiveEligibility(accountId, liveSession);
   },
 
   async getCertificateById(certificateId: string): Promise<Certificate | null> {

@@ -37,6 +37,57 @@ export type Drop = {
   previewMedia?: DropPreviewMap;
 };
 
+export type MembershipEntitlementStatus = "active" | "expired" | "canceled";
+
+export type MembershipEntitlement = {
+  id: string;
+  accountId: string;
+  studioHandle: string;
+  worldId: string | null;
+  status: MembershipEntitlementStatus;
+  startedAt: string;
+  endsAt: string | null;
+  whatYouGet: string;
+  isActive: boolean;
+};
+
+export type LiveSessionEligibilityRule = "public" | "membership_active" | "drop_owner";
+
+export type LiveSession = {
+  id: string;
+  studioHandle: string;
+  worldId: string | null;
+  dropId: string | null;
+  title: string;
+  synopsis: string;
+  startsAt: string;
+  endsAt: string | null;
+  mode: "live";
+  eligibilityRule: LiveSessionEligibilityRule;
+  whatYouGet: string;
+};
+
+export type LiveSessionEligibilityReason =
+  | "eligible_public"
+  | "eligible_membership_active"
+  | "eligible_drop_owner"
+  | "session_required"
+  | "membership_required"
+  | "ownership_required";
+
+export type LiveSessionEligibility = {
+  liveSessionId: string;
+  rule: LiveSessionEligibilityRule;
+  eligible: boolean;
+  reason: LiveSessionEligibilityReason;
+  matchedEntitlementId: string | null;
+};
+
+export type CollectLiveSessionSnapshot = {
+  liveSession: LiveSession;
+  eligibility: LiveSessionEligibility;
+};
+
 export type CollectMarketLane = "all" | "sale" | "auction" | "resale";
 export type CollectListingType = Exclude<CollectMarketLane, "all">;
 

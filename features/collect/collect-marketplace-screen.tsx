@@ -2,9 +2,11 @@ import { AppShell } from "@/features/shell/app-shell";
 import { formatUsd } from "@/features/shared/format";
 import { listCollectInventoryByLane } from "@/lib/collect/market-lanes";
 import type {
+  CollectLiveSessionSnapshot,
   CollectInventoryListing,
   CollectListingType,
   CollectMarketLane,
+  MembershipEntitlement,
   Session
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
@@ -15,6 +17,8 @@ type CollectMarketplaceScreenProps = {
   session: Session;
   listings: CollectInventoryListing[];
   initialLane?: CollectMarketLane;
+  memberships: MembershipEntitlement[];
+  liveSessions: CollectLiveSessionSnapshot[];
 };
 
 const LISTING_COPY: Record<
@@ -73,7 +77,9 @@ function sectionPriceLabel(type: CollectListingType, priceUsd: number): string {
 export function CollectMarketplaceScreen({
   session,
   listings,
-  initialLane = "all"
+  initialLane = "all",
+  memberships,
+  liveSessions
 }: CollectMarketplaceScreenProps) {
   const sales = listings.filter((listing) => listing.listingType === "sale");
   const auctions = listings.filter((listing) => listing.listingType === "auction");
@@ -91,6 +97,8 @@ export function CollectMarketplaceScreen({
       : sections.filter((section) => section.key === initialLane);
 
   const visibleListings = listCollectInventoryByLane(listings, initialLane);
+  const activeMembershipCount = memberships.filter((membership) => membership.isActive).length;
+  const eligibleLiveSessionCount = liveSessions.filter((entry) => entry.eligibility.eligible).length;
 
   return (
     <AppShell
@@ -127,6 +135,84 @@ export function CollectMarketplaceScreen({
             </Link>
           ))}
         </div>
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">memberships + eligibility</p>
+        <p className="slice-copy">
+          active memberships unlock eligible live sessions across studio and world rails.
+        </p>
+        <p className="slice-total">
+          {activeMembershipCount} active memberships · {eligibleLiveSessionCount} eligible live sessions
+        </p>
+
+        {memberships.length === 0 ? (
+          <p className="slice-meta">no memberships yet. collect and membership drops will unlock this lane.</p>
+        ) : (
+          <ul className="slice-grid" aria-label="membership entitlements">
+            {memberships.map((membership) => (
+              <li key={membership.id} className="slice-drop-card">
+                <p className="slice-label">{membership.studioHandle}</p>
+                <h2 className="slice-title">{membership.worldId ?? "studio-wide membership"}</h2>
+                <p className="slice-copy">{membership.whatYouGet}</p>
+                <p className="slice-meta">
+                  status: {membership.status} · {membership.isActive ? "active now" : "inactive"}
+                </p>
+                <p className="slice-meta">
+                  starts {new Date(membership.startedAt).toLocaleString()}
+                  {membership.endsAt
+                    ? ` · ends ${new Date(membership.endsAt).toLocaleString()}`
+                    : " · no end date"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">collect live sessions</p>
+        <p className="slice-copy">
+          live sessions enforce eligibility by rule: public, membership active, or drop ownership.
+        </p>
+        {liveSessions.length === 0 ? (
+          <p className="slice-meta">no live sessions available.</p>
+        ) : (
+          <ul className="slice-grid" aria-label="collect live sessions">
+            {liveSessions.map((entry) => {
+              const fallbackHref: Route =
+                entry.liveSession.dropId !== null
+                  ? routes.collectDrop(entry.liveSession.dropId)
+                  : routes.collect();
+
+              return (
+                <li key={entry.liveSession.id} className="slice-drop-card">
+                  <p className="slice-label">{entry.liveSession.studioHandle}</p>
+                  <h2 className="slice-title">{entry.liveSession.title}</h2>
+                  <p className="slice-copy">{entry.liveSession.synopsis}</p>
+                  <p className="slice-meta">
+                    starts {new Date(entry.liveSession.startsAt).toLocaleString()}
+                  </p>
+                  <p className="slice-meta">
+                    rule: {entry.liveSession.eligibilityRule.replaceAll("_", " ")} ·{" "}
+                    {entry.eligibility.eligible
+                      ? "eligible"
+                      : entry.eligibility.reason.replaceAll("_", " ")}
+                  </p>
+                  <p className="slice-meta">{entry.liveSession.whatYouGet}</p>
+                  <div className="slice-button-row">
+                    <Link
+                      href={entry.eligibility.eligible ? routes.liveHub() : fallbackHref}
+                      className="slice-button alt"
+                    >
+                      {entry.eligibility.eligible ? "open live" : "collect to unlock"}
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       {visibleSections.map((section) => (
