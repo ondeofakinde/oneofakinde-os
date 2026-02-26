@@ -50,6 +50,7 @@ import {
   type CollectOfferRecord,
   type LiveSessionRecord,
   type MembershipEntitlementRecord,
+  type WatchAccessGrantRecord,
   createAccountFromEmail,
   getDropPriceTotalUsd,
   normalizeEmail,
@@ -61,7 +62,7 @@ import {
   type TownhallCommentRecord,
   type TownhallTelemetryEventRecord
 } from "@/lib/bff/persistence";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 const PROCESSING_FEE_USD = 1.99;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
@@ -71,6 +72,11 @@ const TOWNHALL_COMMENTS_PREVIEW_LIMIT = 24;
 const COLLECT_OFFERS_LOG_LIMIT = 50_000;
 const COLLECT_ENFORCEMENT_SIGNAL_LOG_LIMIT = 10_000;
 const COLLECT_INTEGRITY_RECENT_SIGNAL_LIMIT = 100;
+const WATCH_ACCESS_GRANTS_LOG_LIMIT = 20_000;
+const WATCH_ACCESS_TOKEN_VERSION = 1 as const;
+const WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS = 300;
+const WATCH_ACCESS_TOKEN_MIN_TTL_SECONDS = 1;
+const WATCH_ACCESS_TOKEN_MAX_TTL_SECONDS = 3600;
 
 const COLLECT_ENFORCEMENT_SIGNAL_TYPES: CollectEnforcementSignalType[] = [
   "invalid_listing_action_blocked",
@@ -152,6 +158,150 @@ type TownhallCommentModerationResult =
       ok: false;
       reason: "not_found" | "forbidden";
     };
+
+type WatchAccessTokenClaims = {
+  v: typeof WATCH_ACCESS_TOKEN_VERSION;
+  jti: string;
+  accountId: string;
+  dropId: string;
+  exp: number;
+};
+
+type WatchAccessTokenIssueResult = {
+  token: string;
+  tokenId: string;
+  expiresAt: string;
+};
+
+type WatchAccessTokenConsumeReason =
+  | "invalid_token"
+  | "expired"
+  | "binding_mismatch"
+  | "not_found"
+  | "replayed"
+  | "entitlement_revoked";
+
+type WatchAccessTokenConsumeResult =
+  | {
+      granted: true;
+      tokenId: string;
+      expiresAt: string;
+    }
+  | {
+      granted: false;
+      reason: WatchAccessTokenConsumeReason;
+    };
+
+function isProductionRuntime(): boolean {
+  const appEnv = process.env.OOK_APP_ENV?.trim().toLowerCase();
+  const vercelEnv = process.env.VERCEL_ENV?.trim().toLowerCase();
+  return appEnv === "production" || vercelEnv === "production";
+}
+
+function resolveWatchAccessSecret(): string {
+  const explicit = process.env.OOK_WATCH_ACCESS_SECRET?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  if (isProductionRuntime()) {
+    throw new Error("OOK_WATCH_ACCESS_SECRET is required in production");
+  }
+
+  return "ook_watch_access_dev_secret";
+}
+
+function resolveWatchAccessTokenTtlSeconds(): number {
+  const configured = Number(process.env.OOK_WATCH_ACCESS_TOKEN_TTL_SECONDS ?? "");
+  if (Number.isFinite(configured)) {
+    return Math.min(
+      WATCH_ACCESS_TOKEN_MAX_TTL_SECONDS,
+      Math.max(WATCH_ACCESS_TOKEN_MIN_TTL_SECONDS, Math.floor(configured))
+    );
+  }
+
+  return WATCH_ACCESS_TOKEN_DEFAULT_TTL_SECONDS;
+}
+
+function createWatchAccessSignature(payloadEncoded: string, secret: string): string {
+  return createHmac("sha256", secret).update(payloadEncoded, "utf8").digest("base64url");
+}
+
+function encodeWatchAccessToken(claims: WatchAccessTokenClaims): string {
+  const payloadEncoded = Buffer.from(JSON.stringify(claims), "utf8").toString("base64url");
+  const signature = createWatchAccessSignature(payloadEncoded, resolveWatchAccessSecret());
+  return `${payloadEncoded}.${signature}`;
+}
+
+function decodeWatchAccessToken(token: string): WatchAccessTokenClaims | null {
+  const normalized = token.trim();
+  const [payloadEncoded, signature] = normalized.split(".");
+  if (!payloadEncoded || !signature) {
+    return null;
+  }
+
+  const expected = createWatchAccessSignature(payloadEncoded, resolveWatchAccessSecret());
+  const expectedBuffer = Buffer.from(expected);
+  const providedBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== providedBuffer.length) {
+    return null;
+  }
+
+  if (!timingSafeEqual(expectedBuffer, providedBuffer)) {
+    return null;
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(Buffer.from(payloadEncoded, "base64url").toString("utf8")) as unknown;
+  } catch {
+    return null;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const candidate = payload as Partial<WatchAccessTokenClaims>;
+  if (
+    candidate.v !== WATCH_ACCESS_TOKEN_VERSION ||
+    typeof candidate.jti !== "string" ||
+    !candidate.jti.trim() ||
+    typeof candidate.accountId !== "string" ||
+    !candidate.accountId.trim() ||
+    typeof candidate.dropId !== "string" ||
+    !candidate.dropId.trim() ||
+    typeof candidate.exp !== "number" ||
+    !Number.isFinite(candidate.exp)
+  ) {
+    return null;
+  }
+
+  return {
+    v: WATCH_ACCESS_TOKEN_VERSION,
+    jti: candidate.jti,
+    accountId: candidate.accountId,
+    dropId: candidate.dropId,
+    exp: Math.floor(candidate.exp)
+  };
+}
+
+function trimWatchAccessGrants(db: BffDatabase): void {
+  if (db.watchAccessGrants.length > WATCH_ACCESS_GRANTS_LOG_LIMIT) {
+    db.watchAccessGrants.length = WATCH_ACCESS_GRANTS_LOG_LIMIT;
+  }
+}
+
+function pruneExpiredWatchAccessGrants(db: BffDatabase, nowMs: number): void {
+  db.watchAccessGrants = db.watchAccessGrants.filter((grant) => {
+    const expiresAtMs = Date.parse(grant.expiresAt);
+    if (!Number.isFinite(expiresAtMs)) {
+      return false;
+    }
+
+    return expiresAtMs >= nowMs;
+  });
+}
 
 function toSession(account: AccountRecord, sessionToken: string): Session {
   return {
@@ -2282,6 +2432,166 @@ export const commerceBffService = {
     return completePendingPaymentById(paymentId, {
       expectedAccountId: accountId,
       allowedProviders: ["manual"]
+    });
+  },
+
+  async createWatchAccessToken(
+    accountId: string,
+    dropId: string
+  ): Promise<WatchAccessTokenIssueResult | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const entitlement = findOwnershipByDrop(db, account.id, drop.id);
+      if (!entitlement) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const nowMs = Date.now();
+      pruneExpiredWatchAccessGrants(db, nowMs);
+
+      const issuedAt = new Date(nowMs).toISOString();
+      const ttlSeconds = resolveWatchAccessTokenTtlSeconds();
+      const expiresAt = new Date(nowMs + ttlSeconds * 1000).toISOString();
+      const tokenId = `wat_${randomUUID()}`;
+      const claims: WatchAccessTokenClaims = {
+        v: WATCH_ACCESS_TOKEN_VERSION,
+        jti: tokenId,
+        accountId: account.id,
+        dropId: drop.id,
+        exp: Math.floor(Date.parse(expiresAt) / 1000)
+      };
+
+      const grant: WatchAccessGrantRecord = {
+        tokenId,
+        accountId: account.id,
+        dropId: drop.id,
+        issuedAt,
+        expiresAt,
+        consumedAt: null
+      };
+
+      db.watchAccessGrants.unshift(grant);
+      trimWatchAccessGrants(db);
+
+      return {
+        persist: true,
+        result: {
+          token: encodeWatchAccessToken(claims),
+          tokenId,
+          expiresAt
+        }
+      };
+    });
+  },
+
+  async consumeWatchAccessToken(input: {
+    accountId: string;
+    dropId: string;
+    token: string;
+  }): Promise<WatchAccessTokenConsumeResult> {
+    const claims = decodeWatchAccessToken(input.token);
+    if (!claims) {
+      return {
+        granted: false,
+        reason: "invalid_token"
+      };
+    }
+
+    if (claims.accountId !== input.accountId || claims.dropId !== input.dropId) {
+      return {
+        granted: false,
+        reason: "binding_mismatch"
+      };
+    }
+
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (claims.exp <= nowSeconds) {
+      return {
+        granted: false,
+        reason: "expired"
+      };
+    }
+
+    return withDatabase<WatchAccessTokenConsumeResult>(async (db) => {
+      const nowMs = Date.now();
+      const grantsBeforePrune = db.watchAccessGrants.length;
+      pruneExpiredWatchAccessGrants(db, nowMs);
+      const prunedExpiredGrants = db.watchAccessGrants.length !== grantsBeforePrune;
+
+      const grant = db.watchAccessGrants.find((entry) => entry.tokenId === claims.jti) ?? null;
+      if (!grant) {
+        return {
+          persist: prunedExpiredGrants,
+          result: {
+            granted: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      if (grant.accountId !== input.accountId || grant.dropId !== input.dropId) {
+        return {
+          persist: prunedExpiredGrants,
+          result: {
+            granted: false,
+            reason: "binding_mismatch"
+          }
+        };
+      }
+
+      if (grant.consumedAt) {
+        return {
+          persist: prunedExpiredGrants,
+          result: {
+            granted: false,
+            reason: "replayed"
+          }
+        };
+      }
+
+      const grantExpiresAtMs = Date.parse(grant.expiresAt);
+      if (!Number.isFinite(grantExpiresAtMs) || grantExpiresAtMs <= nowMs) {
+        db.watchAccessGrants = db.watchAccessGrants.filter((entry) => entry.tokenId !== grant.tokenId);
+        return {
+          persist: true,
+          result: {
+            granted: false,
+            reason: "expired"
+          }
+        };
+      }
+
+      const entitlement = findOwnershipByDrop(db, input.accountId, input.dropId);
+      if (!entitlement) {
+        return {
+          persist: prunedExpiredGrants,
+          result: {
+            granted: false,
+            reason: "entitlement_revoked"
+          }
+        };
+      }
+
+      grant.consumedAt = new Date(nowMs).toISOString();
+      return {
+        persist: true,
+        result: {
+          granted: true,
+          tokenId: grant.tokenId,
+          expiresAt: grant.expiresAt
+        }
+      };
     });
   },
 

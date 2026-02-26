@@ -78,6 +78,15 @@ export type StripeWebhookEventRecord = {
   processedAt: string;
 };
 
+export type WatchAccessGrantRecord = {
+  tokenId: string;
+  accountId: string;
+  dropId: string;
+  issuedAt: string;
+  expiresAt: string;
+  consumedAt: string | null;
+};
+
 export type MembershipEntitlementRecord = {
   id: string;
   accountId: string;
@@ -181,6 +190,7 @@ export type BffDatabase = {
   certificates: CertificateRecord[];
   payments: PaymentRecord[];
   stripeWebhookEvents: StripeWebhookEventRecord[];
+  watchAccessGrants: WatchAccessGrantRecord[];
   membershipEntitlements: MembershipEntitlementRecord[];
   liveSessions: LiveSessionRecord[];
   townhallLikes: TownhallLikeRecord[];
@@ -497,6 +507,7 @@ function createSeedDatabase(): BffDatabase {
     certificates: [seededCertificate],
     payments: [],
     stripeWebhookEvents: [],
+    watchAccessGrants: [],
     membershipEntitlements: [
       {
         id: "mship_seed_dark_matter",
@@ -655,6 +666,7 @@ function createCatalogSeedDatabase(): BffDatabase {
     certificates: [],
     payments: [],
     stripeWebhookEvents: [],
+    watchAccessGrants: [],
     membershipEntitlements: [],
     liveSessions: seeded.liveSessions,
     townhallLikes: [],
@@ -682,6 +694,7 @@ function createEmptyDatabase(): BffDatabase {
     certificates: [],
     payments: [],
     stripeWebhookEvents: [],
+    watchAccessGrants: [],
     membershipEntitlements: [],
     liveSessions: [],
     townhallLikes: [],
@@ -712,6 +725,7 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.certificates) &&
     Array.isArray(candidate.payments) &&
     Array.isArray(candidate.stripeWebhookEvents) &&
+    Array.isArray(candidate.watchAccessGrants) &&
     Array.isArray(candidate.membershipEntitlements) &&
     Array.isArray(candidate.liveSessions) &&
     Array.isArray(candidate.townhallLikes) &&
@@ -726,6 +740,7 @@ function isValidDb(input: unknown): input is BffDatabase {
 function hasLegacyBaseDbShape(input: unknown): input is Omit<
   BffDatabase,
   | "stripeWebhookEvents"
+  | "watchAccessGrants"
   | "membershipEntitlements"
   | "liveSessions"
   | "townhallLikes"
@@ -1044,10 +1059,34 @@ function normalizeTownhallCommentRecords(events: TownhallCommentRecord[]): Townh
   });
 }
 
+function normalizeWatchAccessGrantRecords(records: WatchAccessGrantRecord[]): WatchAccessGrantRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<WatchAccessGrantRecord>;
+    return {
+      tokenId: typeof candidate.tokenId === "string" ? candidate.tokenId : "",
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      dropId: typeof candidate.dropId === "string" ? candidate.dropId : "",
+      issuedAt:
+        typeof candidate.issuedAt === "string" && candidate.issuedAt.trim().length > 0
+          ? candidate.issuedAt
+          : new Date().toISOString(),
+      expiresAt:
+        typeof candidate.expiresAt === "string" && candidate.expiresAt.trim().length > 0
+          ? candidate.expiresAt
+          : new Date().toISOString(),
+      consumedAt:
+        typeof candidate.consumedAt === "string" && candidate.consumedAt.trim().length > 0
+          ? candidate.consumedAt
+          : null
+    };
+  });
+}
+
 function normalizeDatabase(input: unknown): BffDatabase | null {
   if (isValidDb(input)) {
     return {
       ...input,
+      watchAccessGrants: normalizeWatchAccessGrantRecords(input.watchAccessGrants),
       membershipEntitlements: normalizeMembershipEntitlementRecords(input.membershipEntitlements),
       liveSessions: normalizeLiveSessionRecords(input.liveSessions),
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
@@ -1065,6 +1104,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       ...input,
       stripeWebhookEvents: Array.isArray(candidate.stripeWebhookEvents)
         ? (candidate.stripeWebhookEvents as StripeWebhookEventRecord[])
+        : [],
+      watchAccessGrants: Array.isArray(candidate.watchAccessGrants)
+        ? normalizeWatchAccessGrantRecords(candidate.watchAccessGrants as WatchAccessGrantRecord[])
         : [],
       membershipEntitlements: Array.isArray(candidate.membershipEntitlements)
         ? normalizeMembershipEntitlementRecords(
@@ -1243,6 +1285,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     certificatesResult,
     paymentsResult,
     webhookEventsResult,
+    watchAccessGrantsResult,
     membershipEntitlementsResult,
     liveSessionsResult,
     townhallLikesResult,
@@ -1307,6 +1350,9 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     ),
     client.query<StripeWebhookEventRecord>(
       'SELECT event_id AS "eventId", processed_at AS "processedAt" FROM bff_stripe_webhook_events ORDER BY processed_at DESC'
+    ),
+    client.query<WatchAccessGrantRecord>(
+      'SELECT token_id AS "tokenId", account_id AS "accountId", drop_id AS "dropId", issued_at AS "issuedAt", expires_at AS "expiresAt", consumed_at AS "consumedAt" FROM bff_watch_access_grants ORDER BY issued_at DESC'
     ),
     client.query<MembershipEntitlementRecord>(
       'SELECT id, account_id AS "accountId", studio_handle AS "studioHandle", world_id AS "worldId", status, started_at AS "startedAt", ends_at AS "endsAt" FROM bff_membership_entitlements ORDER BY started_at DESC'
@@ -1376,6 +1422,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     certificatesResult.rowCount === 0 &&
     paymentsResult.rowCount === 0 &&
     webhookEventsResult.rowCount === 0 &&
+    watchAccessGrantsResult.rowCount === 0 &&
     membershipEntitlementsResult.rowCount === 0 &&
     liveSessionsResult.rowCount === 0 &&
     townhallLikesResult.rowCount === 0 &&
@@ -1438,6 +1485,7 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       updatedAt: row.updatedAt
     })),
     stripeWebhookEvents: webhookEventsResult.rows,
+    watchAccessGrants: normalizeWatchAccessGrantRecords(watchAccessGrantsResult.rows),
     membershipEntitlements: normalizeMembershipEntitlementRecords(
       membershipEntitlementsResult.rows
     ),
@@ -1491,6 +1539,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_townhall_comments,
       bff_townhall_likes,
       bff_stripe_webhook_events,
+      bff_watch_access_grants,
       bff_payments,
       bff_certificates,
       bff_receipts,
@@ -1616,6 +1665,20 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     await client.query(
       "INSERT INTO bff_stripe_webhook_events (event_id, processed_at) VALUES ($1, $2)",
       [event.eventId, event.processedAt]
+    );
+  }
+
+  for (const grant of db.watchAccessGrants) {
+    await client.query(
+      "INSERT INTO bff_watch_access_grants (token_id, account_id, drop_id, issued_at, expires_at, consumed_at) VALUES ($1, $2, $3, $4, $5, $6)",
+      [
+        grant.tokenId,
+        grant.accountId,
+        grant.dropId,
+        grant.issuedAt,
+        grant.expiresAt,
+        grant.consumedAt
+      ]
     );
   }
 
