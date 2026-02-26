@@ -316,6 +316,18 @@ export type TownhallModerationQueueItem = {
   createdAt: string;
 };
 
+export type TownhallModerationCaseResolution = "hide" | "restore" | "dismiss";
+
+export type TownhallModerationCaseResolveResult =
+  | {
+      ok: true;
+      queue: TownhallModerationQueueItem[];
+    }
+  | {
+      ok: false;
+      reason: "forbidden" | "not_found";
+    };
+
 export type TownhallTelemetryEventType =
   | "watch_time"
   | "completion"

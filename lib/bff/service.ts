@@ -24,6 +24,8 @@ import type {
   PurchaseReceipt,
   Session,
   Studio,
+  TownhallModerationCaseResolution,
+  TownhallModerationCaseResolveResult,
   TownhallComment,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
@@ -95,6 +97,11 @@ const TOWNHALL_SHARE_CHANNEL_SET = new Set<TownhallShareChannel>([
   "internal_dm",
   "whatsapp",
   "telegram"
+]);
+const TOWNHALL_MODERATION_RESOLUTION_SET = new Set<TownhallModerationCaseResolution>([
+  "hide",
+  "restore",
+  "dismiss"
 ]);
 const TOWNHALL_TELEMETRY_EVENT_SET = new Set<TownhallTelemetryEventType>([
   "watch_time",
@@ -487,6 +494,43 @@ function canAccountAppealTownhallComment(
   }
 
   return !comment.appealRequestedAt;
+}
+
+function canAccountResolveTownhallModerationCase(
+  account: AccountRecord | null,
+  drop: Drop
+): boolean {
+  if (!account) {
+    return false;
+  }
+
+  return account.roles.includes("creator") && account.handle === drop.studioHandle;
+}
+
+function isTownhallModerationCaseResolution(
+  value: string
+): value is TownhallModerationCaseResolution {
+  return TOWNHALL_MODERATION_RESOLUTION_SET.has(value as TownhallModerationCaseResolution);
+}
+
+function applyTownhallModerationCaseResolution(
+  comment: TownhallCommentRecord,
+  actorAccountId: string,
+  resolution: TownhallModerationCaseResolution
+): void {
+  if (resolution === "hide") {
+    comment.visibility = "hidden";
+  } else if (resolution === "restore") {
+    comment.visibility = "visible";
+  }
+
+  const nowIso = new Date().toISOString();
+  comment.moderatedAt = nowIso;
+  comment.moderatedByAccountId = actorAccountId;
+  comment.reportCount = 0;
+  comment.reportedAt = null;
+  comment.appealRequestedAt = null;
+  comment.appealRequestedByAccountId = null;
 }
 
 function toTownhallComment(
@@ -1747,6 +1791,48 @@ const gatewayMethods: CommerceGateway = {
       return {
         persist: false,
         result: buildTownhallModerationQueue(db, account)
+      };
+    });
+  },
+
+  async resolveTownhallModerationCase(
+    accountId: string,
+    dropId: string,
+    commentId: string,
+    resolution: TownhallModerationCaseResolution
+  ): Promise<TownhallModerationCaseResolveResult> {
+    return withDatabase<TownhallModerationCaseResolveResult>(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      const comment = findTownhallCommentById(db, dropId, commentId);
+      if (!account || !drop || !comment || !isTownhallModerationCaseResolution(resolution)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "not_found"
+          }
+        };
+      }
+
+      if (!canAccountResolveTownhallModerationCase(account, drop)) {
+        return {
+          persist: false,
+          result: {
+            ok: false,
+            reason: "forbidden"
+          }
+        };
+      }
+
+      applyTownhallModerationCaseResolution(comment, account.id, resolution);
+
+      return {
+        persist: true,
+        result: {
+          ok: true,
+          queue: buildTownhallModerationQueue(db, account)
+        }
       };
     });
   },
