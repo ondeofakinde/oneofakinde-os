@@ -11,6 +11,7 @@ type DropConsumeScreenProps = {
   mode: ConsumeMode;
   session: Session;
   drop: Drop;
+  worldDrops?: Drop[];
   hasEntitlement: boolean;
   receipt: PurchaseReceipt | null;
   certificate: Certificate | null;
@@ -54,6 +55,7 @@ export function DropConsumeScreen({
   mode,
   session,
   drop,
+  worldDrops = [],
   hasEntitlement,
   receipt,
   certificate
@@ -102,6 +104,7 @@ export function DropConsumeScreen({
             <DropReadMode
               session={session}
               drop={drop}
+              worldDrops={worldDrops}
               receipt={receipt}
               certificate={certificate}
             />

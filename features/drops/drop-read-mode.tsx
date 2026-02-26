@@ -3,19 +3,26 @@
 import { formatUsd } from "@/features/shared/format";
 import { type Certificate, type Drop, type PurchaseReceipt, type Session } from "@/lib/domain/contracts";
 import {
+  readReadAutoContinuationEnabled,
+  writeReadAutoContinuationEnabled
+} from "@/lib/read/continuation";
+import {
   clearReadProgress,
   hasReadReachedCompletion,
   readReadProgress,
   writeReadProgress
 } from "@/lib/read/progress";
+import { resolveWorldReadSequence } from "@/lib/read/world-sequencing";
 import { routes } from "@/lib/routes";
 import { resolveDropPreview } from "@/lib/townhall/preview-media";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type DropReadModeProps = {
   session: Session;
   drop: Drop;
+  worldDrops: Drop[];
   receipt: PurchaseReceipt | null;
   certificate: Certificate | null;
 };
@@ -133,13 +140,20 @@ async function postReadTelemetry(input: {
   }
 }
 
-export function DropReadMode({ session, drop, receipt, certificate }: DropReadModeProps) {
+export function DropReadMode({ session, drop, worldDrops, receipt, certificate }: DropReadModeProps) {
+  const router = useRouter();
   const sections = useMemo(() => buildReadSections(drop), [drop]);
   const previewAsset = useMemo(() => resolveDropPreview(drop, "read").asset, [drop]);
+  const worldSequence = useMemo(
+    () => resolveWorldReadSequence([drop, ...worldDrops], drop.id),
+    [drop, worldDrops]
+  );
 
   const [activeSectionId, setActiveSectionId] = useState<string>(sections[0]?.id ?? "overview-1");
   const [progressPercent, setProgressPercent] = useState(0);
   const [completionLogged, setCompletionLogged] = useState(false);
+  const [autoContinuationEnabled, setAutoContinuationEnabled] = useState(false);
+  const [continuationPromptVisible, setContinuationPromptVisible] = useState(false);
 
   const articleRef = useRef<HTMLElement | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -147,6 +161,7 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
   const dwellLastTickRef = useRef(0);
   const accessStartedRef = useRef(false);
   const accessCompletedRef = useRef(false);
+  const continuationTimeoutRef = useRef<number | null>(null);
 
   const flushDwellTelemetry = useCallback(() => {
     const seconds = Number((dwellMsBufferRef.current / 1000).toFixed(2));
@@ -161,6 +176,25 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
       watchTimeSeconds: seconds
     });
   }, [drop.id]);
+
+  const clearContinuationTimeout = useCallback(() => {
+    if (continuationTimeoutRef.current !== null) {
+      window.clearTimeout(continuationTimeoutRef.current);
+      continuationTimeoutRef.current = null;
+    }
+  }, []);
+
+  const queueAutoContinuation = useCallback(() => {
+    if (!worldSequence.nextDrop || !autoContinuationEnabled || continuationTimeoutRef.current !== null) {
+      return;
+    }
+
+    const nextDropId = worldSequence.nextDrop.id;
+    continuationTimeoutRef.current = window.setTimeout(() => {
+      continuationTimeoutRef.current = null;
+      router.push(routes.dropRead(nextDropId));
+    }, 1200);
+  }, [autoContinuationEnabled, router, worldSequence.nextDrop]);
 
   const calculateProgressPercent = useCallback((target: HTMLElement): number => {
     const maxScrollable = Math.max(1, target.scrollHeight - target.clientHeight);
@@ -235,8 +269,20 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
       }
 
       setProgressPercent(Math.max(percent, 100));
+
+      if (worldSequence.nextDrop) {
+        setContinuationPromptVisible(true);
+        queueAutoContinuation();
+      }
     },
-    [completionLogged, drop.id, flushDwellTelemetry, sections]
+    [
+      completionLogged,
+      drop.id,
+      flushDwellTelemetry,
+      queueAutoContinuation,
+      sections,
+      worldSequence.nextDrop
+    ]
   );
 
   const onArticleScroll = useCallback(() => {
@@ -263,6 +309,7 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
 
   useEffect(() => {
     const saved = readReadProgress(drop.id);
+    const autoContinuation = readReadAutoContinuationEnabled();
     const initialSectionId =
       saved.lastSectionId && sections.some((section) => section.id === saved.lastSectionId)
         ? saved.lastSectionId
@@ -271,6 +318,9 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
     setActiveSectionId(initialSectionId);
     setProgressPercent(saved.percent);
     setCompletionLogged(false);
+    setAutoContinuationEnabled(autoContinuation);
+    setContinuationPromptVisible(false);
+    clearContinuationTimeout();
     accessCompletedRef.current = false;
     accessStartedRef.current = false;
     dwellMsBufferRef.current = 0;
@@ -295,7 +345,7 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
       const maxScrollable = Math.max(1, article.scrollHeight - article.clientHeight);
       article.scrollTop = (saved.percent / 100) * maxScrollable;
     }
-  }, [drop.id, sections]);
+  }, [clearContinuationTimeout, drop.id, sections]);
 
   useEffect(() => {
     const ticker = window.setInterval(() => {
@@ -317,15 +367,34 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
     };
   }, [flushDwellTelemetry]);
 
+  useEffect(() => {
+    if (autoContinuationEnabled) {
+      return;
+    }
+
+    clearContinuationTimeout();
+  }, [autoContinuationEnabled, clearContinuationTimeout]);
+
   useEffect(
     () => () => {
       flushDwellTelemetry();
       persistReadProgress(progressPercent, activeSectionId);
+      clearContinuationTimeout();
     },
-    [activeSectionId, flushDwellTelemetry, persistReadProgress, progressPercent]
+    [
+      activeSectionId,
+      clearContinuationTimeout,
+      flushDwellTelemetry,
+      persistReadProgress,
+      progressPercent
+    ]
   );
 
   const activeIndex = Math.max(0, sections.findIndex((section) => section.id === activeSectionId));
+  const worldPositionLabel =
+    worldSequence.currentIndex >= 0
+      ? `${worldSequence.currentIndex + 1}/${worldSequence.orderedDrops.length}`
+      : `1/${Math.max(1, worldSequence.orderedDrops.length)}`;
 
   return (
     <>
@@ -355,37 +424,72 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
 
           <div className="dropmedia-read-layout">
             <nav className="dropmedia-read-toc" aria-label="table of contents">
-              <p>table of contents</p>
-              <ol>
-                {sections.map((section, index) => {
-                  const isActive = section.id === activeSectionId;
-                  return (
-                    <li key={section.id}>
-                      <button
-                        type="button"
-                        className={isActive ? "active" : ""}
-                        onClick={() => {
-                          const node = sectionRefs.current[section.id];
-                          if (!node) {
-                            return;
-                          }
+              <div className="dropmedia-read-toc-group">
+                <p>world chapters</p>
+                <ol>
+                  {worldSequence.orderedDrops.map((chapter, index) => {
+                    const isActiveChapter = chapter.id === drop.id;
+                    return (
+                      <li key={chapter.id}>
+                        {isActiveChapter ? (
+                          <span className="dropmedia-read-world-link active">
+                            {index + 1}. {chapter.title}
+                          </span>
+                        ) : (
+                          <Link
+                            href={routes.dropRead(chapter.id)}
+                            className="dropmedia-read-world-link"
+                            onClick={() => {
+                              void postReadTelemetry({
+                                dropId: chapter.id,
+                                eventType: "access_start",
+                                action: "toggle",
+                                position: index + 1
+                              });
+                            }}
+                          >
+                            {index + 1}. {chapter.title}
+                          </Link>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
 
-                          node.scrollIntoView({ behavior: "smooth", block: "start" });
-                          setActiveSectionId(section.id);
-                          void postReadTelemetry({
-                            dropId: drop.id,
-                            eventType: "access_start",
-                            action: "toggle",
-                            position: index + 1
-                          });
-                        }}
-                      >
-                        {index + 1}. {section.title}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ol>
+              <div className="dropmedia-read-toc-group">
+                <p>table of contents</p>
+                <ol>
+                  {sections.map((section, index) => {
+                    const isActive = section.id === activeSectionId;
+                    return (
+                      <li key={section.id}>
+                        <button
+                          type="button"
+                          className={isActive ? "active" : ""}
+                          onClick={() => {
+                            const node = sectionRefs.current[section.id];
+                            if (!node) {
+                              return;
+                            }
+
+                            node.scrollIntoView({ behavior: "smooth", block: "start" });
+                            setActiveSectionId(section.id);
+                            void postReadTelemetry({
+                              dropId: drop.id,
+                              eventType: "access_start",
+                              action: "toggle",
+                              position: index + 1
+                            });
+                          }}
+                        >
+                          {index + 1}. {section.title}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
             </nav>
 
             <article
@@ -409,6 +513,70 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
               ))}
             </article>
           </div>
+
+          {worldSequence.nextDrop ? (
+            <section className="dropmedia-read-continuation" aria-label="world continuation">
+              <div className="dropmedia-read-continuation-head">
+                <p>optional continuation</p>
+                <label className="dropmedia-read-toggle">
+                  <input
+                    type="checkbox"
+                    checked={autoContinuationEnabled}
+                    onChange={(event) => {
+                      const nextValue = event.target.checked;
+                      setAutoContinuationEnabled(nextValue);
+                      writeReadAutoContinuationEnabled(nextValue);
+                      if (nextValue && hasReadReachedCompletion(progressPercent)) {
+                        queueAutoContinuation();
+                      }
+                    }}
+                  />
+                  <span>auto continue</span>
+                </label>
+              </div>
+              <p className="dropmedia-read-continuation-copy">
+                next chapter: <strong>{worldSequence.nextDrop.title}</strong>
+              </p>
+              {continuationPromptVisible ? (
+                <div className="dropmedia-read-continuation-actions">
+                  <Link
+                    href={routes.dropRead(worldSequence.nextDrop.id)}
+                    className="dropmedia-secondary-cta"
+                    onClick={() => {
+                      clearContinuationTimeout();
+                      const nextDropId = worldSequence.nextDrop?.id;
+                      if (!nextDropId) {
+                        return;
+                      }
+
+                      void postReadTelemetry({
+                        dropId: nextDropId,
+                        eventType: "access_start",
+                        action: "start",
+                        position: worldSequence.currentIndex + 2
+                      });
+                    }}
+                  >
+                    continue to next chapter
+                  </Link>
+                  <p>
+                    {autoContinuationEnabled
+                      ? "auto continuation is active."
+                      : "complete this chapter and continue when ready."}
+                  </p>
+                </div>
+              ) : null}
+            </section>
+          ) : (
+            <section className="dropmedia-read-continuation" aria-label="world continuation">
+              <div className="dropmedia-read-continuation-head">
+                <p>world continuation</p>
+              </div>
+              <p className="dropmedia-read-continuation-copy">
+                this is the last chapter currently published in this world.
+              </p>
+            </section>
+          )}
 
           <div className="dropmedia-mode-row" aria-label="consume mode switcher">
             <Link href={routes.dropWatch(drop.id)} className={modeClass(false)}>
@@ -460,6 +628,14 @@ export function DropReadMode({ session, drop, receipt, certificate }: DropReadMo
           <dd>
             {activeIndex + 1}/{sections.length}
           </dd>
+        </div>
+        <div>
+          <dt>world chapter</dt>
+          <dd>{worldPositionLabel}</dd>
+        </div>
+        <div>
+          <dt>next</dt>
+          <dd>{worldSequence.nextDrop?.title ?? "none"}</dd>
         </div>
       </dl>
     </>
