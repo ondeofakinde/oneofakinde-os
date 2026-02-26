@@ -43,6 +43,7 @@ import {
   listCollectInventoryByLane,
   resolveCollectListingTypeByDropId
 } from "@/lib/collect/market-lanes";
+import { sortDropsForStudioSurface, sortDropsForWorldSurface } from "@/lib/catalog/drop-curation";
 import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/collect/offer-state-machine";
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import {
@@ -1632,9 +1633,7 @@ const gatewayMethods: CommerceGateway = {
   async listDropsByWorldId(worldId: string): Promise<Drop[]> {
     return withDatabase(async (db) => ({
       persist: false,
-      result: db.catalog.drops
-        .filter((drop) => drop.worldId === worldId)
-        .sort((a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate))
+      result: sortDropsForWorldSurface(db.catalog.drops.filter((drop) => drop.worldId === worldId))
     }));
   },
 
@@ -1648,9 +1647,9 @@ const gatewayMethods: CommerceGateway = {
   async listDropsByStudioHandle(handle: string): Promise<Drop[]> {
     return withDatabase(async (db) => ({
       persist: false,
-      result: db.catalog.drops
-        .filter((drop) => drop.studioHandle === handle)
-        .sort((a, b) => Date.parse(b.releaseDate) - Date.parse(a.releaseDate))
+      result: sortDropsForStudioSurface(
+        db.catalog.drops.filter((drop) => drop.studioHandle === handle)
+      )
     }));
   },
 
