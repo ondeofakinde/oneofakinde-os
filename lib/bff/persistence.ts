@@ -5,6 +5,8 @@ import type {
   CollectListingType,
   CollectOfferState,
   Drop,
+  LiveSessionEligibilityRule,
+  MembershipEntitlementStatus,
   PurchaseReceipt,
   TownhallCommentVisibility,
   TownhallShareChannel,
@@ -74,6 +76,29 @@ export type PaymentRecord = {
 export type StripeWebhookEventRecord = {
   eventId: string;
   processedAt: string;
+};
+
+export type MembershipEntitlementRecord = {
+  id: string;
+  accountId: string;
+  studioHandle: string;
+  worldId: string | null;
+  status: MembershipEntitlementStatus;
+  startedAt: string;
+  endsAt: string | null;
+};
+
+export type LiveSessionRecord = {
+  id: string;
+  studioHandle: string;
+  worldId: string | null;
+  dropId: string | null;
+  title: string;
+  synopsis: string;
+  startsAt: string;
+  endsAt: string | null;
+  mode: "live";
+  eligibilityRule: LiveSessionEligibilityRule;
 };
 
 export type TownhallLikeRecord = {
@@ -153,6 +178,8 @@ export type BffDatabase = {
   certificates: CertificateRecord[];
   payments: PaymentRecord[];
   stripeWebhookEvents: StripeWebhookEventRecord[];
+  membershipEntitlements: MembershipEntitlementRecord[];
+  liveSessions: LiveSessionRecord[];
   townhallLikes: TownhallLikeRecord[];
   townhallComments: TownhallCommentRecord[];
   townhallShares: TownhallShareRecord[];
@@ -467,6 +494,55 @@ function createSeedDatabase(): BffDatabase {
     certificates: [seededCertificate],
     payments: [],
     stripeWebhookEvents: [],
+    membershipEntitlements: [
+      {
+        id: "mship_seed_dark_matter",
+        accountId,
+        studioHandle: "oneofakinde",
+        worldId: "dark-matter",
+        status: "active",
+        startedAt: new Date(now.valueOf() - DAY_MS * 14).toISOString(),
+        endsAt: new Date(now.valueOf() + DAY_MS * 30).toISOString()
+      }
+    ],
+    liveSessions: [
+      {
+        id: "live_dark_matter_open_studio",
+        studioHandle: "oneofakinde",
+        worldId: "dark-matter",
+        dropId: null,
+        title: "dark matter open studio",
+        synopsis: "public live studio walk-through.",
+        startsAt: new Date(now.valueOf() + DAY_MS).toISOString(),
+        endsAt: null,
+        mode: "live",
+        eligibilityRule: "public"
+      },
+      {
+        id: "live_dark_matter_members_salons",
+        studioHandle: "oneofakinde",
+        worldId: "dark-matter",
+        dropId: null,
+        title: "members salon: dark matter",
+        synopsis: "members-only session for current world collectors.",
+        startsAt: new Date(now.valueOf() + DAY_MS * 2).toISOString(),
+        endsAt: null,
+        mode: "live",
+        eligibilityRule: "membership_active"
+      },
+      {
+        id: "live_stardust_collectors_qna",
+        studioHandle: "oneofakinde",
+        worldId: "dark-matter",
+        dropId: "stardust",
+        title: "stardust collectors q&a",
+        synopsis: "collector session unlocked by stardust ownership.",
+        startsAt: new Date(now.valueOf() + DAY_MS * 3).toISOString(),
+        endsAt: null,
+        mode: "live",
+        eligibilityRule: "drop_owner"
+      }
+    ],
     townhallLikes: [
       {
         accountId,
@@ -573,6 +649,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     certificates: [],
     payments: [],
     stripeWebhookEvents: [],
+    membershipEntitlements: [],
+    liveSessions: seeded.liveSessions,
     townhallLikes: [],
     townhallComments: [],
     townhallShares: [],
@@ -598,6 +676,8 @@ function createEmptyDatabase(): BffDatabase {
     certificates: [],
     payments: [],
     stripeWebhookEvents: [],
+    membershipEntitlements: [],
+    liveSessions: [],
     townhallLikes: [],
     townhallComments: [],
     townhallShares: [],
@@ -626,6 +706,8 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.certificates) &&
     Array.isArray(candidate.payments) &&
     Array.isArray(candidate.stripeWebhookEvents) &&
+    Array.isArray(candidate.membershipEntitlements) &&
+    Array.isArray(candidate.liveSessions) &&
     Array.isArray(candidate.townhallLikes) &&
     Array.isArray(candidate.townhallComments) &&
     Array.isArray(candidate.townhallShares) &&
@@ -638,6 +720,8 @@ function isValidDb(input: unknown): input is BffDatabase {
 function hasLegacyBaseDbShape(input: unknown): input is Omit<
   BffDatabase,
   | "stripeWebhookEvents"
+  | "membershipEntitlements"
+  | "liveSessions"
   | "townhallLikes"
   | "townhallComments"
   | "townhallShares"
@@ -731,6 +815,80 @@ function normalizeTownhallTelemetryMetadata(value: unknown): TownhallTelemetryMe
   }
 
   return metadata;
+}
+
+function normalizeMembershipEntitlementStatus(value: unknown): MembershipEntitlementStatus {
+  if (value === "active" || value === "expired" || value === "canceled") {
+    return value;
+  }
+
+  return "expired";
+}
+
+function normalizeMembershipEntitlementRecords(
+  records: MembershipEntitlementRecord[]
+): MembershipEntitlementRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<MembershipEntitlementRecord>;
+
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `mship_${randomUUID()}`,
+      accountId: typeof candidate.accountId === "string" ? candidate.accountId : "",
+      studioHandle: typeof candidate.studioHandle === "string" ? candidate.studioHandle : "",
+      worldId:
+        typeof candidate.worldId === "string" && candidate.worldId.trim().length > 0
+          ? candidate.worldId
+          : null,
+      status: normalizeMembershipEntitlementStatus(candidate.status),
+      startedAt:
+        typeof candidate.startedAt === "string" && candidate.startedAt.trim()
+          ? candidate.startedAt
+          : new Date().toISOString(),
+      endsAt:
+        typeof candidate.endsAt === "string" && candidate.endsAt.trim().length > 0
+          ? candidate.endsAt
+          : null
+    };
+  });
+}
+
+function normalizeLiveSessionEligibilityRule(value: unknown): LiveSessionEligibilityRule {
+  if (value === "public" || value === "membership_active" || value === "drop_owner") {
+    return value;
+  }
+
+  return "public";
+}
+
+function normalizeLiveSessionRecords(records: LiveSessionRecord[]): LiveSessionRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<LiveSessionRecord>;
+
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `live_${randomUUID()}`,
+      studioHandle: typeof candidate.studioHandle === "string" ? candidate.studioHandle : "",
+      worldId:
+        typeof candidate.worldId === "string" && candidate.worldId.trim().length > 0
+          ? candidate.worldId
+          : null,
+      dropId:
+        typeof candidate.dropId === "string" && candidate.dropId.trim().length > 0
+          ? candidate.dropId
+          : null,
+      title: typeof candidate.title === "string" && candidate.title.trim() ? candidate.title : "live session",
+      synopsis: typeof candidate.synopsis === "string" ? candidate.synopsis : "",
+      startsAt:
+        typeof candidate.startsAt === "string" && candidate.startsAt.trim()
+          ? candidate.startsAt
+          : new Date().toISOString(),
+      endsAt:
+        typeof candidate.endsAt === "string" && candidate.endsAt.trim().length > 0
+          ? candidate.endsAt
+          : null,
+      mode: "live",
+      eligibilityRule: normalizeLiveSessionEligibilityRule(candidate.eligibilityRule)
+    };
+  });
 }
 
 function normalizeTownhallTelemetryEvents(
@@ -868,6 +1026,8 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
   if (isValidDb(input)) {
     return {
       ...input,
+      membershipEntitlements: normalizeMembershipEntitlementRecords(input.membershipEntitlements),
+      liveSessions: normalizeLiveSessionRecords(input.liveSessions),
       townhallComments: normalizeTownhallCommentRecords(input.townhallComments),
       townhallTelemetryEvents: normalizeTownhallTelemetryEvents(input.townhallTelemetryEvents),
       collectOffers: normalizeCollectOfferRecords(input.collectOffers),
@@ -883,6 +1043,14 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       ...input,
       stripeWebhookEvents: Array.isArray(candidate.stripeWebhookEvents)
         ? (candidate.stripeWebhookEvents as StripeWebhookEventRecord[])
+        : [],
+      membershipEntitlements: Array.isArray(candidate.membershipEntitlements)
+        ? normalizeMembershipEntitlementRecords(
+            candidate.membershipEntitlements as MembershipEntitlementRecord[]
+          )
+        : [],
+      liveSessions: Array.isArray(candidate.liveSessions)
+        ? normalizeLiveSessionRecords(candidate.liveSessions as LiveSessionRecord[])
         : [],
       townhallLikes: Array.isArray(candidate.townhallLikes)
         ? (candidate.townhallLikes as TownhallLikeRecord[])
@@ -1053,6 +1221,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     certificatesResult,
     paymentsResult,
     webhookEventsResult,
+    membershipEntitlementsResult,
+    liveSessionsResult,
     townhallLikesResult,
     townhallCommentsResult,
     townhallSharesResult,
@@ -1116,6 +1286,12 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     client.query<StripeWebhookEventRecord>(
       'SELECT event_id AS "eventId", processed_at AS "processedAt" FROM bff_stripe_webhook_events ORDER BY processed_at DESC'
     ),
+    client.query<MembershipEntitlementRecord>(
+      'SELECT id, account_id AS "accountId", studio_handle AS "studioHandle", world_id AS "worldId", status, started_at AS "startedAt", ends_at AS "endsAt" FROM bff_membership_entitlements ORDER BY started_at DESC'
+    ),
+    client.query<LiveSessionRecord>(
+      'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", drop_id AS "dropId", title, synopsis, starts_at AS "startsAt", ends_at AS "endsAt", mode, eligibility_rule AS "eligibilityRule" FROM bff_live_sessions ORDER BY starts_at ASC'
+    ),
     client.query<TownhallLikeRecord>(
       'SELECT account_id AS "accountId", drop_id AS "dropId", liked_at AS "likedAt" FROM bff_townhall_likes ORDER BY liked_at DESC'
     ),
@@ -1178,6 +1354,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     certificatesResult.rowCount === 0 &&
     paymentsResult.rowCount === 0 &&
     webhookEventsResult.rowCount === 0 &&
+    membershipEntitlementsResult.rowCount === 0 &&
+    liveSessionsResult.rowCount === 0 &&
     townhallLikesResult.rowCount === 0 &&
     townhallCommentsResult.rowCount === 0 &&
     townhallSharesResult.rowCount === 0 &&
@@ -1238,6 +1416,10 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       updatedAt: row.updatedAt
     })),
     stripeWebhookEvents: webhookEventsResult.rows,
+    membershipEntitlements: normalizeMembershipEntitlementRecords(
+      membershipEntitlementsResult.rows
+    ),
+    liveSessions: normalizeLiveSessionRecords(liveSessionsResult.rows),
     townhallLikes: townhallLikesResult.rows,
     townhallComments: normalizeTownhallCommentRecords(townhallCommentsResult.rows),
     townhallShares: townhallSharesResult.rows,
@@ -1281,6 +1463,8 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
       bff_townhall_telemetry_events,
       bff_collect_enforcement_signals,
       bff_collect_offers,
+      bff_live_sessions,
+      bff_membership_entitlements,
       bff_townhall_shares,
       bff_townhall_comments,
       bff_townhall_likes,
@@ -1410,6 +1594,39 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     await client.query(
       "INSERT INTO bff_stripe_webhook_events (event_id, processed_at) VALUES ($1, $2)",
       [event.eventId, event.processedAt]
+    );
+  }
+
+  for (const entitlement of db.membershipEntitlements) {
+    await client.query(
+      "INSERT INTO bff_membership_entitlements (id, account_id, studio_handle, world_id, status, started_at, ends_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [
+        entitlement.id,
+        entitlement.accountId,
+        entitlement.studioHandle,
+        entitlement.worldId,
+        entitlement.status,
+        entitlement.startedAt,
+        entitlement.endsAt
+      ]
+    );
+  }
+
+  for (const liveSession of db.liveSessions) {
+    await client.query(
+      "INSERT INTO bff_live_sessions (id, studio_handle, world_id, drop_id, title, synopsis, starts_at, ends_at, mode, eligibility_rule) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+      [
+        liveSession.id,
+        liveSession.studioHandle,
+        liveSession.worldId,
+        liveSession.dropId,
+        liveSession.title,
+        liveSession.synopsis,
+        liveSession.startsAt,
+        liveSession.endsAt,
+        liveSession.mode,
+        liveSession.eligibilityRule
+      ]
     );
   }
 

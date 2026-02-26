@@ -1,5 +1,6 @@
 import type {
   Certificate,
+  CollectLiveSessionSnapshot,
   CollectEnforcementSignal,
   CollectEnforcementSignalType,
   CollectIntegrityFlag,
@@ -14,7 +15,10 @@ import type {
   Drop,
   LibraryDrop,
   LibrarySnapshot,
+  LiveSession,
+  LiveSessionEligibility,
   MyCollectionSnapshot,
+  MembershipEntitlement,
   OwnedDrop,
   PurchaseReceipt,
   Session,
@@ -40,6 +44,8 @@ import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEven
 import {
   type CollectEnforcementSignalRecord,
   type CollectOfferRecord,
+  type LiveSessionRecord,
+  type MembershipEntitlementRecord,
   createAccountFromEmail,
   getDropPriceTotalUsd,
   normalizeEmail,
@@ -871,6 +877,192 @@ function parseIsoTime(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function isMembershipEntitlementActive(
+  entitlement: MembershipEntitlementRecord,
+  nowMs = Date.now()
+): boolean {
+  if (entitlement.status !== "active") {
+    return false;
+  }
+
+  const startedAtMs = Date.parse(entitlement.startedAt);
+  if (Number.isFinite(startedAtMs) && startedAtMs > nowMs) {
+    return false;
+  }
+
+  if (!entitlement.endsAt) {
+    return true;
+  }
+
+  const endsAtMs = Date.parse(entitlement.endsAt);
+  if (!Number.isFinite(endsAtMs)) {
+    return false;
+  }
+
+  return endsAtMs >= nowMs;
+}
+
+function toMembershipWhatYouGet(db: BffDatabase, entitlement: MembershipEntitlementRecord): string {
+  if (entitlement.worldId) {
+    const world = db.catalog.worlds.find((entry) => entry.id === entitlement.worldId);
+    if (world) {
+      return `${world.title} membership access in collect and live session eligibility.`;
+    }
+  }
+
+  return `${entitlement.studioHandle} membership access across eligible live sessions.`;
+}
+
+function toMembershipEntitlement(
+  db: BffDatabase,
+  entitlement: MembershipEntitlementRecord
+): MembershipEntitlement {
+  const isActive = isMembershipEntitlementActive(entitlement);
+
+  return {
+    id: entitlement.id,
+    accountId: entitlement.accountId,
+    studioHandle: entitlement.studioHandle,
+    worldId: entitlement.worldId,
+    status: entitlement.status,
+    startedAt: entitlement.startedAt,
+    endsAt: entitlement.endsAt,
+    whatYouGet: toMembershipWhatYouGet(db, entitlement),
+    isActive
+  };
+}
+
+function toLiveSessionWhatYouGet(db: BffDatabase, liveSession: LiveSessionRecord): string {
+  if (liveSession.eligibilityRule === "public") {
+    return "public live session access.";
+  }
+
+  if (liveSession.eligibilityRule === "membership_active") {
+    if (liveSession.worldId) {
+      const world = db.catalog.worlds.find((entry) => entry.id === liveSession.worldId);
+      if (world) {
+        return `active membership required for ${world.title}.`;
+      }
+    }
+
+    return `active membership required for ${liveSession.studioHandle}.`;
+  }
+
+  if (liveSession.dropId) {
+    const drop = db.catalog.drops.find((entry) => entry.id === liveSession.dropId);
+    if (drop) {
+      return `${drop.title} ownership required to join.`;
+    }
+  }
+
+  return "drop ownership required to join.";
+}
+
+function toLiveSession(db: BffDatabase, liveSession: LiveSessionRecord): LiveSession {
+  return {
+    id: liveSession.id,
+    studioHandle: liveSession.studioHandle,
+    worldId: liveSession.worldId,
+    dropId: liveSession.dropId,
+    title: liveSession.title,
+    synopsis: liveSession.synopsis,
+    startsAt: liveSession.startsAt,
+    endsAt: liveSession.endsAt,
+    mode: "live",
+    eligibilityRule: liveSession.eligibilityRule,
+    whatYouGet: toLiveSessionWhatYouGet(db, liveSession)
+  };
+}
+
+function resolveLiveSessionEligibilityInDatabase(
+  db: BffDatabase,
+  accountId: string,
+  liveSession: LiveSessionRecord
+): LiveSessionEligibility {
+  const account = findAccountById(db, accountId);
+  if (!account) {
+    return {
+      liveSessionId: liveSession.id,
+      rule: liveSession.eligibilityRule,
+      eligible: false,
+      reason: "session_required",
+      matchedEntitlementId: null
+    };
+  }
+
+  if (liveSession.eligibilityRule === "public") {
+    return {
+      liveSessionId: liveSession.id,
+      rule: liveSession.eligibilityRule,
+      eligible: true,
+      reason: "eligible_public",
+      matchedEntitlementId: null
+    };
+  }
+
+  if (liveSession.eligibilityRule === "membership_active") {
+    const match = db.membershipEntitlements.find((entitlement) => {
+      if (entitlement.accountId !== account.id) {
+        return false;
+      }
+
+      if (entitlement.studioHandle !== liveSession.studioHandle) {
+        return false;
+      }
+
+      if (!isMembershipEntitlementActive(entitlement)) {
+        return false;
+      }
+
+      if (!liveSession.worldId) {
+        return entitlement.worldId === null;
+      }
+
+      return entitlement.worldId === null || entitlement.worldId === liveSession.worldId;
+    });
+
+    if (match) {
+      return {
+        liveSessionId: liveSession.id,
+        rule: liveSession.eligibilityRule,
+        eligible: true,
+        reason: "eligible_membership_active",
+        matchedEntitlementId: match.id
+      };
+    }
+
+    return {
+      liveSessionId: liveSession.id,
+      rule: liveSession.eligibilityRule,
+      eligible: false,
+      reason: "membership_required",
+      matchedEntitlementId: null
+    };
+  }
+
+  if (!liveSession.dropId) {
+    return {
+      liveSessionId: liveSession.id,
+      rule: liveSession.eligibilityRule,
+      eligible: false,
+      reason: "ownership_required",
+      matchedEntitlementId: null
+    };
+  }
+
+  const ownsDrop = db.ownerships.some(
+    (ownership) => ownership.accountId === account.id && ownership.dropId === liveSession.dropId
+  );
+
+  return {
+    liveSessionId: liveSession.id,
+    rule: liveSession.eligibilityRule,
+    eligible: ownsDrop,
+    reason: ownsDrop ? "eligible_drop_owner" : "ownership_required",
+    matchedEntitlementId: null
+  };
+}
+
 function rankAuctionCandidates(offers: CollectOfferRecord[]): CollectOfferRecord[] {
   return [...offers].sort((a, b) => {
     if (b.amountUsd !== a.amountUsd) {
@@ -1153,6 +1345,81 @@ const gatewayMethods: CommerceGateway = {
       persist: false,
       result: Boolean(findOwnershipByDrop(db, accountId, dropId))
     }));
+  },
+
+  async listMembershipEntitlements(accountId: string): Promise<MembershipEntitlement[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: []
+        };
+      }
+
+      const entitlements = db.membershipEntitlements
+        .filter((entitlement) => entitlement.accountId === account.id)
+        .map((entitlement) => toMembershipEntitlement(db, entitlement))
+        .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
+
+      return {
+        persist: false,
+        result: entitlements
+      };
+    });
+  },
+
+  async listCollectLiveSessions(accountId: string): Promise<CollectLiveSessionSnapshot[]> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      if (!account) {
+        return {
+          persist: false,
+          result: []
+        };
+      }
+
+      const liveSessions = db.liveSessions
+        .map((sessionRecord) => {
+          const liveSession = toLiveSession(db, sessionRecord);
+          const eligibility = resolveLiveSessionEligibilityInDatabase(
+            db,
+            account.id,
+            sessionRecord
+          );
+          return {
+            liveSession,
+            eligibility
+          } satisfies CollectLiveSessionSnapshot;
+        })
+        .sort((a, b) => Date.parse(a.liveSession.startsAt) - Date.parse(b.liveSession.startsAt));
+
+      return {
+        persist: false,
+        result: liveSessions
+      };
+    });
+  },
+
+  async getCollectLiveSessionEligibility(
+    accountId: string,
+    liveSessionId: string
+  ): Promise<LiveSessionEligibility | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const liveSession = db.liveSessions.find((entry) => entry.id === liveSessionId);
+      if (!account || !liveSession) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: resolveLiveSessionEligibilityInDatabase(db, account.id, liveSession)
+      };
+    });
   },
 
   async getCertificateById(certificateId: string): Promise<Certificate | null> {

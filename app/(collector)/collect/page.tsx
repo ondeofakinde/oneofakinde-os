@@ -16,13 +16,19 @@ export default async function CollectPage({ searchParams }: CollectPageProps) {
   const session = await requireSession("/collect");
   const resolvedParams = await searchParams;
   const initialLane = parseCollectMarketLane(firstParam(resolvedParams.lane));
-  const inventory = await commerceBffService.getCollectInventory(session.accountId, initialLane);
+  const [inventory, memberships, liveSessions] = await Promise.all([
+    commerceBffService.getCollectInventory(session.accountId, initialLane),
+    commerceBffService.listMembershipEntitlements(session.accountId),
+    commerceBffService.listCollectLiveSessions(session.accountId)
+  ]);
 
   return (
     <CollectMarketplaceScreen
       session={session}
       listings={inventory.listings}
       initialLane={inventory.lane}
+      memberships={memberships}
+      liveSessions={liveSessions}
     />
   );
 }

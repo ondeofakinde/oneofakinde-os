@@ -1,10 +1,13 @@
 import type {
   Certificate,
+  CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
   CreateSessionInput,
   Drop,
   LibrarySnapshot,
+  LiveSessionEligibility,
+  MembershipEntitlement,
   MyCollectionSnapshot,
   PurchaseReceipt,
   Session,
@@ -275,6 +278,38 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return false;
       return response.payload.hasEntitlement;
+    },
+
+    async listMembershipEntitlements(_accountId: string): Promise<MembershipEntitlement[]> {
+      void _accountId;
+      const response = await requestJson<{ entitlements: MembershipEntitlement[] }>(
+        options,
+        "/api/v1/memberships"
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.entitlements;
+    },
+
+    async listCollectLiveSessions(_accountId: string): Promise<CollectLiveSessionSnapshot[]> {
+      void _accountId;
+      const response = await requestJson<{ liveSessions: CollectLiveSessionSnapshot[] }>(
+        options,
+        "/api/v1/collect/live-sessions"
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.liveSessions;
+    },
+
+    async getCollectLiveSessionEligibility(
+      _accountId: string,
+      liveSessionId: string
+    ): Promise<LiveSessionEligibility | null> {
+      const response = await requestJson<{ eligibility: LiveSessionEligibility }>(
+        options,
+        `/api/v1/collect/live-sessions/${encodeURIComponent(liveSessionId)}/eligibility`
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.eligibility;
     },
 
     async getCertificateById(certificateId: string): Promise<Certificate | null> {
