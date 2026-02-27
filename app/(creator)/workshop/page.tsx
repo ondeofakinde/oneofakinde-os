@@ -2,7 +2,9 @@ import { WorkshopRootScreen } from "@/features/workshop/workshop-root-screen";
 import { requireSessionRoles } from "@/lib/server/session";
 import { loadWorkshopContext } from "@/lib/server/workshop";
 import {
+  createWorkshopWorldReleaseAction,
   createWorkshopLiveSessionAction,
+  updateWorkshopWorldReleaseStatusAction,
   resolveWorkshopModerationCaseAction
 } from "./actions";
 
@@ -10,6 +12,8 @@ type WorkshopPageProps = {
   searchParams: Promise<{
     event_status?: string | string[];
     event_id?: string | string[];
+    release_status?: string | string[];
+    release_id?: string | string[];
     moderation_status?: string | string[];
     moderation_comment_id?: string | string[];
   }>;
@@ -74,11 +78,47 @@ function toModerationNotice(
   return "workshop moderation status updated.";
 }
 
+function toReleaseNotice(releaseStatus: string | null, releaseId: string | null): string | null {
+  if (!releaseStatus) {
+    return null;
+  }
+
+  if (releaseStatus === "scheduled") {
+    return releaseId
+      ? `world release scheduled: ${releaseId}.`
+      : "world release scheduled.";
+  }
+
+  if (releaseStatus === "published") {
+    return releaseId
+      ? `world release published: ${releaseId}.`
+      : "world release published.";
+  }
+
+  if (releaseStatus === "canceled") {
+    return releaseId
+      ? `world release canceled: ${releaseId}.`
+      : "world release canceled.";
+  }
+
+  if (releaseStatus === "invalid_input") {
+    return "world release action failed: check world, drop, schedule, and pacing values.";
+  }
+
+  if (releaseStatus === "update_failed" || releaseStatus === "create_failed") {
+    return "world release action failed: check world ownership, drop scope, and pacing conflicts.";
+  }
+
+  return "workshop world release queue updated.";
+}
+
 export default async function WorkshopPage({ searchParams }: WorkshopPageProps) {
   const session = await requireSessionRoles("/workshop", ["creator"]);
   const resolvedSearchParams = await searchParams;
   const eventStatus = firstParam(resolvedSearchParams.event_status);
   const eventId = firstParam(resolvedSearchParams.event_id);
+  const releaseStatus = firstParam(resolvedSearchParams.release_status);
+  const releaseId = firstParam(resolvedSearchParams.release_id);
   const moderationStatus = firstParam(resolvedSearchParams.moderation_status);
   const moderationCommentId = firstParam(resolvedSearchParams.moderation_comment_id);
   const context = await loadWorkshopContext(session);
@@ -87,8 +127,11 @@ export default async function WorkshopPage({ searchParams }: WorkshopPageProps) 
     <WorkshopRootScreen
       session={session}
       eventNotice={toEventNotice(eventStatus, eventId)}
+      releaseNotice={toReleaseNotice(releaseStatus, releaseId)}
       moderationNotice={toModerationNotice(moderationStatus, moderationCommentId)}
       createLiveSessionAction={createWorkshopLiveSessionAction}
+      createWorldReleaseAction={createWorkshopWorldReleaseAction}
+      updateWorldReleaseStatusAction={updateWorkshopWorldReleaseStatusAction}
       resolveModerationAction={resolveWorkshopModerationCaseAction}
       {...context}
     />

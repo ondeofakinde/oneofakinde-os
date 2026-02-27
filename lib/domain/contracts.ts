@@ -83,6 +83,32 @@ export type CreateWorkshopLiveSessionInput = {
   eligibilityRule: LiveSessionEligibilityRule;
 };
 
+export type WorldReleaseQueuePacingMode = "manual" | "daily" | "weekly";
+
+export type WorldReleaseQueueStatus = "scheduled" | "published" | "canceled";
+
+export type WorldReleaseQueueItem = {
+  id: string;
+  studioHandle: string;
+  worldId: string;
+  dropId: string;
+  scheduledFor: string;
+  pacingMode: WorldReleaseQueuePacingMode;
+  pacingWindowHours: number;
+  status: WorldReleaseQueueStatus;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  canceledAt: string | null;
+};
+
+export type CreateWorkshopWorldReleaseInput = {
+  worldId: string;
+  dropId: string;
+  scheduledFor: string;
+  pacingMode: WorldReleaseQueuePacingMode;
+};
+
 export type LiveSessionEligibilityReason =
   | "eligible_public"
   | "eligible_membership_active"

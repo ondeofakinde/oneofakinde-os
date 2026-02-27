@@ -3,6 +3,7 @@ import type {
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
+  CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
@@ -16,6 +17,8 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  WorldReleaseQueueItem,
+  WorldReleaseQueueStatus,
   Session,
   Studio,
   World
@@ -343,6 +346,58 @@ export function createBffGateway(baseUrl?: string): CommerceGateway {
       );
       if (!response.ok || !response.payload) return null;
       return response.payload.liveSession;
+    },
+
+    async listWorkshopWorldReleaseQueue(
+      _accountId: string,
+      worldId?: string | null
+    ): Promise<WorldReleaseQueueItem[]> {
+      void _accountId;
+      const worldFilter =
+        worldId && worldId.trim().length > 0
+          ? `?world_id=${encodeURIComponent(worldId.trim())}`
+          : "";
+      const response = await requestJson<{ queue: WorldReleaseQueueItem[] }>(
+        options,
+        `/api/v1/workshop/world-release-queue${worldFilter}`
+      );
+      if (!response.ok || !response.payload) return [];
+      return response.payload.queue;
+    },
+
+    async createWorkshopWorldRelease(
+      _accountId: string,
+      input: CreateWorkshopWorldReleaseInput
+    ): Promise<WorldReleaseQueueItem | null> {
+      void _accountId;
+      const response = await requestJson<{ release: WorldReleaseQueueItem }>(
+        options,
+        "/api/v1/workshop/world-release-queue",
+        {
+          method: "POST",
+          body: JSON.stringify(input)
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.release;
+    },
+
+    async updateWorkshopWorldReleaseStatus(
+      _accountId: string,
+      releaseId: string,
+      status: Exclude<WorldReleaseQueueStatus, "scheduled">
+    ): Promise<WorldReleaseQueueItem | null> {
+      void _accountId;
+      const response = await requestJson<{ release: WorldReleaseQueueItem }>(
+        options,
+        `/api/v1/workshop/world-release-queue/${encodeURIComponent(releaseId)}/status`,
+        {
+          method: "POST",
+          body: JSON.stringify({ status })
+        }
+      );
+      if (!response.ok || !response.payload) return null;
+      return response.payload.release;
     },
 
     async appealTownhallComment(
