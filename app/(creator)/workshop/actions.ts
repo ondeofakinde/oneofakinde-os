@@ -1,9 +1,12 @@
 "use server";
 
 import type {
+  CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   LiveSessionEligibilityRule,
-  TownhallModerationCaseResolution
+  TownhallModerationCaseResolution,
+  WorldReleaseQueuePacingMode,
+  WorldReleaseQueueStatus
 } from "@/lib/domain/contracts";
 import { gateway } from "@/lib/gateway";
 import { requireSessionRoles } from "@/lib/server/session";
@@ -18,6 +21,15 @@ const MODERATION_RESOLUTIONS = new Set<TownhallModerationCaseResolution>([
   "hide",
   "restore",
   "dismiss"
+]);
+const WORLD_RELEASE_PACING_MODES = new Set<WorldReleaseQueuePacingMode>([
+  "manual",
+  "daily",
+  "weekly"
+]);
+const WORLD_RELEASE_STATUS_ACTIONS = new Set<Exclude<WorldReleaseQueueStatus, "scheduled">>([
+  "published",
+  "canceled"
 ]);
 
 function getRequiredFormString(formData: FormData, key: string): string | null {
@@ -75,6 +87,48 @@ function parseCreateLiveSessionInput(formData: FormData): CreateWorkshopLiveSess
   };
 }
 
+function parseCreateWorldReleaseInput(formData: FormData): CreateWorkshopWorldReleaseInput | null {
+  const worldId = getRequiredFormString(formData, "world_id");
+  const dropId = getRequiredFormString(formData, "drop_id");
+  const scheduledFor = getRequiredFormString(formData, "scheduled_for");
+  const pacingMode = getRequiredFormString(formData, "pacing_mode");
+
+  if (!worldId || !dropId || !scheduledFor || !pacingMode) {
+    return null;
+  }
+
+  if (!WORLD_RELEASE_PACING_MODES.has(pacingMode as WorldReleaseQueuePacingMode)) {
+    return null;
+  }
+
+  const scheduledForMs = Date.parse(scheduledFor);
+  if (!Number.isFinite(scheduledForMs)) {
+    return null;
+  }
+
+  return {
+    worldId,
+    dropId,
+    scheduledFor: new Date(scheduledForMs).toISOString(),
+    pacingMode: pacingMode as WorldReleaseQueuePacingMode
+  };
+}
+
+function parseWorldReleaseStatus(
+  value: FormDataEntryValue | null
+): Exclude<WorldReleaseQueueStatus, "scheduled"> | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  if (!WORLD_RELEASE_STATUS_ACTIONS.has(normalized as Exclude<WorldReleaseQueueStatus, "scheduled">)) {
+    return null;
+  }
+
+  return normalized as Exclude<WorldReleaseQueueStatus, "scheduled">;
+}
+
 export async function createWorkshopLiveSessionAction(formData: FormData): Promise<void> {
   const session = await requireSessionRoles("/workshop", ["creator"]);
   const input = parseCreateLiveSessionInput(formData);
@@ -89,6 +143,39 @@ export async function createWorkshopLiveSessionAction(formData: FormData): Promi
 
   redirect(
     `/workshop?event_status=created&event_id=${encodeURIComponent(created.id)}`
+  );
+}
+
+export async function createWorkshopWorldReleaseAction(formData: FormData): Promise<void> {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const input = parseCreateWorldReleaseInput(formData);
+  if (!input) {
+    redirect("/workshop?release_status=invalid_input");
+  }
+
+  const created = await gateway.createWorkshopWorldRelease(session.accountId, input);
+  if (!created) {
+    redirect("/workshop?release_status=create_failed");
+  }
+
+  redirect(`/workshop?release_status=scheduled&release_id=${encodeURIComponent(created.id)}`);
+}
+
+export async function updateWorkshopWorldReleaseStatusAction(formData: FormData): Promise<void> {
+  const session = await requireSessionRoles("/workshop", ["creator"]);
+  const releaseId = getRequiredFormString(formData, "release_id");
+  const status = parseWorldReleaseStatus(formData.get("status"));
+  if (!releaseId || !status) {
+    redirect("/workshop?release_status=invalid_input");
+  }
+
+  const updated = await gateway.updateWorkshopWorldReleaseStatus(session.accountId, releaseId, status);
+  if (!updated) {
+    redirect("/workshop?release_status=update_failed");
+  }
+
+  redirect(
+    `/workshop?release_status=${encodeURIComponent(updated.status)}&release_id=${encodeURIComponent(updated.id)}`
   );
 }
 

@@ -4,6 +4,7 @@ import type {
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
+  CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
@@ -21,6 +22,9 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  WorldReleaseQueueItem,
+  WorldReleaseQueuePacingMode,
+  WorldReleaseQueueStatus,
   World
 } from "@/lib/domain/contracts";
 import type { CommerceGateway } from "@/lib/domain/ports";
@@ -44,6 +48,22 @@ type MembershipEntitlementRecord = Omit<MembershipEntitlement, "whatYouGet" | "i
 
 type LiveSessionRecord = Omit<LiveSession, "whatYouGet">;
 
+type WorldReleaseQueueRecord = {
+  id: string;
+  studioHandle: string;
+  worldId: string;
+  dropId: string;
+  scheduledFor: string;
+  pacingMode: WorldReleaseQueuePacingMode;
+  pacingWindowHours: number;
+  status: WorldReleaseQueueStatus;
+  createdByAccountId: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  canceledAt: string | null;
+};
+
 type MockStore = {
   drops: Map<string, Drop>;
   worlds: Map<string, World>;
@@ -58,9 +78,15 @@ type MockStore = {
   pendingPayments: Map<string, { accountId: string; dropId: string }>;
   membershipEntitlements: MembershipEntitlementRecord[];
   liveSessions: LiveSessionRecord[];
+  worldReleaseQueue: WorldReleaseQueueRecord[];
 };
 
 const PROCESSING_FEE_USD = 1.99;
+const WORLD_RELEASE_PACING_WINDOW_HOURS: Record<WorldReleaseQueuePacingMode, number> = {
+  manual: 0,
+  daily: 24,
+  weekly: 168
+};
 
 function toHandle(email: string): string {
   const base = email.split("@")[0] ?? "collector";
@@ -301,6 +327,24 @@ function createInitialStore(): MockStore {
     }
   ];
 
+  const worldReleaseQueue: WorldReleaseQueueRecord[] = [
+    {
+      id: "wrel_seed_dark_matter_episode_two",
+      studioHandle: "oneofakinde",
+      worldId: "dark-matter",
+      dropId: "voidrunner",
+      scheduledFor: "2026-03-02T12:00:00.000Z",
+      pacingMode: "weekly",
+      pacingWindowHours: 168,
+      status: "scheduled",
+      createdByAccountId: "acct_collector_demo",
+      createdAt: "2026-02-20T12:00:00.000Z",
+      updatedAt: "2026-02-20T12:00:00.000Z",
+      publishedAt: null,
+      canceledAt: null
+    }
+  ];
+
   const accountId = "acct_collector_demo";
   const account: AccountRecord = {
     id: accountId,
@@ -370,7 +414,8 @@ function createInitialStore(): MockStore {
     certificatesById,
     pendingPayments,
     membershipEntitlements,
-    liveSessions
+    liveSessions,
+    worldReleaseQueue
   };
 }
 
@@ -714,6 +759,156 @@ function createWorkshopLiveSessionRecord(
   };
 }
 
+function toWorldReleaseQueueItem(record: WorldReleaseQueueRecord): WorldReleaseQueueItem {
+  return {
+    id: record.id,
+    studioHandle: record.studioHandle,
+    worldId: record.worldId,
+    dropId: record.dropId,
+    scheduledFor: record.scheduledFor,
+    pacingMode: record.pacingMode,
+    pacingWindowHours: record.pacingWindowHours,
+    status: record.status,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    publishedAt: record.publishedAt,
+    canceledAt: record.canceledAt
+  };
+}
+
+function listWorkshopWorldReleaseQueueRecords(
+  account: AccountRecord,
+  worldId?: string | null
+): WorldReleaseQueueItem[] {
+  return store.worldReleaseQueue
+    .filter((entry) => {
+      if (entry.studioHandle !== account.handle) {
+        return false;
+      }
+      if (worldId && entry.worldId !== worldId) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const scheduleDelta = Date.parse(a.scheduledFor) - Date.parse(b.scheduledFor);
+      if (scheduleDelta !== 0) {
+        return scheduleDelta;
+      }
+      return Date.parse(a.createdAt) - Date.parse(b.createdAt);
+    })
+    .map((entry) => toWorldReleaseQueueItem(entry));
+}
+
+function hasWorldReleasePacingConflict(record: {
+  studioHandle: string;
+  worldId: string;
+  scheduledForMs: number;
+  pacingWindowHours: number;
+}): boolean {
+  if (record.pacingWindowHours <= 0) {
+    return false;
+  }
+
+  const pacingWindowMs = record.pacingWindowHours * 60 * 60 * 1000;
+  return store.worldReleaseQueue.some((entry) => {
+    if (entry.studioHandle !== record.studioHandle || entry.worldId !== record.worldId) {
+      return false;
+    }
+    if (entry.status === "canceled") {
+      return false;
+    }
+
+    return Math.abs(Date.parse(entry.scheduledFor) - record.scheduledForMs) < pacingWindowMs;
+  });
+}
+
+function createWorkshopWorldReleaseRecord(
+  accountId: string,
+  input: CreateWorkshopWorldReleaseInput
+): WorldReleaseQueueRecord | null {
+  const account = store.accounts.get(accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return null;
+  }
+
+  const world = store.worlds.get(input.worldId);
+  const drop = store.drops.get(input.dropId);
+  if (!world || !drop) {
+    return null;
+  }
+
+  if (world.studioHandle !== account.handle || drop.studioHandle !== account.handle) {
+    return null;
+  }
+
+  if (drop.worldId !== world.id) {
+    return null;
+  }
+
+  const scheduledForMs = parseIsoTimestamp(input.scheduledFor);
+  if (scheduledForMs === null || scheduledForMs < Date.now()) {
+    return null;
+  }
+
+  const pacingWindowHours = WORLD_RELEASE_PACING_WINDOW_HOURS[input.pacingMode] ?? 0;
+  if (
+    hasWorldReleasePacingConflict({
+      studioHandle: account.handle,
+      worldId: world.id,
+      scheduledForMs,
+      pacingWindowHours
+    })
+  ) {
+    return null;
+  }
+
+  const nowIso = new Date().toISOString();
+  return {
+    id: `wrel_${randomUUID()}`,
+    studioHandle: account.handle,
+    worldId: world.id,
+    dropId: drop.id,
+    scheduledFor: new Date(scheduledForMs).toISOString(),
+    pacingMode: input.pacingMode,
+    pacingWindowHours,
+    status: "scheduled",
+    createdByAccountId: account.id,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    publishedAt: null,
+    canceledAt: null
+  };
+}
+
+function updateWorkshopWorldReleaseRecordStatus(
+  accountId: string,
+  releaseId: string,
+  status: Exclude<WorldReleaseQueueStatus, "scheduled">
+): WorldReleaseQueueRecord | null {
+  const account = store.accounts.get(accountId);
+  if (!account || !account.roles.includes("creator")) {
+    return null;
+  }
+
+  const record = store.worldReleaseQueue.find((entry) => entry.id === releaseId);
+  if (!record || record.studioHandle !== account.handle || record.status !== "scheduled") {
+    return null;
+  }
+
+  const nowIso = new Date().toISOString();
+  record.status = status;
+  record.updatedAt = nowIso;
+  if (status === "published") {
+    record.publishedAt = nowIso;
+    record.canceledAt = null;
+  } else {
+    record.canceledAt = nowIso;
+    record.publishedAt = null;
+  }
+  return record;
+}
+
 export const commerceGateway: CommerceGateway = {
   async listDrops(): Promise<Drop[]> {
     return [...store.drops.values()].sort(
@@ -950,6 +1145,50 @@ export const commerceGateway: CommerceGateway = {
 
     store.liveSessions.unshift(created);
     return toLiveSession(created);
+  },
+
+  async listWorkshopWorldReleaseQueue(
+    accountId: string,
+    worldId?: string | null
+  ): Promise<WorldReleaseQueueItem[]> {
+    const account = store.accounts.get(accountId);
+    if (!account || !account.roles.includes("creator")) {
+      return [];
+    }
+
+    if (worldId) {
+      const world = store.worlds.get(worldId);
+      if (!world || world.studioHandle !== account.handle) {
+        return [];
+      }
+    }
+
+    return listWorkshopWorldReleaseQueueRecords(account, worldId);
+  },
+
+  async createWorkshopWorldRelease(
+    accountId: string,
+    input: CreateWorkshopWorldReleaseInput
+  ): Promise<WorldReleaseQueueItem | null> {
+    const created = createWorkshopWorldReleaseRecord(accountId, input);
+    if (!created) {
+      return null;
+    }
+
+    store.worldReleaseQueue.push(created);
+    return toWorldReleaseQueueItem(created);
+  },
+
+  async updateWorkshopWorldReleaseStatus(
+    accountId: string,
+    releaseId: string,
+    status: Exclude<WorldReleaseQueueStatus, "scheduled">
+  ): Promise<WorldReleaseQueueItem | null> {
+    const updated = updateWorkshopWorldReleaseRecordStatus(accountId, releaseId, status);
+    if (!updated) {
+      return null;
+    }
+    return toWorldReleaseQueueItem(updated);
   },
 
   async appealTownhallComment(

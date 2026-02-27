@@ -3,6 +3,7 @@ import type {
   LiveSession,
   Session,
   TownhallModerationQueueItem,
+  WorldReleaseQueueItem,
   World
 } from "@/lib/domain/contracts";
 import { gateway } from "@/lib/gateway";
@@ -13,14 +14,16 @@ export type WorkshopContext = {
   worlds: World[];
   drops: Drop[];
   liveSessions: LiveSession[];
+  worldReleaseQueue: WorldReleaseQueueItem[];
   moderationQueue: TownhallModerationQueueItem[];
 };
 
 export async function loadWorkshopContext(session: Session): Promise<WorkshopContext> {
-  const [creatorSpace, drops, liveSessions, moderationQueue] = await Promise.all([
+  const [creatorSpace, drops, liveSessions, worldReleaseQueue, moderationQueue] = await Promise.all([
     gateway.getStudioByHandle(session.handle),
     gateway.listDropsByStudioHandle(session.handle),
     gateway.listWorkshopLiveSessions(session.accountId),
+    gateway.listWorkshopWorldReleaseQueue(session.accountId),
     gateway.listTownhallModerationQueue(session.accountId)
   ]);
 
@@ -31,6 +34,7 @@ export async function loadWorkshopContext(session: Session): Promise<WorkshopCon
       worlds: [],
       drops,
       liveSessions,
+      worldReleaseQueue,
       moderationQueue
     };
   }
@@ -45,6 +49,7 @@ export async function loadWorkshopContext(session: Session): Promise<WorkshopCon
     worlds,
     drops,
     liveSessions,
+    worldReleaseQueue,
     moderationQueue
   };
 }

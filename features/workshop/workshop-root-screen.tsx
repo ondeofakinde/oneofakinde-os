@@ -5,6 +5,7 @@ import type {
   LiveSession,
   Session,
   TownhallModerationQueueItem,
+  WorldReleaseQueueItem,
   World
 } from "@/lib/domain/contracts";
 import { routes } from "@/lib/routes";
@@ -17,10 +18,14 @@ type WorkshopRootScreenProps = {
   worlds: World[];
   drops: Drop[];
   liveSessions: LiveSession[];
+  worldReleaseQueue: WorldReleaseQueueItem[];
   moderationQueue: TownhallModerationQueueItem[];
   eventNotice: string | null;
+  releaseNotice: string | null;
   moderationNotice: string | null;
   createLiveSessionAction: (formData: FormData) => Promise<void>;
+  createWorldReleaseAction: (formData: FormData) => Promise<void>;
+  updateWorldReleaseStatusAction: (formData: FormData) => Promise<void>;
   resolveModerationAction: (formData: FormData) => Promise<void>;
 };
 
@@ -31,10 +36,14 @@ export function WorkshopRootScreen({
   worlds,
   drops,
   liveSessions,
+  worldReleaseQueue,
   moderationQueue,
   eventNotice,
+  releaseNotice,
   moderationNotice,
   createLiveSessionAction,
+  createWorldReleaseAction,
+  updateWorldReleaseStatusAction,
   resolveModerationAction
 }: WorkshopRootScreenProps) {
   const worldTitleById = new Map(worlds.map((world) => [world.id, world.title]));
@@ -193,6 +202,100 @@ export function WorkshopRootScreen({
                     open live
                   </Link>
                 </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="slice-panel">
+        <p className="slice-label">world release queue</p>
+        <p className="slice-copy">
+          schedule world drops with pacing rails. queue spacing enforces manual, daily, or weekly cadence.
+        </p>
+        {releaseNotice ? (
+          <p className="slice-banner" role="status" aria-live="polite">
+            {releaseNotice}
+          </p>
+        ) : null}
+        <form action={createWorldReleaseAction} className="slice-form">
+          <label className="slice-field">
+            world
+            <select name="world_id" className="slice-select" defaultValue={worlds[0]?.id ?? ""} required>
+              {worlds.map((world) => (
+                <option key={world.id} value={world.id}>
+                  {world.title}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="slice-field">
+            drop
+            <select name="drop_id" className="slice-select" defaultValue={drops[0]?.id ?? ""} required>
+              {drops.map((drop) => (
+                <option key={drop.id} value={drop.id}>
+                  {drop.title} ({drop.worldLabel})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="slice-field">
+            scheduled for
+            <input type="datetime-local" name="scheduled_for" className="slice-input" required />
+          </label>
+
+          <label className="slice-field">
+            pacing mode
+            <select name="pacing_mode" className="slice-select" defaultValue="weekly">
+              <option value="manual">manual</option>
+              <option value="daily">daily</option>
+              <option value="weekly">weekly</option>
+            </select>
+          </label>
+
+          <div className="slice-button-row">
+            <button type="submit" className="slice-button">
+              schedule release
+            </button>
+            <Link href={routes.worlds()} className="slice-button ghost">
+              open worlds
+            </Link>
+          </div>
+        </form>
+
+        {worldReleaseQueue.length === 0 ? (
+          <p className="slice-meta">no queued world releases yet.</p>
+        ) : (
+          <ul className="slice-grid" aria-label="world release queue">
+            {worldReleaseQueue.map((release) => (
+              <li key={release.id} className="slice-drop-card">
+                <p className="slice-label">
+                  {worldTitleById.get(release.worldId) ?? release.worldId} · {release.status}
+                </p>
+                <h2 className="slice-title">{dropTitleById.get(release.dropId) ?? release.dropId}</h2>
+                <p className="slice-meta">
+                  scheduled {new Date(release.scheduledFor).toLocaleString()} · pacing {release.pacingMode} (
+                  {release.pacingWindowHours}h)
+                </p>
+                {release.publishedAt ? (
+                  <p className="slice-meta">published {new Date(release.publishedAt).toLocaleString()}</p>
+                ) : null}
+                {release.canceledAt ? (
+                  <p className="slice-meta">canceled {new Date(release.canceledAt).toLocaleString()}</p>
+                ) : null}
+                {release.status === "scheduled" ? (
+                  <form action={updateWorldReleaseStatusAction} className="slice-button-row">
+                    <input type="hidden" name="release_id" value={release.id} />
+                    <button type="submit" name="status" value="published" className="slice-button">
+                      mark published
+                    </button>
+                    <button type="submit" name="status" value="canceled" className="slice-button ghost">
+                      cancel
+                    </button>
+                  </form>
+                ) : null}
               </li>
             ))}
           </ul>

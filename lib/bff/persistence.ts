@@ -8,6 +8,8 @@ import type {
   LiveSessionEligibilityRule,
   MembershipEntitlementStatus,
   PurchaseReceipt,
+  WorldReleaseQueuePacingMode,
+  WorldReleaseQueueStatus,
   WorldCollectBundleType,
   WorldCollectOwnershipStatus,
   WorldCollectUpgradeProrationStrategy,
@@ -192,6 +194,22 @@ export type WorldCollectOwnershipRecord = {
   upgradedAt: string | null;
 };
 
+export type WorldReleaseQueueRecord = {
+  id: string;
+  studioHandle: string;
+  worldId: string;
+  dropId: string;
+  scheduledFor: string;
+  pacingMode: WorldReleaseQueuePacingMode;
+  pacingWindowHours: number;
+  status: WorldReleaseQueueStatus;
+  createdByAccountId: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  canceledAt: string | null;
+};
+
 export type BffDatabase = {
   version: 1;
   catalog: {
@@ -217,6 +235,7 @@ export type BffDatabase = {
   collectOffers: CollectOfferRecord[];
   collectEnforcementSignals: CollectEnforcementSignalRecord[];
   worldCollectOwnerships: WorldCollectOwnershipRecord[];
+  worldReleaseQueue: WorldReleaseQueueRecord[];
 };
 
 type MutationResult<T> = {
@@ -748,6 +767,23 @@ function createSeedDatabase(): BffDatabase {
         upgradedToBundleType: null,
         upgradedAt: null
       }
+    ],
+    worldReleaseQueue: [
+      {
+        id: "wrel_seed_dark_matter_episode_two",
+        studioHandle: "oneofakinde",
+        worldId: "dark-matter",
+        dropId: "voidrunner",
+        scheduledFor: new Date(now.valueOf() + DAY_MS * 5).toISOString(),
+        pacingMode: "weekly",
+        pacingWindowHours: 168,
+        status: "scheduled",
+        createdByAccountId: accountId,
+        createdAt: new Date(now.valueOf() - DAY_MS).toISOString(),
+        updatedAt: new Date(now.valueOf() - DAY_MS).toISOString(),
+        publishedAt: null,
+        canceledAt: null
+      }
     ]
   };
 }
@@ -773,7 +809,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     townhallTelemetryEvents: [],
     collectOffers: [],
     collectEnforcementSignals: [],
-    worldCollectOwnerships: []
+    worldCollectOwnerships: [],
+    worldReleaseQueue: []
   };
 }
 
@@ -802,7 +839,8 @@ function createEmptyDatabase(): BffDatabase {
     townhallTelemetryEvents: [],
     collectOffers: [],
     collectEnforcementSignals: [],
-    worldCollectOwnerships: []
+    worldCollectOwnerships: [],
+    worldReleaseQueue: []
   };
 }
 
@@ -834,7 +872,8 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.townhallTelemetryEvents) &&
     Array.isArray(candidate.collectOffers) &&
     Array.isArray(candidate.collectEnforcementSignals) &&
-    Array.isArray(candidate.worldCollectOwnerships)
+    Array.isArray(candidate.worldCollectOwnerships) &&
+    Array.isArray(candidate.worldReleaseQueue)
   );
 }
 
@@ -850,6 +889,8 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "townhallTelemetryEvents"
   | "collectOffers"
   | "collectEnforcementSignals"
+  | "worldCollectOwnerships"
+  | "worldReleaseQueue"
 > {
   if (!input || typeof input !== "object") {
     return false;
@@ -1203,6 +1244,69 @@ function normalizeWorldCollectOwnershipRecords(
   });
 }
 
+function normalizeWorldReleaseQueuePacingMode(value: unknown): WorldReleaseQueuePacingMode {
+  if (value === "manual" || value === "daily" || value === "weekly") {
+    return value;
+  }
+  return "manual";
+}
+
+function normalizeWorldReleaseQueueStatus(value: unknown): WorldReleaseQueueStatus {
+  if (value === "scheduled" || value === "published" || value === "canceled") {
+    return value;
+  }
+  return "scheduled";
+}
+
+function normalizeWorldReleaseQueueRecords(records: WorldReleaseQueueRecord[]): WorldReleaseQueueRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<WorldReleaseQueueRecord> & {
+      pacingMode?: unknown;
+      status?: unknown;
+    };
+    const normalizedPacingMode = normalizeWorldReleaseQueuePacingMode(candidate.pacingMode);
+    const normalizedStatus = normalizeWorldReleaseQueueStatus(candidate.status);
+    const defaultWindowHours =
+      normalizedPacingMode === "weekly" ? 168 : normalizedPacingMode === "daily" ? 24 : 0;
+    const pacingWindowHours =
+      typeof candidate.pacingWindowHours === "number" && Number.isFinite(candidate.pacingWindowHours)
+        ? Math.max(0, Math.floor(candidate.pacingWindowHours))
+        : defaultWindowHours;
+
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `wrel_${randomUUID()}`,
+      studioHandle: typeof candidate.studioHandle === "string" ? candidate.studioHandle : "",
+      worldId: typeof candidate.worldId === "string" ? candidate.worldId : "",
+      dropId: typeof candidate.dropId === "string" ? candidate.dropId : "",
+      scheduledFor:
+        typeof candidate.scheduledFor === "string" && candidate.scheduledFor.trim()
+          ? candidate.scheduledFor
+          : new Date().toISOString(),
+      pacingMode: normalizedPacingMode,
+      pacingWindowHours,
+      status: normalizedStatus,
+      createdByAccountId:
+        typeof candidate.createdByAccountId === "string" ? candidate.createdByAccountId : "",
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString(),
+      updatedAt:
+        typeof candidate.updatedAt === "string" && candidate.updatedAt.trim()
+          ? candidate.updatedAt
+          : new Date().toISOString(),
+      publishedAt:
+        typeof candidate.publishedAt === "string" && candidate.publishedAt.trim()
+          ? candidate.publishedAt
+          : null,
+      canceledAt:
+        typeof candidate.canceledAt === "string" && candidate.canceledAt.trim()
+          ? candidate.canceledAt
+          : null
+    };
+  });
+}
+
 function normalizeTownhallCommentVisibility(value: unknown): TownhallCommentVisibility {
   return value === "hidden" ? "hidden" : "visible";
 }
@@ -1289,7 +1393,8 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       collectEnforcementSignals: normalizeCollectEnforcementSignalRecords(
         input.collectEnforcementSignals
       ),
-      worldCollectOwnerships: normalizeWorldCollectOwnershipRecords(input.worldCollectOwnerships)
+      worldCollectOwnerships: normalizeWorldCollectOwnershipRecords(input.worldCollectOwnerships),
+      worldReleaseQueue: normalizeWorldReleaseQueueRecords(input.worldReleaseQueue)
     };
   }
 
@@ -1337,6 +1442,9 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         ? normalizeWorldCollectOwnershipRecords(
             candidate.worldCollectOwnerships as WorldCollectOwnershipRecord[]
           )
+        : [],
+      worldReleaseQueue: Array.isArray(candidate.worldReleaseQueue)
+        ? normalizeWorldReleaseQueueRecords(candidate.worldReleaseQueue as WorldReleaseQueueRecord[])
         : []
     };
   }
@@ -1506,7 +1614,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallTelemetryEventsResult,
     collectOffersResult,
     collectEnforcementSignalsResult,
-    worldCollectOwnershipsResult
+    worldCollectOwnershipsResult,
+    worldReleaseQueueResult
   ] = await Promise.all([
     client.query<{ key: string; value: string }>("SELECT key, value FROM bff_meta"),
     client.query<{ data: unknown }>("SELECT data FROM bff_catalog_drops ORDER BY id ASC"),
@@ -1634,6 +1743,23 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
       upgradedAt: string | null;
     }>(
       'SELECT id, account_id AS "accountId", world_id AS "worldId", bundle_type AS "bundleType", status, purchased_at AS "purchasedAt", amount_paid_usd AS "amountPaidUsd", previous_ownership_credit_usd AS "previousOwnershipCreditUsd", proration_strategy AS "prorationStrategy", upgraded_to_bundle_type AS "upgradedToBundleType", upgraded_at AS "upgradedAt" FROM bff_world_collect_ownerships ORDER BY purchased_at DESC'
+    ),
+    client.query<{
+      id: string;
+      studioHandle: string;
+      worldId: string;
+      dropId: string;
+      scheduledFor: string;
+      pacingMode: WorldReleaseQueuePacingMode;
+      pacingWindowHours: string | number;
+      status: WorldReleaseQueueStatus;
+      createdByAccountId: string;
+      createdAt: string;
+      updatedAt: string;
+      publishedAt: string | null;
+      canceledAt: string | null;
+    }>(
+      'SELECT id, studio_handle AS "studioHandle", world_id AS "worldId", drop_id AS "dropId", scheduled_for AS "scheduledFor", pacing_mode AS "pacingMode", pacing_window_hours AS "pacingWindowHours", status, created_by_account_id AS "createdByAccountId", created_at AS "createdAt", updated_at AS "updatedAt", published_at AS "publishedAt", canceled_at AS "canceledAt" FROM bff_world_release_queue ORDER BY scheduled_for ASC, created_at ASC'
     )
   ]);
 
@@ -1659,7 +1785,8 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
     townhallTelemetryEventsResult.rowCount === 0 &&
     collectOffersResult.rowCount === 0 &&
     collectEnforcementSignalsResult.rowCount === 0 &&
-    worldCollectOwnershipsResult.rowCount === 0;
+    worldCollectOwnershipsResult.rowCount === 0 &&
+    worldReleaseQueueResult.rowCount === 0;
 
   if (isEmpty) {
     return null;
@@ -1767,6 +1894,23 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         upgradedToBundleType: row.upgradedToBundleType,
         upgradedAt: row.upgradedAt
       }))
+    ),
+    worldReleaseQueue: normalizeWorldReleaseQueueRecords(
+      worldReleaseQueueResult.rows.map((row) => ({
+        id: row.id,
+        studioHandle: row.studioHandle,
+        worldId: row.worldId,
+        dropId: row.dropId,
+        scheduledFor: row.scheduledFor,
+        pacingMode: row.pacingMode,
+        pacingWindowHours: Number(row.pacingWindowHours),
+        status: row.status,
+        createdByAccountId: row.createdByAccountId,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        publishedAt: row.publishedAt,
+        canceledAt: row.canceledAt
+      }))
     )
   };
 }
@@ -1776,6 +1920,7 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
     TRUNCATE TABLE
       bff_townhall_telemetry_events,
       bff_collect_enforcement_signals,
+      bff_world_release_queue,
       bff_world_collect_ownerships,
       bff_collect_offers,
       bff_live_sessions,
@@ -2060,6 +2205,27 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
         ownership.prorationStrategy,
         ownership.upgradedToBundleType,
         ownership.upgradedAt
+      ]
+    );
+  }
+
+  for (const release of db.worldReleaseQueue) {
+    await client.query(
+      "INSERT INTO bff_world_release_queue (id, studio_handle, world_id, drop_id, scheduled_for, pacing_mode, pacing_window_hours, status, created_by_account_id, created_at, updated_at, published_at, canceled_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+      [
+        release.id,
+        release.studioHandle,
+        release.worldId,
+        release.dropId,
+        release.scheduledFor,
+        release.pacingMode,
+        release.pacingWindowHours,
+        release.status,
+        release.createdByAccountId,
+        release.createdAt,
+        release.updatedAt,
+        release.publishedAt,
+        release.canceledAt
       ]
     );
   }

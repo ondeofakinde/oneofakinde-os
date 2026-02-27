@@ -3,6 +3,7 @@ import type {
   CollectLiveSessionSnapshot,
   CheckoutSession,
   CheckoutPreview,
+  CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
   CreateSessionInput,
   Drop,
@@ -16,6 +17,8 @@ import type {
   TownhallModerationCaseResolveResult,
   TownhallDropSocialSnapshot,
   TownhallModerationQueueItem,
+  WorldReleaseQueueItem,
+  WorldReleaseQueueStatus,
   Session,
   Studio,
   World
@@ -56,6 +59,19 @@ export interface CommerceGateway {
     accountId: string,
     input: CreateWorkshopLiveSessionInput
   ): Promise<LiveSession | null>;
+  listWorkshopWorldReleaseQueue(
+    accountId: string,
+    worldId?: string | null
+  ): Promise<WorldReleaseQueueItem[]>;
+  createWorkshopWorldRelease(
+    accountId: string,
+    input: CreateWorkshopWorldReleaseInput
+  ): Promise<WorldReleaseQueueItem | null>;
+  updateWorkshopWorldReleaseStatus(
+    accountId: string,
+    releaseId: string,
+    status: Exclude<WorldReleaseQueueStatus, "scheduled">
+  ): Promise<WorldReleaseQueueItem | null>;
   appealTownhallComment(
     accountId: string,
     dropId: string,
