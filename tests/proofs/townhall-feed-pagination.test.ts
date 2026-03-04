@@ -81,6 +81,7 @@ test("proof: townhall feed route paginates with cursor and stable order", async 
     allDrops.map((drop) => drop.id)
   );
   const ranked = rankDropsForTownhall(allDrops, {
+    laneKey: "featured",
     telemetryByDropId
   });
   assert.deepEqual(
@@ -167,7 +168,7 @@ test("proof: townhall feed supports agora commerce lane filtering", async () => 
     }),
     {
       telemetryByDropId,
-      laneKey: "rising"
+      laneKey: "featured"
     }
   );
 

@@ -103,3 +103,9 @@ test("system flow: showroom, certificate, and media steps expose canonical surfa
     }
   }
 });
+
+test("system flow: featured lane deep link resolves to showroom with lane_key=featured", () => {
+  const featured = new URL(routes.townhallFeatured(), "https://oneofakinde.local");
+  assert.equal(featured.pathname, routes.townhall());
+  assert.equal(featured.searchParams.get("lane_key"), "featured");
+});

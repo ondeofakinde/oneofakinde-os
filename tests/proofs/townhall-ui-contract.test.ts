@@ -12,6 +12,7 @@ type TownhallUiContract = {
     required_search_placeholder: string;
     required_showroom_modes: string[];
     required_ordering_lanes: string[];
+    default_ordering_lane: string;
     required_social_actions: string[];
     required_markup_classes: string[];
     required_css_selectors: string[];
@@ -25,7 +26,7 @@ async function readContract(): Promise<TownhallUiContract> {
 }
 
 async function readTownhallSources() {
-  const [feedScreen, bottomNav, css] = await Promise.all([
+  const [feedScreen, bottomNav, css, showroomQuery] = await Promise.all([
     fs.readFile(
       path.join(process.cwd(), "features", "townhall", "townhall-feed-screen.tsx"),
       "utf8"
@@ -34,13 +35,15 @@ async function readTownhallSources() {
       path.join(process.cwd(), "features", "townhall", "townhall-bottom-nav.tsx"),
       "utf8"
     ),
-    fs.readFile(path.join(process.cwd(), "app", "globals.css"), "utf8")
+    fs.readFile(path.join(process.cwd(), "app", "globals.css"), "utf8"),
+    fs.readFile(path.join(process.cwd(), "lib", "townhall", "showroom-query.ts"), "utf8")
   ]);
 
   return {
     feedScreen,
     bottomNav,
-    css
+    css,
+    showroomQuery
   };
 }
 
@@ -127,6 +130,19 @@ test("proof: townhall feed layout and overlay chrome satisfy the ui contract", a
       `expected ordering lane ${lane}`
     );
   }
+
+  assert.ok(
+    sources.feedScreen.includes(
+      `showroomOrdering = DEFAULT_TOWNHALL_SHOWROOM_ORDERING`
+    ),
+    "expected feed screen to use canonical default showroom ordering"
+  );
+  assert.ok(
+    sources.showroomQuery.includes(
+      `DEFAULT_TOWNHALL_SHOWROOM_ORDERING: TownhallShowroomOrdering = "${contract.townhall.default_ordering_lane}"`
+    ),
+    "expected showroom query default ordering to align with contract"
+  );
 
   for (const ariaLabel of contract.townhall.required_social_actions) {
     assert.ok(

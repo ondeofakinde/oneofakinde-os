@@ -38,6 +38,7 @@
       "new_voices",
       "sustained_craft"
     ],
+    "default_ordering_lane": "featured",
     "required_social_actions": [
       "like drop",
       "open comments",

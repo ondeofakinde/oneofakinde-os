@@ -31,7 +31,7 @@ export const TOWNHALL_SHOWROOM_ORDERINGS: TownhallShowroomOrdering[] = [
 ];
 
 export const DEFAULT_TOWNHALL_SHOWROOM_MEDIA_FILTER: TownhallShowroomMediaFilter = "all";
-export const DEFAULT_TOWNHALL_SHOWROOM_ORDERING: TownhallShowroomOrdering = "rising";
+export const DEFAULT_TOWNHALL_SHOWROOM_ORDERING: TownhallShowroomOrdering = "featured";
 
 export function parseTownhallShowroomMediaFilter(
   input: string | null | undefined
