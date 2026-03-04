@@ -28,6 +28,9 @@ export function EntryScreen({ session }: EntryScreenProps) {
             <Link href={routes.townhall()} className="entry-primary-cta">
               open townhall
             </Link>
+            <Link href={routes.townhallFeatured()} className="entry-secondary-cta">
+              open featured lane
+            </Link>
             <Link href={routes.collect()} className="entry-secondary-cta">
               open collect
             </Link>

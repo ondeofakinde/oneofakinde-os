@@ -36,8 +36,8 @@ test("showroom query parsing falls back to canonical defaults", () => {
   assert.equal(parseTownhallShowroomMediaFilter(null), "all");
   assert.equal(parseTownhallShowroomMediaFilter("invalid"), "all");
   assert.equal(parseTownhallShowroomMediaFilter("agora"), "agora");
-  assert.equal(parseTownhallShowroomOrdering(null), "rising");
-  assert.equal(parseTownhallShowroomOrdering("bad"), "rising");
+  assert.equal(parseTownhallShowroomOrdering(null), "featured");
+  assert.equal(parseTownhallShowroomOrdering("bad"), "featured");
 });
 
 test("showroom ordering parsing supports canonical lane contract", () => {
