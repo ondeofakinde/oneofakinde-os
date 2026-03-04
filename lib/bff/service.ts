@@ -912,6 +912,7 @@ function normalizeTownhallTelemetryMetadata(
   }
 
   if (
+    value.ordering === "featured" ||
     value.ordering === "for_you" ||
     value.ordering === "rising" ||
     value.ordering === "newest" ||

@@ -188,6 +188,19 @@ function sustainedCraftScore(entry: RankedEntry, maxima: RankingMaxima): number 
   return entry.sustainedRecency * 0.2 + engagement * 0.5 + telemetry * 0.3 + entry.studioPinBoost;
 }
 
+function featuredScore(entry: RankedEntry, maxima: RankingMaxima): number {
+  const engagement = normalize(entry.engagementRaw, maxima.engagement);
+  const telemetry = normalize(entry.telemetryRaw, maxima.telemetry);
+  const collected = normalize(entry.mostCollectedRaw, maxima.mostCollected);
+  return (
+    entry.recency * 0.2 +
+    engagement * 0.22 +
+    telemetry * 0.24 +
+    collected * 0.24 +
+    entry.studioPinBoost * 1.3
+  );
+}
+
 function forYouStubScore(entry: RankedEntry, maxima: RankingMaxima, accountId: string): number {
   const base = risingScore(entry, maxima);
   const personalSeed = hashSeed(`${accountId}:${entry.drop.id}`) % 1_000;
@@ -308,6 +321,8 @@ export function rankDropsForTownhall(drops: Drop[], options: TownhallRankingOpti
 
   const sortedEntries = (() => {
     switch (laneKey) {
+      case "featured":
+        return sortByScoreThenDate(entries, (entry) => featuredScore(entry, maxima));
       case "newest":
         return sortByDateThenTitle(entries);
       case "most_collected":

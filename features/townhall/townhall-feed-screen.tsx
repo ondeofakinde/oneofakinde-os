@@ -140,6 +140,7 @@ const SHOWROOM_MODE_OPTIONS: ShowroomModeOption[] = [
 ];
 
 const SHOWROOM_ORDERING_OPTIONS: ShowroomOrderingOption[] = [
+  { value: "featured", label: "featured" },
   { value: "for_you", label: "for you" },
   { value: "rising", label: "rising" },
   { value: "newest", label: "newest" },

@@ -30,6 +30,7 @@
       "live"
     ],
     "required_ordering_lanes": [
+      "featured",
       "for_you",
       "rising",
       "newest",
