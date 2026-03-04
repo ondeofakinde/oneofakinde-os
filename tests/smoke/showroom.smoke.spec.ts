@@ -37,13 +37,13 @@ test.describe("showroom smoke", () => {
     );
 
     await page.getByRole("button", { name: "open comments" }).first().click();
-    const commentsPanel = page.getByLabel("drop comments");
+    const commentsPanel = page.getByRole("region", { name: "drop comments" });
     await expect(commentsPanel).toBeVisible();
     await commentsPanel.getByRole("button", { name: "close comments" }).click();
     await expect(commentsPanel).toBeHidden();
 
     await page.getByRole("button", { name: "collect drop details" }).first().click();
-    const collectPanel = page.getByLabel("collect drop details");
+    const collectPanel = page.getByRole("region", { name: "collect drop details" });
     await expect(collectPanel).toBeVisible();
     await collectPanel.getByRole("button", { name: "close collect details" }).click();
     await expect(collectPanel).toBeHidden();
