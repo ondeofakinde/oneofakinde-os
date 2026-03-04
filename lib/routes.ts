@@ -16,6 +16,7 @@ export const routes = {
     query
       ? asRoute(`/showroom/search?q=${encodeURIComponent(query)}`)
       : asRoute("/showroom/search"),
+  showroomFeatured: (): Route => asRoute("/showroom?lane_key=featured"),
   showroomWatch: (): Route => asRoute("/showroom/watch"),
   showroomListen: (): Route => asRoute("/showroom/listen"),
   showroomRead: (): Route => asRoute("/showroom/read"),
@@ -26,6 +27,7 @@ export const routes = {
     query
       ? asRoute(`/showroom/search?q=${encodeURIComponent(query)}`)
       : asRoute("/showroom/search"),
+  townhallFeatured: (): Route => asRoute("/showroom?lane_key=featured"),
   townhallWatch: (): Route => asRoute("/showroom/watch"),
   townhallListen: (): Route => asRoute("/showroom/listen"),
   townhallRead: (): Route => asRoute("/showroom/read"),

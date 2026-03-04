@@ -40,7 +40,8 @@ test("showroom query parsing falls back to canonical defaults", () => {
   assert.equal(parseTownhallShowroomOrdering("bad"), "rising");
 });
 
-test("showroom ordering parsing supports six-lane contract", () => {
+test("showroom ordering parsing supports canonical lane contract", () => {
+  assert.equal(parseTownhallShowroomOrdering("featured"), "featured");
   assert.equal(parseTownhallShowroomOrdering("for_you"), "for_you");
   assert.equal(parseTownhallShowroomOrdering("rising"), "rising");
   assert.equal(parseTownhallShowroomOrdering("newest"), "newest");

@@ -2,6 +2,7 @@ import type { CollectInventoryListing, Drop, DropPreviewMode } from "@/lib/domai
 
 export type TownhallShowroomMediaFilter = "all" | "agora" | DropPreviewMode;
 export type TownhallShowroomOrdering =
+  | "featured"
   | "for_you"
   | "rising"
   | "newest"
@@ -20,6 +21,7 @@ export const TOWNHALL_SHOWROOM_MEDIA_FILTERS: TownhallShowroomMediaFilter[] = [
 ];
 
 export const TOWNHALL_SHOWROOM_ORDERINGS: TownhallShowroomOrdering[] = [
+  "featured",
   "for_you",
   "rising",
   "newest",

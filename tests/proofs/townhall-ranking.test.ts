@@ -125,6 +125,26 @@ test("townhall ranking supports sustained_craft lane", () => {
   assert.equal(ranked[0]?.id, "older-strong");
 });
 
+test("townhall ranking supports featured lane with pin and telemetry weighting", () => {
+  const drops = [
+    makeDrop("stardust", "2026-02-19"),
+    makeDrop("through-the-lens", "2026-02-18"),
+    makeDrop("voidrunner", "2026-02-17")
+  ];
+
+  const ranked = rankDropsForTownhall(drops, {
+    now: new Date("2026-02-20T00:00:00.000Z"),
+    laneKey: "featured",
+    telemetryByDropId: {
+      stardust: { collectIntents: 12, completions: 8, watchTimeSeconds: 3200 },
+      "through-the-lens": { collectIntents: 1, completions: 1, watchTimeSeconds: 50 },
+      voidrunner: { collectIntents: 4, completions: 2, watchTimeSeconds: 400 }
+    }
+  });
+
+  assert.equal(ranked[0]?.id, "stardust");
+});
+
 test("townhall ranking for_you falls back to rising for viewers without taste signals", () => {
   const drops = [
     makeDrop("alpha", "2026-02-19"),

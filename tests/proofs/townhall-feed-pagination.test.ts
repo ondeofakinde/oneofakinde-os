@@ -97,7 +97,12 @@ test("proof: townhall feed rejects malformed cursor", async () => {
   assert.equal(response.status, 400);
 });
 
-test("proof: townhall feed supports six-lane ordering via lane_key", async () => {
+test("proof: townhall feed supports canonical ordering via lane_key", async () => {
+  const featuredResponse = await getTownhallFeedRoute(
+    new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=featured&limit=4")
+  );
+  assert.equal(featuredResponse.status, 200);
+
   const newestResponse = await getTownhallFeedRoute(
     new Request("http://127.0.0.1:3000/api/v1/townhall/feed?lane_key=newest&limit=4")
   );
