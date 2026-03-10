@@ -1,9 +1,11 @@
 import type {
   AccountRole,
+  AuthorizedDerivativeKind,
   Certificate,
   CollectEnforcementSignalType,
   CollectListingType,
   CollectOfferState,
+  DropVersionLabel,
   Drop,
   LedgerTransaction,
   LiveSessionEligibilityRule,
@@ -280,6 +282,32 @@ export type WorldReleaseQueueRecord = {
   canceledAt: string | null;
 };
 
+export type DropVersionRecord = {
+  id: string;
+  dropId: string;
+  label: DropVersionLabel;
+  notes: string | null;
+  createdByHandle: string;
+  createdAt: string;
+  releasedAt: string | null;
+};
+
+export type AuthorizedDerivativeRevenueSplitRecord = {
+  recipientHandle: string;
+  sharePercent: number;
+};
+
+export type AuthorizedDerivativeRecord = {
+  id: string;
+  sourceDropId: string;
+  derivativeDropId: string;
+  kind: AuthorizedDerivativeKind;
+  attribution: string;
+  revenueSplits: AuthorizedDerivativeRevenueSplitRecord[];
+  authorizedByHandle: string;
+  createdAt: string;
+};
+
 export type LedgerTransactionRecord = LedgerTransaction;
 
 export type LedgerLineItemRecord = SettlementLineItem;
@@ -315,6 +343,8 @@ export type BffDatabase = {
   collectEnforcementSignals: CollectEnforcementSignalRecord[];
   worldCollectOwnerships: WorldCollectOwnershipRecord[];
   worldReleaseQueue: WorldReleaseQueueRecord[];
+  dropVersions: DropVersionRecord[];
+  authorizedDerivatives: AuthorizedDerivativeRecord[];
   ledgerTransactions: LedgerTransactionRecord[];
   ledgerLineItems: LedgerLineItemRecord[];
 };
@@ -871,6 +901,36 @@ function createSeedDatabase(): BffDatabase {
         canceledAt: null
       }
     ],
+    dropVersions: drops.map((drop) => ({
+      id: `dver_seed_${drop.id}_v1`,
+      dropId: drop.id,
+      label: "v1",
+      notes: "launch cut",
+      createdByHandle: drop.studioHandle,
+      createdAt: drop.releaseDate,
+      releasedAt: drop.releaseDate
+    })),
+    authorizedDerivatives: [
+      {
+        id: "ader_seed_stardust_remix_1",
+        sourceDropId: "stardust",
+        derivativeDropId: "twilight-whispers",
+        kind: "remix",
+        attribution: "authorized derivative with source attribution.",
+        revenueSplits: [
+          {
+            recipientHandle: "oneofakinde",
+            sharePercent: 70
+          },
+          {
+            recipientHandle: "collector_demo",
+            sharePercent: 30
+          }
+        ],
+        authorizedByHandle: "oneofakinde",
+        createdAt: new Date(now.valueOf() - DAY_MS * 4).toISOString()
+      }
+    ],
     ledgerTransactions: [],
     ledgerLineItems: []
   };
@@ -904,6 +964,8 @@ function createCatalogSeedDatabase(): BffDatabase {
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
     worldReleaseQueue: [],
+    dropVersions: seeded.dropVersions,
+    authorizedDerivatives: seeded.authorizedDerivatives,
     ledgerTransactions: [],
     ledgerLineItems: []
   };
@@ -941,6 +1003,8 @@ function createEmptyDatabase(): BffDatabase {
     collectEnforcementSignals: [],
     worldCollectOwnerships: [],
     worldReleaseQueue: [],
+    dropVersions: [],
+    authorizedDerivatives: [],
     ledgerTransactions: [],
     ledgerLineItems: []
   };
@@ -981,6 +1045,8 @@ function isValidDb(input: unknown): input is BffDatabase {
     Array.isArray(candidate.collectEnforcementSignals) &&
     Array.isArray(candidate.worldCollectOwnerships) &&
     Array.isArray(candidate.worldReleaseQueue) &&
+    Array.isArray(candidate.dropVersions) &&
+    Array.isArray(candidate.authorizedDerivatives) &&
     Array.isArray(candidate.ledgerTransactions) &&
     Array.isArray(candidate.ledgerLineItems)
   );
@@ -1004,6 +1070,8 @@ function hasLegacyBaseDbShape(input: unknown): input is Omit<
   | "collectEnforcementSignals"
   | "worldCollectOwnerships"
   | "worldReleaseQueue"
+  | "dropVersions"
+  | "authorizedDerivatives"
   | "ledgerTransactions"
   | "ledgerLineItems"
   | "receiptBadges"
@@ -1480,6 +1548,139 @@ function normalizeWorldReleaseQueueRecords(records: WorldReleaseQueueRecord[]): 
           : null
     };
   });
+}
+
+function normalizeDropVersionLabel(value: unknown): DropVersionLabel {
+  if (
+    value === "v1" ||
+    value === "v2" ||
+    value === "v3" ||
+    value === "director_cut" ||
+    value === "remaster"
+  ) {
+    return value;
+  }
+
+  return "v1";
+}
+
+function normalizeDropVersionRecords(records: DropVersionRecord[]): DropVersionRecord[] {
+  return records.map((record) => {
+    const candidate = record as Partial<DropVersionRecord> & {
+      label?: unknown;
+    };
+
+    return {
+      id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `dver_${randomUUID()}`,
+      dropId: typeof candidate.dropId === "string" ? candidate.dropId : "",
+      label: normalizeDropVersionLabel(candidate.label),
+      notes:
+        typeof candidate.notes === "string" && candidate.notes.trim()
+          ? candidate.notes
+          : null,
+      createdByHandle:
+        typeof candidate.createdByHandle === "string" ? candidate.createdByHandle : "",
+      createdAt:
+        typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+          ? candidate.createdAt
+          : new Date().toISOString(),
+      releasedAt:
+        typeof candidate.releasedAt === "string" && candidate.releasedAt.trim()
+          ? candidate.releasedAt
+          : null
+    };
+  });
+}
+
+function normalizeAuthorizedDerivativeKind(value: unknown): AuthorizedDerivativeKind {
+  if (
+    value === "remix" ||
+    value === "translation" ||
+    value === "anthology_world" ||
+    value === "collaborative_season"
+  ) {
+    return value;
+  }
+
+  return "remix";
+}
+
+function normalizeAuthorizedDerivativeRevenueSplits(
+  value: unknown
+): AuthorizedDerivativeRevenueSplitRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const rows = value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const candidate = entry as Partial<AuthorizedDerivativeRevenueSplitRecord>;
+      if (typeof candidate.recipientHandle !== "string" || !candidate.recipientHandle.trim()) {
+        return null;
+      }
+
+      if (typeof candidate.sharePercent !== "number" || !Number.isFinite(candidate.sharePercent)) {
+        return null;
+      }
+
+      const sharePercent = Number(candidate.sharePercent.toFixed(2));
+      if (sharePercent <= 0 || sharePercent > 100) {
+        return null;
+      }
+
+      return {
+        recipientHandle: candidate.recipientHandle.trim(),
+        sharePercent
+      } satisfies AuthorizedDerivativeRevenueSplitRecord;
+    })
+    .filter((entry): entry is AuthorizedDerivativeRevenueSplitRecord => entry !== null);
+
+  const total = Number(rows.reduce((sum, row) => sum + row.sharePercent, 0).toFixed(2));
+  if (Math.abs(total - 100) > 0.01) {
+    return [];
+  }
+
+  return rows;
+}
+
+function normalizeAuthorizedDerivativeRecords(
+  records: AuthorizedDerivativeRecord[]
+): AuthorizedDerivativeRecord[] {
+  return records
+    .map((record) => {
+      const candidate = record as Partial<AuthorizedDerivativeRecord> & {
+        kind?: unknown;
+        revenueSplits?: unknown;
+      };
+      const revenueSplits = normalizeAuthorizedDerivativeRevenueSplits(candidate.revenueSplits);
+      if (revenueSplits.length === 0) {
+        return null;
+      }
+
+      return {
+        id: typeof candidate.id === "string" && candidate.id.trim() ? candidate.id : `ader_${randomUUID()}`,
+        sourceDropId: typeof candidate.sourceDropId === "string" ? candidate.sourceDropId : "",
+        derivativeDropId:
+          typeof candidate.derivativeDropId === "string" ? candidate.derivativeDropId : "",
+        kind: normalizeAuthorizedDerivativeKind(candidate.kind),
+        attribution:
+          typeof candidate.attribution === "string" && candidate.attribution.trim()
+            ? candidate.attribution
+            : "authorized derivative",
+        revenueSplits,
+        authorizedByHandle:
+          typeof candidate.authorizedByHandle === "string" ? candidate.authorizedByHandle : "",
+        createdAt:
+          typeof candidate.createdAt === "string" && candidate.createdAt.trim()
+            ? candidate.createdAt
+            : new Date().toISOString()
+      } satisfies AuthorizedDerivativeRecord;
+    })
+    .filter((entry): entry is AuthorizedDerivativeRecord => entry !== null);
 }
 
 const SETTLEMENT_LINE_ITEM_KIND_SET = new Set<SettlementLineItem["kind"]>([
@@ -1995,6 +2196,8 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
       ),
       worldCollectOwnerships: normalizeWorldCollectOwnershipRecords(input.worldCollectOwnerships),
       worldReleaseQueue: normalizeWorldReleaseQueueRecords(input.worldReleaseQueue),
+      dropVersions: normalizeDropVersionRecords(input.dropVersions),
+      authorizedDerivatives: normalizeAuthorizedDerivativeRecords(input.authorizedDerivatives),
       ledgerTransactions: normalizeLedgerTransactionRecords(input.ledgerTransactions),
       ledgerLineItems: normalizeLedgerLineItemRecords(input.ledgerLineItems)
     };
@@ -2069,6 +2272,14 @@ function normalizeDatabase(input: unknown): BffDatabase | null {
         : [],
       worldReleaseQueue: Array.isArray(candidate.worldReleaseQueue)
         ? normalizeWorldReleaseQueueRecords(candidate.worldReleaseQueue as WorldReleaseQueueRecord[])
+        : [],
+      dropVersions: Array.isArray(candidate.dropVersions)
+        ? normalizeDropVersionRecords(candidate.dropVersions as DropVersionRecord[])
+        : [],
+      authorizedDerivatives: Array.isArray(candidate.authorizedDerivatives)
+        ? normalizeAuthorizedDerivativeRecords(
+            candidate.authorizedDerivatives as AuthorizedDerivativeRecord[]
+          )
         : [],
       ledgerTransactions: Array.isArray(candidate.ledgerTransactions)
         ? normalizeLedgerTransactionRecords(candidate.ledgerTransactions as LedgerTransactionRecord[])
@@ -2219,6 +2430,18 @@ async function ensurePostgresMigrations(client: PoolClient): Promise<void> {
   }
 
   migrationsBootstrappedFor = connectionString;
+}
+
+function parseMetaJsonValue<T>(value: string | undefined, fallback: T): T {
+  if (!value) {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
 }
 
 async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
@@ -2720,6 +2943,15 @@ async function loadPostgresDb(client: PoolClient): Promise<BffDatabase | null> {
         canceledAt: row.canceledAt
       }))
     ),
+    dropVersions: normalizeDropVersionRecords(
+      parseMetaJsonValue<DropVersionRecord[]>(meta.get("drop_versions_json"), [])
+    ),
+    authorizedDerivatives: normalizeAuthorizedDerivativeRecords(
+      parseMetaJsonValue<AuthorizedDerivativeRecord[]>(
+        meta.get("authorized_derivatives_json"),
+        []
+      )
+    ),
     ledgerTransactions: normalizeLedgerTransactionRecords(
       ledgerTransactionsResult.rows.map((row) => ({
         id: row.id,
@@ -2789,6 +3021,14 @@ async function persistPostgresDb(client: PoolClient, db: BffDatabase): Promise<v
   `);
 
   await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", ["version", String(db.version)]);
+  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
+    "drop_versions_json",
+    JSON.stringify(db.dropVersions)
+  ]);
+  await client.query("INSERT INTO bff_meta (key, value) VALUES ($1, $2)", [
+    "authorized_derivatives_json",
+    JSON.stringify(db.authorizedDerivatives)
+  ]);
 
   for (const drop of db.catalog.drops) {
     await client.query("INSERT INTO bff_catalog_drops (id, data) VALUES ($1, $2::jsonb)", [
