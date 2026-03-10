@@ -1,4 +1,6 @@
 import type {
+  AuthorizedDerivative,
+  AuthorizedDerivativeKind,
   Certificate,
   CollectLiveSessionSnapshot,
   CollectEnforcementSignal,
@@ -13,8 +15,13 @@ import type {
   CheckoutPreview,
   CreateWorkshopWorldReleaseInput,
   CreateWorkshopLiveSessionInput,
+  CreateAuthorizedDerivativeInput,
+  CreateDropVersionInput,
   CreateSessionInput,
   Drop,
+  DropLineageSnapshot,
+  DropVersion,
+  DropVersionLabel,
   LibraryDrop,
   LibrarySnapshot,
   LedgerTransaction,
@@ -81,6 +88,8 @@ import { applyCollectOfferAction, canApplyCollectOfferAction } from "@/lib/colle
 import { createCheckoutSession, parseStripeWebhook, type ParsedStripeWebhookEvent } from "@/lib/bff/payments";
 import { buildCollectSettlementQuote, buildPatronSettlementQuote } from "@/lib/domain/quote-engine";
 import {
+  type AuthorizedDerivativeRecord,
+  type DropVersionRecord,
   type CollectEnforcementSignalRecord,
   type CollectOfferRecord,
   type LedgerLineItemRecord,
@@ -200,6 +209,19 @@ const TOWNHALL_TELEMETRY_EVENT_SET = new Set<TownhallTelemetryEventType>([
   "interaction_comment",
   "interaction_share",
   "interaction_save"
+]);
+const DROP_VERSION_LABEL_SET = new Set<DropVersionLabel>([
+  "v1",
+  "v2",
+  "v3",
+  "director_cut",
+  "remaster"
+]);
+const AUTHORIZED_DERIVATIVE_KIND_SET = new Set<AuthorizedDerivativeKind>([
+  "remix",
+  "translation",
+  "anthology_world",
+  "collaborative_season"
 ]);
 const WATCH_TELEMETRY_EVENT_SET = new Set<WatchTelemetryEventType>([
   "watch_time",
@@ -974,6 +996,61 @@ function buildDropOwnershipHistory(db: BffDatabase, dropId: string): DropOwnersh
     dropId,
     entries
   };
+}
+
+function toDropVersion(record: DropVersionRecord): DropVersion {
+  return {
+    id: record.id,
+    dropId: record.dropId,
+    label: record.label,
+    notes: record.notes,
+    createdByHandle: record.createdByHandle,
+    createdAt: record.createdAt,
+    releasedAt: record.releasedAt
+  };
+}
+
+function toAuthorizedDerivative(record: AuthorizedDerivativeRecord): AuthorizedDerivative {
+  return {
+    id: record.id,
+    sourceDropId: record.sourceDropId,
+    derivativeDropId: record.derivativeDropId,
+    kind: record.kind,
+    attribution: record.attribution,
+    revenueSplits: record.revenueSplits.map((entry) => ({
+      recipientHandle: entry.recipientHandle,
+      sharePercent: Number(entry.sharePercent.toFixed(2))
+    })),
+    authorizedByHandle: record.authorizedByHandle,
+    createdAt: record.createdAt
+  };
+}
+
+function buildDropLineageSnapshot(db: BffDatabase, dropId: string): DropLineageSnapshot {
+  const versions = db.dropVersions
+    .filter((record) => record.dropId === dropId)
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .map((record) => toDropVersion(record));
+
+  const derivatives = db.authorizedDerivatives
+    .filter((record) => record.sourceDropId === dropId)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .map((record) => toAuthorizedDerivative(record));
+
+  return {
+    dropId,
+    versions,
+    derivatives
+  };
+}
+
+function hasValidRevenueSplitTotal(
+  splits: CreateAuthorizedDerivativeInput["revenueSplits"]
+): boolean {
+  const total = Number(
+    splits.reduce((sum, entry) => sum + Number(entry.sharePercent ?? 0), 0).toFixed(2)
+  );
+  return Math.abs(total - 100) <= 0.01;
 }
 
 function issueOwnershipAndReceipt(
@@ -4743,6 +4820,190 @@ export const commerceBffService = {
       return {
         persist: false,
         result: buildDropOwnershipHistory(db, drop.id)
+      };
+    });
+  },
+
+  async getDropLineage(dropId: string): Promise<DropLineageSnapshot | null> {
+    return withDatabase(async (db) => {
+      const drop = findDropById(db, dropId);
+      if (!drop) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      return {
+        persist: false,
+        result: buildDropLineageSnapshot(db, drop.id)
+      };
+    });
+  },
+
+  async createDropVersion(
+    accountId: string,
+    dropId: string,
+    input: CreateDropVersionInput
+  ): Promise<DropVersion | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const drop = findDropById(db, dropId);
+      if (!account || !drop || !account.roles.includes("creator")) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (account.handle !== drop.studioHandle) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (!DROP_VERSION_LABEL_SET.has(input.label)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const notes = input.notes?.trim() || null;
+      const releasedAt = input.releasedAt?.trim() || null;
+      if (releasedAt && !Number.isFinite(Date.parse(releasedAt))) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const createdAt = new Date().toISOString();
+      const record: DropVersionRecord = {
+        id: `dver_${randomUUID()}`,
+        dropId: drop.id,
+        label: input.label,
+        notes,
+        createdByHandle: account.handle,
+        createdAt,
+        releasedAt
+      };
+
+      db.dropVersions.unshift(record);
+
+      return {
+        persist: true,
+        result: toDropVersion(record)
+      };
+    });
+  },
+
+  async createAuthorizedDerivative(
+    accountId: string,
+    sourceDropId: string,
+    input: CreateAuthorizedDerivativeInput
+  ): Promise<AuthorizedDerivative | null> {
+    return withDatabase(async (db) => {
+      const account = findAccountById(db, accountId);
+      const sourceDrop = findDropById(db, sourceDropId);
+      const derivativeDrop = findDropById(db, input.derivativeDropId);
+      if (!account || !sourceDrop || !derivativeDrop || !account.roles.includes("creator")) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (account.handle !== sourceDrop.studioHandle) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (sourceDrop.id === derivativeDrop.id) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (!AUTHORIZED_DERIVATIVE_KIND_SET.has(input.kind)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const attribution = input.attribution.trim();
+      if (!attribution) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      if (!Array.isArray(input.revenueSplits) || input.revenueSplits.length === 0) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const revenueSplits = input.revenueSplits
+        .map((entry) => {
+          const recipientHandle = entry.recipientHandle.trim();
+          const sharePercent = Number(entry.sharePercent.toFixed(2));
+          if (!recipientHandle || !Number.isFinite(sharePercent) || sharePercent <= 0 || sharePercent > 100) {
+            return null;
+          }
+
+          return {
+            recipientHandle,
+            sharePercent
+          };
+        })
+        .filter(
+          (entry): entry is { recipientHandle: string; sharePercent: number } => entry !== null
+        );
+
+      if (revenueSplits.length !== input.revenueSplits.length || !hasValidRevenueSplitTotal(revenueSplits)) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const duplicate = db.authorizedDerivatives.find(
+        (entry) =>
+          entry.sourceDropId === sourceDrop.id &&
+          entry.derivativeDropId === derivativeDrop.id &&
+          entry.kind === input.kind
+      );
+      if (duplicate) {
+        return {
+          persist: false,
+          result: null
+        };
+      }
+
+      const record: AuthorizedDerivativeRecord = {
+        id: `ader_${randomUUID()}`,
+        sourceDropId: sourceDrop.id,
+        derivativeDropId: derivativeDrop.id,
+        kind: input.kind,
+        attribution,
+        revenueSplits,
+        authorizedByHandle: account.handle,
+        createdAt: new Date().toISOString()
+      };
+
+      db.authorizedDerivatives.unshift(record);
+
+      return {
+        persist: true,
+        result: toAuthorizedDerivative(record)
       };
     });
   },

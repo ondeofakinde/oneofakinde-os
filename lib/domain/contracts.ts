@@ -193,6 +193,59 @@ export type CreateWorkshopWorldReleaseInput = {
   pacingMode: WorldReleaseQueuePacingMode;
 };
 
+export type DropVersionLabel = "v1" | "v2" | "v3" | "director_cut" | "remaster";
+
+export type DropVersion = {
+  id: string;
+  dropId: string;
+  label: DropVersionLabel;
+  notes: string | null;
+  createdByHandle: string;
+  createdAt: string;
+  releasedAt: string | null;
+};
+
+export type AuthorizedDerivativeKind =
+  | "remix"
+  | "translation"
+  | "anthology_world"
+  | "collaborative_season";
+
+export type AuthorizedDerivativeRevenueSplit = {
+  recipientHandle: string;
+  sharePercent: number;
+};
+
+export type AuthorizedDerivative = {
+  id: string;
+  sourceDropId: string;
+  derivativeDropId: string;
+  kind: AuthorizedDerivativeKind;
+  attribution: string;
+  revenueSplits: AuthorizedDerivativeRevenueSplit[];
+  authorizedByHandle: string;
+  createdAt: string;
+};
+
+export type DropLineageSnapshot = {
+  dropId: string;
+  versions: DropVersion[];
+  derivatives: AuthorizedDerivative[];
+};
+
+export type CreateDropVersionInput = {
+  label: DropVersionLabel;
+  notes?: string | null;
+  releasedAt?: string | null;
+};
+
+export type CreateAuthorizedDerivativeInput = {
+  derivativeDropId: string;
+  kind: AuthorizedDerivativeKind;
+  attribution: string;
+  revenueSplits: AuthorizedDerivativeRevenueSplit[];
+};
+
 export type LiveSessionEligibilityReason =
   | "eligible_public"
   | "eligible_membership_active"
