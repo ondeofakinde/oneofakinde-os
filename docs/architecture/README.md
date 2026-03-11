@@ -22,6 +22,8 @@ This package defines the target software architecture for oneofakinde OS using t
   - Operational log streams, event types, and privacy boundaries.
 - `ANALYTICS_PANELS.md`
   - Workshop, my collection, and ops panel contracts + source streams.
+- `FEATURE_FLAGS.md`
+  - Runtime feature-flag contract, defaults, overrides, and governance gates.
 - `release-candidate-dry-run.md`
   - Strict pass/fail launch dry run checklist and execution command.
 

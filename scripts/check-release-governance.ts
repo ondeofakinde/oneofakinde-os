@@ -9,6 +9,9 @@ const REQUIRED_FILES = [
   ".github/CODEOWNERS",
   ".github/pull_request_template.md",
   "config/release-required-checks.json",
+  "config/feature-flags.contract.json",
+  "docs/architecture/FEATURE_FLAGS.md",
+  "scripts/check-feature-flags-contract.ts",
   ".github/workflows/ci.yml"
 ];
 
@@ -51,6 +54,25 @@ for (const check of requiredChecks) {
 }
 
 const workflow = readFileOrFail(".github/workflows/ci.yml");
+const packageJsonText = readFileOrFail("package.json");
+let packageJson: { scripts?: Record<string, string> };
+
+try {
+  packageJson = JSON.parse(packageJsonText) as { scripts?: Record<string, string> };
+} catch {
+  fail("package.json must contain valid json");
+}
+
+const scripts = packageJson.scripts ?? {};
+if (!scripts["check:feature-flags"]) {
+  fail('package.json scripts must include "check:feature-flags"');
+}
+if (!scripts["release:governance"]?.includes("check:feature-flags")) {
+  fail('package.json "release:governance" must execute check:feature-flags');
+}
+if (!scripts["prepare:architecture"]?.includes("check:feature-flags")) {
+  fail('package.json "prepare:architecture" must execute check:feature-flags');
+}
 
 if (!workflow.includes("pull_request:")) {
   fail("ci workflow must run on pull_request");
