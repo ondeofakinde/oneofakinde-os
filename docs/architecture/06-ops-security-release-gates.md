@@ -23,6 +23,7 @@ Required jobs:
   - gitleaks secret detection
 - `release-governance`
   - `npm run release:governance`
+  - includes `npm run check:feature-flags`
 
 The required check list is source-controlled in:
 - `config/release-required-checks.json`
@@ -34,7 +35,9 @@ Release candidate dry run workflow:
 - `.github/CODEOWNERS`
 - `.github/pull_request_template.md`
 - `config/release-required-checks.json`
+- `config/feature-flags.contract.json`
 - `scripts/check-release-governance.ts`
+- `scripts/check-feature-flags-contract.ts`
 
 ## Branch Protection (Repository Setting)
 Protect `main` with:

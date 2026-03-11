@@ -71,6 +71,7 @@ Release is blocked if any of the following fail:
 - no-leaks scan on any public-safe route
 - payment or entitlement proof tests
 - accessibility threshold checks
+- feature-flag contract validation and rollout defaults check
 
 Manual review required for:
 

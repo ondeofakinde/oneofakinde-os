@@ -1,0 +1,67 @@
+{
+  "version": "train7-m2",
+  "flags": [
+    {
+      "key": "surface_live_now",
+      "owner": "product-platform",
+      "rollout": "ga",
+      "description": "controls public /live-now surface availability"
+    },
+    {
+      "key": "analytics_panels_v0",
+      "owner": "platform-data",
+      "rollout": "beta",
+      "description": "controls workshop/my-collection/ops analytics panel routes and UI surfaces"
+    },
+    {
+      "key": "showroom_featured_lane",
+      "owner": "platform-discovery",
+      "rollout": "ga",
+      "description": "controls featured lane ranking and entry affordances"
+    },
+    {
+      "key": "collect_auctions_lane",
+      "owner": "platform-commerce",
+      "rollout": "ga",
+      "description": "controls collect auction lane discovery and offer flows"
+    },
+    {
+      "key": "watch_quality_ladder",
+      "owner": "platform-media",
+      "rollout": "ga",
+      "description": "controls adaptive watch quality ladder and fallback behavior"
+    },
+    {
+      "key": "drop_lineage_surfaces",
+      "owner": "platform-creator",
+      "rollout": "beta",
+      "description": "controls lineage rails presentation in workshop and drop detail surfaces"
+    }
+  ],
+  "defaults": {
+    "development": {
+      "surface_live_now": true,
+      "analytics_panels_v0": true,
+      "showroom_featured_lane": true,
+      "collect_auctions_lane": true,
+      "watch_quality_ladder": true,
+      "drop_lineage_surfaces": true
+    },
+    "preview": {
+      "surface_live_now": true,
+      "analytics_panels_v0": true,
+      "showroom_featured_lane": true,
+      "collect_auctions_lane": true,
+      "watch_quality_ladder": true,
+      "drop_lineage_surfaces": true
+    },
+    "production": {
+      "surface_live_now": true,
+      "analytics_panels_v0": true,
+      "showroom_featured_lane": true,
+      "collect_auctions_lane": true,
+      "watch_quality_ladder": true,
+      "drop_lineage_surfaces": true
+    }
+  }
+}
