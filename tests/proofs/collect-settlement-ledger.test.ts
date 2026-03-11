@@ -180,7 +180,8 @@ test("proof: derivative collect payout splits follow authorized lineage split re
     return;
   }
 
-  const payoutLineItems = receipt.lineItems.filter((entry) => entry.kind === "artist_payout_collect");
+  const receiptLineItems = receipt.lineItems ?? [];
+  const payoutLineItems = receiptLineItems.filter((entry) => entry.kind === "artist_payout_collect");
   assert.equal(payoutLineItems.length, 2, "expected split payout line items");
 
   const payoutByRecipientId = new Map(
@@ -201,7 +202,7 @@ test("proof: derivative collect payout splits follow authorized lineage split re
   const payoutTotal = payoutLineItems.reduce((sum, entry) => sum + entry.amountUsd, 0);
   assert.equal(
     Number(payoutTotal.toFixed(2)),
-    Number(receipt.payoutUsd.toFixed(2)),
+    Number((receipt.payoutUsd ?? 0).toFixed(2)),
     "expected split payout total to match quote payout total"
   );
 });
@@ -232,7 +233,8 @@ test("proof: non-derivative collect payout remains single-recipient", async (t) 
     return;
   }
 
-  const payoutLineItems = receipt.lineItems.filter((entry) => entry.kind === "artist_payout_collect");
+  const receiptLineItems = receipt.lineItems ?? [];
+  const payoutLineItems = receiptLineItems.filter((entry) => entry.kind === "artist_payout_collect");
   assert.equal(payoutLineItems.length, 1, "expected single payout line item for non-derivative drop");
   assert.equal(
     payoutLineItems[0]?.recipientAccountId,
