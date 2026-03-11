@@ -23,7 +23,8 @@ type StepResult = {
 
 function runStep(step: Step): StepResult {
   console.log(`\n[START] ${step.id} ${step.label}`);
-  const run = spawnSync("zsh", ["-lc", step.command], {
+  const run = spawnSync(step.command, {
+    shell: true,
     stdio: "inherit",
     env: process.env
   });
