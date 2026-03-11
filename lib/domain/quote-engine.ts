@@ -18,6 +18,10 @@ export type BuildCollectQuoteInput = {
   processingUsd: number;
   currency?: "USD";
   artistAccountId?: string | null;
+  payoutRecipients?: Array<{
+    recipientAccountId: string | null;
+    sharePercent: number;
+  }>;
 };
 
 function roundUsd(value: number): number {
@@ -71,6 +75,91 @@ function buildLineItem(
   };
 }
 
+function normalizePayoutRecipients(
+  payoutRecipients: BuildCollectQuoteInput["payoutRecipients"] | undefined,
+  artistAccountId: string | null
+): Array<{
+  recipientAccountId: string | null;
+  sharePercent: number;
+}> {
+  const normalized = (payoutRecipients ?? [])
+    .map((entry) => ({
+      recipientAccountId: entry.recipientAccountId ?? null,
+      sharePercent: Number(entry.sharePercent)
+    }))
+    .filter((entry) => Number.isFinite(entry.sharePercent) && entry.sharePercent > 0);
+
+  if (normalized.length === 0) {
+    return [
+      {
+        recipientAccountId: artistAccountId,
+        sharePercent: 100
+      }
+    ];
+  }
+
+  const totalSharePercent = normalized.reduce((sum, entry) => sum + entry.sharePercent, 0);
+  if (totalSharePercent <= 0) {
+    return [
+      {
+        recipientAccountId: artistAccountId,
+        sharePercent: 100
+      }
+    ];
+  }
+
+  return normalized.map((entry) => ({
+    recipientAccountId: entry.recipientAccountId,
+    sharePercent: (entry.sharePercent / totalSharePercent) * 100
+  }));
+}
+
+function buildPayoutLineItems(
+  payoutUsd: number,
+  recipients: Array<{
+    recipientAccountId: string | null;
+    sharePercent: number;
+  }>
+): SettlementQuote["lineItems"] {
+  const payoutCents = Math.round(payoutUsd * 100);
+  if (payoutCents <= 0) {
+    return [
+      buildLineItem("artist_payout_collect", 0, "participant_private", recipients[0]?.recipientAccountId ?? null)
+    ];
+  }
+
+  const weighted = recipients.map((recipient, index) => {
+    const rawCents = (payoutCents * recipient.sharePercent) / 100;
+    const baseCents = Math.floor(rawCents);
+    return {
+      index,
+      recipientAccountId: recipient.recipientAccountId,
+      baseCents,
+      fractionalCents: rawCents - baseCents
+    };
+  });
+
+  const allocatedBaseCents = weighted.reduce((sum, entry) => sum + entry.baseCents, 0);
+  const remainingCents = payoutCents - allocatedBaseCents;
+
+  weighted
+    .slice()
+    .sort((a, b) => b.fractionalCents - a.fractionalCents)
+    .slice(0, remainingCents)
+    .forEach((entry) => {
+      weighted[entry.index]!.baseCents += 1;
+    });
+
+  return weighted.map((entry) =>
+    buildLineItem(
+      "artist_payout_collect",
+      entry.baseCents / 100,
+      "participant_private",
+      entry.recipientAccountId
+    )
+  );
+}
+
 export function resolveQuoteEngineConfigFromEnv(): QuoteEngineConfig {
   return {
     collectCommissionFloorCents: parsePositiveInt(
@@ -99,6 +188,7 @@ export function buildCollectSettlementQuote(
   const processingUsd = ensureAmount(input.processingUsd);
   const currency = input.currency ?? "USD";
   const artistAccountId = input.artistAccountId ?? null;
+  const payoutRecipients = normalizePayoutRecipients(input.payoutRecipients, artistAccountId);
 
   const commissionBaseUsd = roundUsd(subtotalUsd * COLLECT_COMMISSION_RATE);
   const commissionFloorUsd = centsToUsd(config.collectCommissionFloorCents);
@@ -111,6 +201,7 @@ export function buildCollectSettlementQuote(
       : roundUsd(Math.min(commissionBeforeCapUsd, commissionCapUsd));
   const payoutUsd = roundUsd(Math.max(0, subtotalUsd - commissionUsd));
   const totalUsd = roundUsd(subtotalUsd + processingUsd);
+  const payoutLineItems = buildPayoutLineItems(payoutUsd, payoutRecipients);
 
   return {
     engineVersion: QUOTE_ENGINE_VERSION,
@@ -125,7 +216,7 @@ export function buildCollectSettlementQuote(
       buildLineItem("collect_subtotal", subtotalUsd, "public", null),
       buildLineItem("collect_processing_fee", processingUsd, "public", null),
       buildLineItem("platform_commission_collect", commissionUsd, "internal", null),
-      buildLineItem("artist_payout_collect", payoutUsd, "participant_private", artistAccountId)
+      ...payoutLineItems
     ]
   };
 }
@@ -177,4 +268,3 @@ export function buildPatronSettlementQuote(
     ]
   };
 }
-

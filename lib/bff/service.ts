@@ -792,6 +792,10 @@ function findAccountById(db: BffDatabase, accountId: string): AccountRecord | nu
   return db.accounts.find((account) => account.id === accountId) ?? null;
 }
 
+function findAccountByHandle(db: BffDatabase, handle: string): AccountRecord | null {
+  return db.accounts.find((account) => account.handle === handle) ?? null;
+}
+
 function findDropById(db: BffDatabase, dropId: string): Drop | null {
   return db.catalog.drops.find((drop) => drop.id === dropId) ?? null;
 }
@@ -875,10 +879,27 @@ function findOwnershipByDrop(db: BffDatabase, accountId: string, dropId: string)
   return db.ownerships.find((entry) => entry.accountId === accountId && entry.dropId === dropId) ?? null;
 }
 
-function resolveCollectQuote(drop: Drop): SettlementQuote {
+function resolveCollectQuote(db: BffDatabase, drop: Drop): SettlementQuote {
+  const defaultArtistAccountId = findAccountByHandle(db, drop.studioHandle)?.id ?? null;
+  const derivativeSettlement = db.authorizedDerivatives
+    .filter((record) => record.derivativeDropId === drop.id)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+
+  const payoutRecipients = derivativeSettlement
+    ? derivativeSettlement.revenueSplits
+        .filter((entry) => Number.isFinite(entry.sharePercent) && entry.sharePercent > 0)
+        .map((entry) => ({
+          recipientAccountId:
+            findAccountByHandle(db, entry.recipientHandle)?.id ?? defaultArtistAccountId,
+          sharePercent: Number(entry.sharePercent)
+        }))
+    : undefined;
+
   return buildCollectSettlementQuote({
     subtotalUsd: clampCurrencyAmount(drop.priceUsd),
-    processingUsd: PROCESSING_FEE_USD
+    processingUsd: PROCESSING_FEE_USD,
+    artistAccountId: defaultArtistAccountId,
+    payoutRecipients
   });
 }
 
@@ -3167,7 +3188,7 @@ const gatewayMethods: CommerceGateway = {
       const existing = findOwnershipByDrop(db, account.id, drop.id);
       const quote = existing
         ? buildCollectSettlementQuote({ subtotalUsd: 0, processingUsd: 0 })
-        : resolveCollectQuote(drop);
+        : resolveCollectQuote(db, drop);
 
       return {
         persist: false,
@@ -3241,7 +3262,7 @@ const gatewayMethods: CommerceGateway = {
         };
       }
 
-      const quote = resolveCollectQuote(drop);
+      const quote = resolveCollectQuote(db, drop);
       const receipt = issueOwnershipAndReceipt(db, account, drop, {
         quote
       });
@@ -3822,7 +3843,7 @@ async function createCheckoutSessionForPayment(
       };
     }
 
-    const quote = resolveCollectQuote(drop);
+    const quote = resolveCollectQuote(db, drop);
     const amountUsd = quote.totalUsd;
     const paymentId = `pay_${randomUUID()}`;
     const createdAt = new Date().toISOString();
@@ -3934,7 +3955,7 @@ async function completePendingPaymentById(
       };
     }
 
-    const quote = payment.quote ?? resolveCollectQuote(drop);
+    const quote = payment.quote ?? resolveCollectQuote(db, drop);
     const receipt = issueOwnershipAndReceipt(db, account, drop, {
       quote,
       paymentId: payment.id
@@ -4016,7 +4037,7 @@ function completePaymentByLookupInDatabase(
     };
   }
 
-  const quote = payment.quote ?? resolveCollectQuote(drop);
+  const quote = payment.quote ?? resolveCollectQuote(db, drop);
   const receipt = issueOwnershipAndReceipt(db, account, drop, {
     quote,
     paymentId: payment.id
