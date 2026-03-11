@@ -129,6 +129,118 @@ test("proof: collect receipt includes ledger-backed settlement line items", asyn
   assert.equal(resolvedReceipt?.lineItems?.length, collectLineItems.length);
 });
 
+test("proof: derivative collect payout splits follow authorized lineage split recipients", async (t) => {
+  const dbPath = createIsolatedDbPath();
+  process.env.OOK_BFF_DB_PATH = dbPath;
+  process.env.OOK_PAYMENTS_PROVIDER = "manual";
+
+  t.after(async () => {
+    delete process.env.OOK_BFF_DB_PATH;
+    delete process.env.OOK_PAYMENTS_PROVIDER;
+    await fs.rm(dbPath, { force: true });
+  });
+
+  const creatorSession = await commerceBffService.createSession({
+    email: "oneofakinde@oneofakinde.test",
+    role: "creator"
+  });
+  const collaboratorSession = await commerceBffService.createSession({
+    email: "collaborator@oneofakinde.test",
+    role: "collector"
+  });
+  const collectorSession = await commerceBffService.createSession({
+    email: `derivative-collector-${randomUUID()}@oneofakinde.test`,
+    role: "collector"
+  });
+
+  const derivative = await commerceBffService.createAuthorizedDerivative(
+    creatorSession.accountId,
+    "stardust",
+    {
+      derivativeDropId: "voidrunner",
+      kind: "remix",
+      attribution: "authorized remix split for settlement proof.",
+      revenueSplits: [
+        {
+          recipientHandle: "oneofakinde",
+          sharePercent: 70
+        },
+        {
+          recipientHandle: "collaborator",
+          sharePercent: 30
+        }
+      ]
+    }
+  );
+  assert.ok(derivative, "expected derivative authorization");
+
+  const receipt = await commerceBffService.purchaseDrop(collectorSession.accountId, "voidrunner");
+  assert.ok(receipt, "expected derivative collect receipt");
+  if (!receipt) {
+    return;
+  }
+
+  const payoutLineItems = receipt.lineItems.filter((entry) => entry.kind === "artist_payout_collect");
+  assert.equal(payoutLineItems.length, 2, "expected split payout line items");
+
+  const payoutByRecipientId = new Map(
+    payoutLineItems.map((entry) => [entry.recipientAccountId ?? "", Number(entry.amountUsd.toFixed(2))])
+  );
+
+  assert.equal(
+    payoutByRecipientId.get(creatorSession.accountId),
+    6.82,
+    "expected creator split payout amount"
+  );
+  assert.equal(
+    payoutByRecipientId.get(collaboratorSession.accountId),
+    2.92,
+    "expected collaborator split payout amount"
+  );
+
+  const payoutTotal = payoutLineItems.reduce((sum, entry) => sum + entry.amountUsd, 0);
+  assert.equal(
+    Number(payoutTotal.toFixed(2)),
+    Number(receipt.payoutUsd.toFixed(2)),
+    "expected split payout total to match quote payout total"
+  );
+});
+
+test("proof: non-derivative collect payout remains single-recipient", async (t) => {
+  const dbPath = createIsolatedDbPath();
+  process.env.OOK_BFF_DB_PATH = dbPath;
+  process.env.OOK_PAYMENTS_PROVIDER = "manual";
+
+  t.after(async () => {
+    delete process.env.OOK_BFF_DB_PATH;
+    delete process.env.OOK_PAYMENTS_PROVIDER;
+    await fs.rm(dbPath, { force: true });
+  });
+
+  const creatorSession = await commerceBffService.createSession({
+    email: "oneofakinde@oneofakinde.test",
+    role: "creator"
+  });
+  const collectorSession = await commerceBffService.createSession({
+    email: `plain-collector-${randomUUID()}@oneofakinde.test`,
+    role: "collector"
+  });
+
+  const receipt = await commerceBffService.purchaseDrop(collectorSession.accountId, "through-the-lens");
+  assert.ok(receipt, "expected non-derivative collect receipt");
+  if (!receipt) {
+    return;
+  }
+
+  const payoutLineItems = receipt.lineItems.filter((entry) => entry.kind === "artist_payout_collect");
+  assert.equal(payoutLineItems.length, 1, "expected single payout line item for non-derivative drop");
+  assert.equal(
+    payoutLineItems[0]?.recipientAccountId,
+    creatorSession.accountId,
+    "expected payout recipient to resolve to studio creator account"
+  );
+});
+
 test("proof: refund appends reversal ledger rows and keeps original collect rows", async (t) => {
   const dbPath = createIsolatedDbPath();
   const webhookSecret = `whsec_${randomUUID()}`;
